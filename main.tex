@@ -1,0 +1,102 @@
+\documentclass[11pt,a4paper,oneside,openany]{book}
+\input{gaya}
+
+% Data buku
+\newcommand{\judulBuku}{Pemrograman Berorientasi Objek dengan Python}
+\newcommand{\subJudul}{Konsep Dasar, Prinsip Desain, dan Implementasi}
+
+\newcommand{\jenisBuku}{BUKU AJAR}
+\newcommand{\logoFile}{logo.png}
+
+\newcommand{\dosenPengampu}{Riskyana Dewi Instan Puspitasari, M.\ Kom}
+
+\newcommand{\penyusun}{%
+Muhammad Fariq Faqih & 24051204084\\[3pt]
+Mohammad Ariffansyah & 24051204099\\[3pt]
+Abdullah Al-Firdaus Nuzula & 24031554008
+}
+\newcommand{\prodi}{PRODI S1 KECERDASAN ARTIFISIAL}
+\newcommand{\fakultas}{FAKULTAS MATEMATIKA DAN ILMU PENGETAHUAN ALAM}
+\newcommand{\universitas}{UNIVERSITAS NEGERI SURABAYA}
+\newcommand{\tahun}{2026}
+
+% Versi sampul: santai, formal, formal1, atau formal2.
+\newcommand{\versiSampul}{formal2}
+
+\hypersetup{pdftitle={\judulBuku},pdfsubject={\subJudul}}
+
+% Kompilasi sebagian: hanya bab di bawah ini yang dikompilasi agar tidak timeout.
+% Ganti nama bab sesuai yang sedang dikerjakan (beberapa bab dipisah koma).
+% Untuk mengompilasi buku lengkap, beri tanda % lagi di depan \includeonly.
+\includeonly{bab/14-penutup}
+
+\begin{document}
+\frontmatter
+\pagestyle{empty}
+
+% Sampul depan
+\input{sampul/depan-\versiSampul}
+
+\pagestyle{plain}
+\subjudul{}
+\chapter{Kata Pengantar}
+
+Buku ini disusun sebagai bahan ajar pendamping mata kuliah Pemrograman Berorientasi Objek. Seluruh contoh program menggunakan bahasa Python dan dirancang untuk membantu pembaca memahami serta mempraktikkan konsep pemrograman berorientasi objek.
+
+Materi disajikan secara bertahap, mulai dari pengenalan paradigma berorientasi objek, class dan object, encapsulation, decorator, inheritance, abstraksi, polymorphism, dan relasi antarkelas. Pembahasan dilanjutkan dengan modular programming, exception handling, file handling, serta pembuatan antarmuka grafis (Graphical User Interface atau GUI). Pada bagian akhir, tersedia panduan pengembangan proyek aplikasi yang mengintegrasikan berbagai konsep yang telah dipelajari.
+
+Setiap bagian dilengkapi dengan penjelasan konsep, contoh kode beserta hasil eksekusinya, studi kasus, dan latihan. Buku ini diharapkan dapat membantu pembaca memahami setiap konsep secara bertahap, melihat penerapannya dalam pemrograman, serta mengembangkan keterampilan dalam merancang dan membangun aplikasi menggunakan prinsip-prinsip pemrograman berorientasi objek.
+
+Penyusun menyadari bahwa modul ini masih memiliki kekurangan. Oleh karena itu, saran dan masukan dari pembaca diharapkan dapat menjadi bahan evaluasi dan penyempurnaan untuk edisi berikutnya.
+
+\begin{flushright}
+\tahun\par\vspace{14mm}
+{\sffamily\bfseries Penyusun}
+\end{flushright}
+
+\clearpage
+\tableofcontents
+
+\mainmatter
+% Setiap bab memiliki halaman pemisah sendiri; materi mulai di halaman berikutnya.
+\titleclass{\chapter}{page}
+\assignpagestyle{\chapter}{empty}
+\pagestyle{fancy}
+
+% Daftar isi langsung berdasarkan bab dan subbab, tanpa pengelompokan "Bagian".
+\include{bab/01-konsep-pengantar-oop}
+\include{bab/02-encapsulation}
+\include{bab/03-decorator}
+\include{bab/04-inheritance}
+\include{bab/05-abstraksi-typing}
+\include{bab/06-polymorphism-relationship}
+\include{bab/07-modular-programming}
+\include{bab/08-exception-handling}
+\include{bab/09-file-handling}
+\include{bab/10-dasar-gui}
+\include{bab/11-analisis-perancangan}
+\include{bab/12-implementasi-aplikasi}
+\include{bab/13-implementasi-gui}
+
+\include{bab/14-penutup}
+
+\backmatter
+% Bagian akhir memakai judul biasa pada halaman yang sama dengan isinya.
+\titleclass{\chapter}{top}
+\assignpagestyle{\chapter}{plain}
+\subjudul{Sumber yang dirujuk di buku ini.}
+\bibliographystyle{apalike}
+
+% Menampilkan kelima buku referensi pada daftar pustaka.
+\nocite{lutz2025learning}
+\nocite{north2025oop}
+\nocite{wilson2024design}
+\nocite{edcornerOopExercises}
+\nocite{oopTanpaTahun}
+
+\bibliography{pustaka}
+
+% Sampul belakang
+\input{sampul/belakang-\versiSampul}
+
+\end{document}

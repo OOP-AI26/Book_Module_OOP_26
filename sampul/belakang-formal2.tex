@@ -1,0 +1,88 @@
+% Sampul belakang, versi formal2. Dipanggil dari main.tex lewat \versiSampul.
+% Latar kertas, pita seri di atas, blok sinopsis, daftar topik, dan panel marun di bawah dengan kotak-kotak "kode".
+% Pasangan di sampul depan: depan-formal2.tex. Tanpa logo.
+\clearpage
+\thispagestyle{empty}
+\begin{tikzpicture}[remember picture,overlay]
+  % --- Latar kertas ---
+  \fill[kertas] (current page.south west) rectangle (current page.north east);
+
+  % --- Pita seri di atas (sama dengan sampul depan) ---
+  \fill[marun] (current page.north west) rectangle ([yshift=-16mm]current page.north east);
+  \fill[emas] ([yshift=-16mm]current page.north west) rectangle ([yshift=-17.2mm]current page.north east);
+  \node[anchor=west,text=emasmuda,font=\capsfont\small,inner sep=0pt]
+    at ([xshift=20mm,yshift=-8mm]current page.north west) {\jenisBuku};
+  \node[anchor=east,text=emas,font=\judul\fontsize{22}{22}\selectfont,inner sep=0pt]
+    at ([xshift=-20mm,yshift=-8.5mm]current page.north east) {\{\,\}};
+
+  % --- Judul ringkas ---
+  \fill[emas] ([xshift=20mm,yshift=-34mm]current page.north west) rectangle ++(14mm,-1.2pt);
+  \node[anchor=west,text=merah,font=\capsfont\small,inner sep=0pt]
+    at ([xshift=38mm,yshift=-34.2mm]current page.north west) {Tentang buku};
+  \node[anchor=north west,text=gelap,font=\judul\fontsize{34}{38}\selectfont,align=left,inner sep=0pt,
+        text width=165mm]
+    (judul) at ([xshift=20mm,yshift=-46mm]current page.north west) {\hyphenpenalty=10000 \exhyphenpenalty=10000 \judulBuku\par};
+  \node[anchor=north west,text=merah,font=\itshape\fontsize{15}{19}\selectfont,align=left,inner sep=0pt,
+        text width=150mm]
+    (sub) at ([yshift=-5mm]judul.south west) {\subJudul};
+
+  % --- Sinopsis ---
+  \node[anchor=north west,text=gelap,font=\sffamily\fontsize{11.5}{18}\selectfont,align=left,inner sep=0pt,
+        text width=160mm]
+    (isi) at ([yshift=-12mm]sub.south west)
+    {Buku ini membahas pemrograman berorientasi objek dengan Python secara bertahap, mulai dari pengenalan paradigma,
+     class dan object, hingga prinsip desain dan penerapannya dalam aplikasi.\par\vspace{8pt}
+     Setiap bab dilengkapi penjelasan konsep, contoh kode beserta hasil eksekusinya, studi kasus, dan latihan,
+     serta ditutup dengan pengembangan proyek aplikasi yang memadukan seluruh konsep yang telah dipelajari.};
+
+  % --- Topik utama ---
+  \node[anchor=north west,text=merah,font=\capsfont\small,inner sep=0pt]
+    (topik) at ([yshift=-14mm]isi.south west) {Topik utama};
+  \fill[emas] ([yshift=-2.5mm]topik.south west) rectangle ++(14mm,-1.2pt);
+  \node[anchor=north west,text=gelap,font=\sffamily\fontsize{11.5}{19}\selectfont,align=left,inner sep=0pt]
+    at ([yshift=-8mm]topik.south west)
+    {%
+      \begin{minipage}[t]{78mm}\raggedright
+        {\color{merah}\textbullet}\ Class dan object\\
+        {\color{merah}\textbullet}\ Encapsulation dan decorator\\
+        {\color{merah}\textbullet}\ Inheritance\\
+        {\color{merah}\textbullet}\ Abstraksi dan polymorphism\\
+        {\color{merah}\textbullet}\ Relasi antarkelas
+      \end{minipage}\hfill
+      \begin{minipage}[t]{78mm}\raggedright
+        {\color{merah}\textbullet}\ Modular programming\\
+        {\color{merah}\textbullet}\ Exception handling\\
+        {\color{merah}\textbullet}\ File handling\\
+        {\color{merah}\textbullet}\ Antarmuka grafis (GUI)\\
+        {\color{merah}\textbullet}\ Proyek aplikasi terpadu
+      \end{minipage}%
+    };
+
+  % --- Panel marun di bawah ---
+  \fill[marun] (current page.south west) rectangle ([yshift=78mm]current page.south east);
+  \fill[emas] ([yshift=78mm]current page.south west) rectangle ([yshift=79.2mm]current page.south east);
+
+  % Kotak-kotak kode di sisi kanan panel
+  \pgfmathsetseed{11}
+  \foreach \i in {1,...,110}{
+    \pgfmathsetmacro{\px}{200-100*rnd*rnd}
+    \pgfmathsetmacro{\py}{6+66*rnd}
+    \pgfmathsetmacro{\sz}{0.8+rnd*rnd*6}
+    \pgfmathsetmacro{\op}{0.10+0.55*rnd}
+    \fill[emasmuda,opacity=\op]
+      ([xshift=\px mm,yshift=\py mm]current page.south west) rectangle ++(\sz mm,\sz mm);
+  }
+  \foreach \i in {1,...,24}{
+    \pgfmathsetmacro{\px}{200-100*rnd*rnd}
+    \pgfmathsetmacro{\py}{6+66*rnd}
+    \pgfmathsetmacro{\sz}{0.6+rnd*2.2}
+    \fill[merah,opacity=0.9]
+      ([xshift=\px mm,yshift=\py mm]current page.south west) rectangle ++(\sz mm,\sz mm);
+  }
+
+  % Instansi dan tahun
+  \node[anchor=south west,text=emasmuda,font=\capsfont\scriptsize,align=left,inner sep=0pt,text width=120mm]
+    at ([xshift=20mm,yshift=12mm]current page.south west)
+    {\prodi\\[3pt]\fakultas\\[3pt]\universitas\\[3pt]\tahun};
+\end{tikzpicture}
+\clearpage

@@ -1,0 +1,1043 @@
+\subjudul{Menyimpan data objek agar tidak hilang ketika program ditutup.}
+\chapter{File Handling}
+
+\begin{dibabini}
+  \item Read dan write file
+  \item Context manager
+  \item File CSV dan JSON
+  \item Serialisasi data
+  \item Integrasi dengan object
+\end{dibabini}
+
+Semua program yang kita tulis sejauh ini punya satu kelemahan yang sama: datanya hilang begitu program selesai. ATM di Bab 8 memproses lima transaksi, tetapi ketika program dijalankan lagi, saldo kembali ke Rp100.000. Perpustakaan di Bab 7 lupa siapa meminjam buku apa. Semua object itu hidup di memori komputer, dan memori dikosongkan ketika program berhenti.
+
+Agar data bertahan, data harus ditulis ke tempat penyimpanan permanen, yaitu file di disk. Bab ini membahas cara membaca dan menulis file dengan \texttt{open()}, \emph{context manager} \texttt{with} yang menjamin file selalu ditutup, serta dua format file data yang paling umum, yaitu CSV dan JSON. Setelah itu kita belajar mengubah object menjadi data yang bisa disimpan lalu mengembalikannya menjadi object. Di akhir bab, perpustakaan kita akhirnya bisa mengingat data peminjaman dari satu kali program dijalankan ke kali berikutnya.
+
+% =====================================================================
+\section{Konsep File Handling}
+% =====================================================================
+
+Komputer menyimpan data di dua tempat yang sifatnya sangat berbeda. \emph{Memori} (RAM) sangat cepat, dan di sinilah semua variabel dan object kita berada selama program berjalan. Namun isi memori hilang ketika program berhenti. \emph{Disk} (SSD atau harddisk) jauh lebih lambat, tetapi isinya bertahan walaupun komputer dimatikan. \emph{File handling} adalah kegiatan memindahkan data di antara keduanya: \emph{menulis} data dari memori ke file dan \emph{membaca} data dari file ke memori.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    b9wadah/.style={rectangle,draw=marun,line width=0.9pt,fill=kertas,minimum width=52mm,minimum height=36mm},
+    b9obj/.style={rectangle,rounded corners=2pt,draw=merah,line width=0.7pt,fill=merahmuda,font=\ttfamily\footnotesize,minimum width=24mm,minimum height=6mm},
+    b9file/.style={rectangle,draw=gelap,line width=0.6pt,fill=white,font=\ttfamily\footnotesize,minimum width=34mm,minimum height=6mm},
+    b9judul/.style={font=\sffamily\small\bfseries,text=marun},
+    b9ket/.style={font=\sffamily\footnotesize,text=abu,align=center}]
+  \node[b9wadah] (ram) at (0,0) {};
+  \node[b9judul,anchor=north] at (ram.north) {Memori (RAM)};
+  \node[b9obj] at (0,0.55)  {rek: Rekening};
+  \node[b9obj] at (0,-0.25) {perpus: Perpustakaan};
+  \node[b9obj] at (0,-1.05) {nilai: dict};
+  \node[b9ket,anchor=north] at ([yshift=-2mm]ram.south) {cepat, tetapi hilang\\saat program berhenti};
+  \node[b9wadah] (disk) at (8,0) {};
+  \node[b9judul,anchor=north] at (disk.north) {Disk};
+  \node[b9file] at (8,0.55)  {data/rekening.json};
+  \node[b9file] at (8,-0.25) {data/perpus.json};
+  \node[b9file] at (8,-1.05) {nilai.csv};
+  \node[b9ket,anchor=north] at ([yshift=-2mm]disk.south) {lebih lambat, tetapi bertahan\\walaupun komputer dimatikan};
+  \draw[-{Latex},line width=1.1pt,emas] ([yshift=6mm]ram.east) -- node[above,font=\sffamily\footnotesize,text=gelap]{menulis (simpan)} ([yshift=6mm]disk.west);
+  \draw[-{Latex},line width=1.1pt,emas] ([yshift=-6mm]disk.west) -- node[below,font=\sffamily\footnotesize,text=gelap]{membaca (muat)} ([yshift=-6mm]ram.east);
+\end{tikzpicture}
+\caption{File handling memindahkan data di antara memori yang cepat tetapi sementara dan disk yang lambat tetapi permanen.}
+\end{figure}
+
+\subsection{File Teks dan File Biner}
+
+Isi semua file sebenarnya hanyalah deretan byte. Yang membedakan adalah cara byte itu ditafsirkan. \emph{File teks} berisi karakter yang bisa dibaca manusia, misalnya file \texttt{.txt}, \texttt{.csv}, \texttt{.json}, dan bahkan file \texttt{.py} kita sendiri. \emph{File biner} berisi byte yang hanya bermakna bagi program tertentu, misalnya gambar \texttt{.png}, dokumen \texttt{.pdf}, atau lembar kerja \texttt{.xlsx}. Bab ini hanya membahas file teks, karena itulah bentuk yang paling sering dipakai untuk menyimpan data aplikasi sederhana.
+
+\subsection{Path File}
+
+Lokasi sebuah file ditulis sebagai \emph{path}. Path \emph{absolut} ditulis lengkap dari akar disk, misalnya \texttt{C:\textbackslash Users\textbackslash ani\textbackslash proyek\textbackslash nilai.csv} di Windows atau \texttt{/home/ani/proyek/nilai.csv} di Linux. Path \emph{relatif} ditulis dari folder tempat program dijalankan, misalnya \texttt{nilai.csv} atau \texttt{data/perpus.json}. Program sebaiknya memakai path relatif agar tetap berjalan ketika folder proyek dipindahkan ke komputer lain. Inilah alasan tips di Bab 7 menyarankan agar program selalu dijalankan dari folder proyek.
+
+\begin{info}[Module \texttt{pathlib}]
+Pustaka standar menyediakan class \texttt{Path} di module \texttt{pathlib} untuk mengolah path sebagai object. Operator \texttt{/} dipakai untuk menyambung bagian path, dan Python otomatis memakai pemisah yang benar untuk setiap sistem operasi. Contohnya, \texttt{Path("data") / "perpus.json"} menghasilkan \texttt{data/perpus.json} di Linux dan \texttt{data\textbackslash perpus.json} di Windows. Object \texttt{Path} juga punya method yang praktis, seperti \texttt{exists()} untuk memeriksa keberadaan file dan \texttt{mkdir()} untuk membuat folder.
+\end{info}
+
+% =====================================================================
+\section{Read dan Write File dengan \texttt{open()}}
+% =====================================================================
+
+Fungsi bawaan \texttt{open()} membuka file dan mengembalikan sebuah \emph{object file}. Melalui object inilah kita membaca atau menulis isi file. Argumen kedua \texttt{open()} menentukan \emph{mode}, yaitu untuk apa file dibuka.
+
+\begin{table}[htbp]
+\caption{Mode pembukaan file.}
+\begin{tabularx}{\linewidth}{P{16mm}P{40mm}L}
+\kepala \kp{Mode} & \kp{Arti} & \kp{Jika file sudah ada / belum ada} \\
+\texttt{"r"} & membaca (bawaan) & dibaca dari awal / \texttt{FileNotFoundError} \\
+\texttt{"w"} & menulis & \textbf{isi lama dihapus} / file baru dibuat \\
+\texttt{"a"} & menambah di akhir & ditambah setelah isi lama / file baru dibuat \\
+\texttt{"x"} & membuat file baru & \texttt{FileExistsError} / file baru dibuat \\
+\texttt{"b"} & mode biner, digabung dengan mode lain (\texttt{"rb"}, \texttt{"wb"}) & isi dibaca sebagai byte, bukan teks \\
+\end{tabularx}
+\end{table}
+
+\subsection{Menulis File}
+
+\begin{kode}[Menulis file teks]
+f = open("catatan.txt", "w", encoding="utf-8")
+f.write("Kuliah PBO hari Senin\n")
+f.write("Tugas Bab 9 dikumpulkan Jumat\n")
+f.close()
+\end{kode}
+
+\begin{keluaran}[isi catatan.txt]
+Kuliah PBO hari Senin
+Tugas Bab 9 dikumpulkan Jumat
+\end{keluaran}
+
+Berbeda dengan \texttt{print()}, method \texttt{write()} tidak menambahkan baris baru secara otomatis. Karena itu setiap teks diakhiri \texttt{\textbackslash n}. Method \texttt{close()} di akhir menutup file. Pentingnya langkah ini akan kita bahas sebentar lagi.
+
+\begin{penting}[Selalu Tuliskan \texttt{encoding="utf-8"}]
+Tanpa argumen \texttt{encoding}, Python memakai encoding bawaan sistem operasi, dan setiap sistem bisa berbeda. File yang ditulis di Linux lalu dibaca di Windows dapat menampilkan huruf yang rusak, terutama huruf beraksen seperti pada nama \emph{Andr\'e}. Menuliskan \texttt{encoding="utf-8"} di setiap \texttt{open()} untuk file teks membuat program berperilaku sama di semua komputer.
+\end{penting}
+
+\subsection{Membaca File}
+
+Ada beberapa cara membaca isi file. Method \texttt{read()} mengambil seluruh isi file sebagai satu string.
+
+\begin{kode}[Membaca seluruh isi file]
+f = open("catatan.txt", encoding="utf-8")
+isi = f.read()
+f.close()
+print(repr(isi))
+\end{kode}
+
+\begin{keluaran}
+'Kuliah PBO hari Senin\nTugas Bab 9 dikumpulkan Jumat\n'
+\end{keluaran}
+
+Fungsi \texttt{repr()} memperlihatkan karakter \texttt{\textbackslash n} di akhir setiap baris. Karakter ini ikut terbaca, sehingga saat membaca per baris kita biasanya membuangnya dengan \texttt{strip()}. Cara membaca per baris yang paling umum adalah memakai object file langsung di dalam \texttt{for}.
+
+\begin{kode}[Membaca per baris]
+f = open("catatan.txt", encoding="utf-8")
+for nomor, baris in enumerate(f, start=1):
+    print(nomor, baris.strip())
+f.close()
+\end{kode}
+
+\begin{keluaran}
+1 Kuliah PBO hari Senin
+2 Tugas Bab 9 dikumpulkan Jumat
+\end{keluaran}
+
+\begin{table}[htbp]
+\caption{Cara membaca isi file teks.}
+\begin{tabularx}{\linewidth}{P{40mm}P{38mm}L}
+\kepala \kp{Cara} & \kp{Hasil} & \kp{Cocok untuk} \\
+\texttt{f.read()} & seluruh isi sebagai satu string & file kecil \\
+\texttt{f.readline()} & satu baris berikutnya & membaca baris judul, lalu sisanya \\
+\texttt{f.readlines()} & list berisi semua baris & file kecil yang perlu diolah per baris \\
+\texttt{for baris in f:} & satu baris per putaran & file sebesar apa pun, karena hanya satu baris yang ada di memori \\
+\end{tabularx}
+\end{table}
+
+\subsection{Menambah Isi File}
+
+Mode \texttt{"a"} (\emph{append}) menambahkan teks di akhir file tanpa menghapus isi yang sudah ada.
+
+\begin{kode}[Menambah baris di akhir file]
+f = open("catatan.txt", "a", encoding="utf-8")
+f.write("Praktikum dipindah ke ruang C01\n")
+f.close()
+\end{kode}
+
+\begin{keluaran}[isi catatan.txt]
+Kuliah PBO hari Senin
+Tugas Bab 9 dikumpulkan Jumat
+Praktikum dipindah ke ruang C01
+\end{keluaran}
+
+\begin{penting}[Mode \texttt{"w"} Mengosongkan File Seketika]
+File yang dibuka dengan mode \texttt{"w"} langsung dikosongkan saat itu juga, bahkan sebelum \texttt{write()} pertama dijalankan. Salah memilih \texttt{"w"} padahal maksudnya \texttt{"a"} berarti kehilangan seluruh isi file lama. Periksa kembali mode setiap kali menulis ke file yang berisi data penting.
+\end{penting}
+
+\subsection{File yang Tidak Ada}
+
+Membuka file yang tidak ada dengan mode baca melempar \texttt{FileNotFoundError}. Exception ini ditangani dengan cara yang sudah kita pelajari di Bab 8.
+
+\begin{kode}[Menangani file yang tidak ada]
+try:
+    f = open("jadwal.txt", encoding="utf-8")
+except FileNotFoundError as e:
+    print("File tidak ditemukan:", e.filename)
+\end{kode}
+
+\begin{keluaran}
+File tidak ditemukan: jadwal.txt
+\end{keluaran}
+
+\subsection{Mengapa File Harus Ditutup?}
+
+Selama file terbuka, sistem operasi menyediakan sumber daya untuknya. Lebih dari itu, data yang ditulis dengan \texttt{write()} sering ditampung dulu di memori dan baru benar-benar dikirim ke disk ketika file ditutup. File yang lupa ditutup bisa membuat sebagian data tidak pernah tersimpan, dan di Windows file itu juga tidak bisa dibuka oleh program lain.
+
+Menulis \texttt{close()} di akhir saja belum cukup. Jika terjadi exception di antara \texttt{open()} dan \texttt{close()}, baris \texttt{close()} tidak pernah dijalankan.
+
+\begin{kode}[Exception membuat close() terlewat]
+nilai = [90, 85, "A", 70]
+f = open("rata.txt", "w", encoding="utf-8")
+try:
+    f.write(f"Rata-rata: {sum(nilai) / len(nilai)}\n")
+    f.close()
+except TypeError as e:
+    print("Gagal:", e)
+print("File sudah ditutup?", f.closed)
+\end{kode}
+
+\begin{keluaran}
+Gagal: unsupported operand type(s) for +: 'int' and 'str'
+File sudah ditutup? False
+\end{keluaran}
+
+Solusinya sudah kita kenal dari Bab 8: letakkan \texttt{close()} di blok \texttt{finally}, karena blok itu selalu dijalankan.
+
+\begin{kode}[Menutup file di blok finally]
+f = open("rata.txt", "w", encoding="utf-8")
+try:
+    f.write(f"Rata-rata: {sum(nilai) / len(nilai)}\n")
+except TypeError as e:
+    print("Gagal:", e)
+finally:
+    f.close()
+print("File sudah ditutup?", f.closed)
+\end{kode}
+
+\begin{keluaran}
+Gagal: unsupported operand type(s) for +: 'int' and 'str'
+File sudah ditutup? True
+\end{keluaran}
+
+Cara ini benar, tetapi panjang. Untungnya Python menyediakan cara yang jauh lebih ringkas untuk hasil yang sama.
+
+% =====================================================================
+\section{Context Manager}
+% =====================================================================
+
+Pernyataan \texttt{with} membuka file dan menjamin file itu ditutup ketika blok \texttt{with} selesai, baik selesai dengan normal maupun karena exception. Object yang bisa dipakai bersama \texttt{with} disebut \emph{context manager}.
+
+\begin{kode}[Membaca file dengan with]
+with open("catatan.txt", encoding="utf-8") as f:
+    for baris in f:
+        print(baris.strip())
+
+print("Di luar blok with, file ditutup?", f.closed)
+\end{kode}
+
+\begin{keluaran}
+Kuliah PBO hari Senin
+Tugas Bab 9 dikumpulkan Jumat
+Praktikum dipindah ke ruang C01
+Di luar blok with, file ditutup? True
+\end{keluaran}
+
+Kita tidak menulis \texttt{close()} sama sekali, tetapi file sudah tertutup begitu program keluar dari blok yang menjorok ke dalam. Gambar berikut memperlihatkan bahwa \texttt{with} hanyalah cara singkat untuk menulis pola \texttt{try}--\texttt{finally}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    b9kode/.style={rectangle,fill=kodebg,text=kodeteks,font=\ttfamily\footnotesize,align=left,inner sep=3mm,text width=58mm},
+    b9label/.style={font=\sffamily\footnotesize\bfseries,text=marun,anchor=south west,inner sep=1pt}]
+  \node[b9kode] (k1) at (0,0) {with open("data.txt") as f:\\\quad olah(f)\\~\\~\\~};
+  \node[b9label] at ([yshift=1mm]k1.north west) {Dengan \texttt{with}};
+  \node[b9kode] (k2) at (8,0) {f = open("data.txt")\\try:\\\quad olah(f)\\finally:\\\quad f.close()};
+  \node[b9label] at ([yshift=1mm]k2.north west) {Setara dengan};
+  \node[font=\sffamily\Large\bfseries,text=emas] at (4,0) {=};
+\end{tikzpicture}
+\caption{Pernyataan \texttt{with} setara dengan pola \texttt{try}--\texttt{finally}, tetapi jauh lebih ringkas dan tidak mungkin lupa menutup file.}
+\end{figure}
+
+Satu pernyataan \texttt{with} dapat membuka beberapa file sekaligus. Contoh berikut membaca \texttt{catatan.txt} dan menulis salinannya yang diberi nomor baris.
+
+\begin{kode}[Dua file dalam satu with]
+with open("catatan.txt", encoding="utf-8") as sumber, \
+     open("catatan_bernomor.txt", "w", encoding="utf-8") as tujuan:
+    for nomor, baris in enumerate(sumber, start=1):
+        tujuan.write(f"{nomor}. {baris}")
+\end{kode}
+
+\begin{keluaran}[isi catatan\_bernomor.txt]
+1. Kuliah PBO hari Senin
+2. Tugas Bab 9 dikumpulkan Jumat
+3. Praktikum dipindah ke ruang C01
+\end{keluaran}
+
+\begin{tips}[Gunakan \texttt{with} untuk Setiap File]
+Mulai sekarang, buka file hanya dengan \texttt{with open(\ldots) as f:}. Cara \texttt{open()} lalu \texttt{close()} di awal bab hanya dipakai untuk menjelaskan apa yang terjadi di balik layar.
+\end{tips}
+
+\subsection{Membuat Context Manager Sendiri}
+
+Pernyataan \texttt{with} tidak hanya untuk file. Object apa pun bisa menjadi context manager jika class-nya memiliki dua dunder method: \texttt{\_\_enter\_\_} dan \texttt{\_\_exit\_\_}. Ini adalah protokol lain yang serupa dengan \texttt{\_\_len\_\_} di Bab 5 dan \texttt{\_\_add\_\_} di Bab 6: Python memanggil method itu secara otomatis pada saat yang tepat.
+
+\begin{kode}[Context manager buatan sendiri]
+class Sesi:
+    def __init__(self, nama):
+        self.nama = nama
+
+    def __enter__(self):                        # saat masuk blok with
+        print(f"[{self.nama}] mulai")
+        return self
+
+    def __exit__(self, jenis, nilai, tb):       # saat keluar blok with
+        if jenis is None:
+            print(f"[{self.nama}] selesai tanpa masalah")
+        else:
+            print(f"[{self.nama}] berhenti karena {jenis.__name__}: {nilai}")
+        return True                             # exception sudah ditangani
+
+with Sesi("impor nilai"):
+    print("  memproses data...")
+
+with Sesi("hitung rata-rata"):
+    print("  memproses data...")
+    hasil = 10 / 0
+    print("  baris ini tidak dijalankan")
+
+print("program tetap berjalan")
+\end{kode}
+
+\begin{keluaran}
+[impor nilai] mulai
+  memproses data...
+[impor nilai] selesai tanpa masalah
+[hitung rata-rata] mulai
+  memproses data...
+[hitung rata-rata] berhenti karena ZeroDivisionError: division by zero
+program tetap berjalan
+\end{keluaran}
+
+Method \texttt{\_\_enter\_\_} dijalankan ketika program masuk ke blok \texttt{with}, dan nilai kembaliannya diberikan ke variabel setelah kata \texttt{as}. Method \texttt{\_\_exit\_\_} dijalankan ketika program keluar dari blok, dalam keadaan apa pun. Tiga parameternya berisi jenis exception, object exception, dan traceback-nya. Jika blok selesai tanpa exception, ketiganya bernilai \texttt{None}.
+
+\begin{penting}[Nilai Kembalian \texttt{\_\_exit\_\_}]
+Jika \texttt{\_\_exit\_\_} mengembalikan \texttt{True}, exception dianggap sudah ditangani dan tidak diteruskan, sama seperti \texttt{except} yang menelan kesalahan. Lakukan ini hanya jika memang disengaja. Object file mengembalikan \texttt{False}, sehingga exception tetap diteruskan setelah file ditutup.
+\end{penting}
+
+% =====================================================================
+\section{File CSV}
+% =====================================================================
+
+\emph{CSV} (\emph{Comma-Separated Values}) adalah format untuk data berbentuk tabel. Setiap baris file adalah satu baris tabel, dan nilai-nilai di dalamnya dipisahkan koma. Baris pertama biasanya berisi nama kolom. File CSV bisa dibuka langsung oleh Excel dan Google Sheets, sehingga format ini sangat umum untuk data nilai, daftar hadir, dan laporan transaksi.
+
+Python menyediakan module \texttt{csv} untuk membaca dan menulis format ini.
+
+\begin{kode}[Menulis file CSV]
+import csv
+
+data = [
+    ["nim", "nama", "uts", "uas"],
+    ["24051204001", "Ani", 85, 90],
+    ["24051204002", "Budi", 70, 78],
+    ["24051204003", "Citra", 92, 88],
+]
+with open("nilai.csv", "w", newline="", encoding="utf-8") as f:
+    csv.writer(f).writerows(data)
+\end{kode}
+
+\begin{keluaran}[isi nilai.csv]
+nim,nama,uts,uas
+24051204001,Ani,85,90
+24051204002,Budi,70,78
+24051204003,Citra,92,88
+\end{keluaran}
+
+\begin{info}[Argumen \texttt{newline=""}]
+Module \texttt{csv} mengatur sendiri karakter akhir baris. Jika file dibuka tanpa \texttt{newline=""}, Python ikut menambahkan karakter akhir baris miliknya, dan di Windows hasilnya adalah baris kosong di antara setiap baris data. Selalu sertakan \texttt{newline=""} saat membuka file CSV, baik untuk membaca maupun menulis.
+\end{info}
+
+\begin{kode}[Membaca file CSV]
+with open("nilai.csv", newline="", encoding="utf-8") as f:
+    pembaca = csv.reader(f)
+    judul = next(pembaca)                    # baris pertama: nama kolom
+    print(judul)
+    for baris in pembaca:
+        print(baris)
+\end{kode}
+
+\begin{keluaran}
+['nim', 'nama', 'uts', 'uas']
+['24051204001', 'Ani', '85', '90']
+['24051204002', 'Budi', '70', '78']
+['24051204003', 'Citra', '92', '88']
+\end{keluaran}
+
+Perhatikan tanda kutip pada \texttt{'85'} dan \texttt{'90'}. File CSV tidak menyimpan informasi tipe data, sehingga \emph{semua} nilai yang dibaca berupa string. Angka harus diubah sendiri dengan \texttt{int()} atau \texttt{float()} sebelum dihitung.
+
+\subsection{\texttt{DictReader} dan \texttt{DictWriter}}
+
+Mengakses kolom dengan indeks seperti \texttt{baris[2]} mudah keliru, apalagi jika urutan kolom berubah. Class \texttt{csv.DictReader} membaca setiap baris sebagai dictionary dengan nama kolom sebagai key, dan \texttt{csv.DictWriter} menulis dictionary menjadi baris CSV. Contoh berikut membaca \texttt{nilai.csv}, menghitung nilai akhir (40\% UTS dan 60\% UAS), lalu menulis rekapnya ke file CSV baru.
+
+\begin{kode}[Membaca dan menulis CSV dengan dictionary]
+with open("nilai.csv", newline="", encoding="utf-8") as masuk, \
+     open("rekap.csv", "w", newline="", encoding="utf-8") as keluar:
+    penulis = csv.DictWriter(keluar, fieldnames=["nama", "akhir", "lulus"])
+    penulis.writeheader()
+    for baris in csv.DictReader(masuk):
+        akhir = round(0.4 * int(baris["uts"]) + 0.6 * int(baris["uas"]), 1)
+        penulis.writerow({"nama": baris["nama"], "akhir": akhir,
+                          "lulus": akhir >= 75})
+\end{kode}
+
+\begin{keluaran}[isi rekap.csv]
+nama,akhir,lulus
+Ani,88.0,True
+Budi,74.8,False
+Citra,89.6,True
+\end{keluaran}
+
+\subsection{Mengapa Tidak Memakai \texttt{split(",")} Saja?}
+
+Di Praktik 3 Bab 3, baris CSV seperti \texttt{"P-01,Buku Tulis,5000,40"} dipecah dengan \texttt{split(",")}. Cara itu bekerja selama tidak ada nilai yang mengandung koma. Format CSV mengizinkan nilai yang mengandung koma asalkan diapit tanda kutip, dan pada nilai seperti itu \texttt{split()} menghasilkan potongan yang salah.
+
+\begin{kode}[split() dibandingkan module csv]
+baris = 'P-04,"Pensil 2B, isi 12",24000,10'
+print(baris.split(","))
+print(next(csv.reader([baris])))
+\end{kode}
+
+\begin{keluaran}
+['P-04', '"Pensil 2B', ' isi 12"', '24000', '10']
+['P-04', 'Pensil 2B, isi 12', '24000', '10']
+\end{keluaran}
+
+Module \texttt{csv} memahami aturan tanda kutip, sehingga nama produk tetap utuh. Saat menulis, module ini juga otomatis menambahkan tanda kutip pada nilai yang membutuhkannya.
+
+% =====================================================================
+\section{File JSON}
+% =====================================================================
+
+CSV cocok untuk tabel, tetapi tidak semua data berbentuk tabel. Data seorang mahasiswa, misalnya, berisi nama dan IPK, tetapi juga \emph{daftar} mata kuliah yang diambil. \emph{JSON} (\emph{JavaScript Object Notation}) adalah format teks untuk data bersarang seperti ini. Bentuknya sangat mirip dengan dictionary dan list di Python, dan hampir semua bahasa pemrograman serta layanan web memakainya untuk bertukar data.
+
+\begin{kode}[Menulis file JSON]
+import json
+
+mhs = {
+    "nim": "24051204084",
+    "nama": "Ani",
+    "aktif": True,
+    "ipk": 3.72,
+    "matkul": ["PBO", "Statistika", "Basis Data"],
+    "pembimbing": None,
+}
+with open("mhs.json", "w", encoding="utf-8") as f:
+    json.dump(mhs, f, indent=2)
+\end{kode}
+
+\begin{keluaran}[isi mhs.json]
+{
+  "nim": "24051204084",
+  "nama": "Ani",
+  "aktif": true,
+  "ipk": 3.72,
+  "matkul": [
+    "PBO",
+    "Statistika",
+    "Basis Data"
+  ],
+  "pembimbing": null
+}
+\end{keluaran}
+
+Argumen \texttt{indent=2} membuat file tersusun rapi dengan indentasi dua spasi. Tanpa argumen itu, seluruh data ditulis dalam satu baris panjang. Perhatikan juga bahwa \texttt{True} ditulis sebagai \texttt{true} dan \texttt{None} sebagai \texttt{null}, mengikuti aturan penulisan JSON.
+
+\begin{kode}[Membaca file JSON]
+with open("mhs.json", encoding="utf-8") as f:
+    data = json.load(f)
+
+print(type(data), data["matkul"][0], data["aktif"])
+\end{kode}
+
+\begin{keluaran}
+<class 'dict'> PBO True
+\end{keluaran}
+
+Berbeda dengan CSV, angka dan nilai boolean di JSON dibaca kembali dengan tipe yang benar, sehingga \texttt{data["ipk"]} langsung bisa dihitung tanpa \texttt{float()}.
+
+Module \texttt{json} punya dua pasang fungsi. Fungsi \texttt{dump()} dan \texttt{load()} bekerja dengan file, sedangkan \texttt{dumps()} dan \texttt{loads()} bekerja dengan string. Huruf \texttt{s} di akhir nama berarti \emph{string}. Pasangan kedua berguna ketika data JSON tidak berasal dari file, misalnya dari layanan web.
+
+\begin{kode}[dumps dan loads]
+teks = json.dumps({"kota": "Surabaya", "suhu": 31})
+print(teks, type(teks))
+print(json.loads(teks)["suhu"] + 1)
+\end{kode}
+
+\begin{keluaran}
+{"kota": "Surabaya", "suhu": 31} <class 'str'>
+32
+\end{keluaran}
+
+\subsection{Tipe Data Python dan JSON}
+
+Tidak semua tipe data Python punya padanan di JSON. Tabel berikut memperlihatkan apa yang terjadi pada setiap tipe ketika disimpan lalu dibaca kembali.
+
+\begin{table}[htbp]
+\caption{Padanan tipe data Python dan JSON.}
+\begin{tabularx}{\linewidth}{P{36mm}P{36mm}L}
+\kepala \kp{Python} & \kp{JSON} & \kp{Dibaca kembali sebagai} \\
+\texttt{dict} & object \texttt{\{\ldots\}} & \texttt{dict}, tetapi key \emph{selalu} string \\
+\texttt{list} & array \texttt{[\ldots]} & \texttt{list} \\
+\texttt{tuple} & array \texttt{[\ldots]} & \texttt{list}, bukan tuple \\
+\texttt{str} & string & \texttt{str} \\
+\texttt{int}, \texttt{float} & number & \texttt{int}, \texttt{float} \\
+\texttt{True}, \texttt{False} & \texttt{true}, \texttt{false} & \texttt{bool} \\
+\texttt{None} & \texttt{null} & \texttt{None} \\
+\texttt{set}, object buatan sendiri & tidak ada padanan & \texttt{TypeError} saat disimpan \\
+\end{tabularx}
+\end{table}
+
+\begin{kode}[Data yang berubah atau ditolak]
+asli = {"jadwal": ("Senin", "Rabu"), 1: "satu"}
+print(json.loads(json.dumps(asli)))
+json.dumps({"pbo", "python"})
+\end{kode}
+
+\begin{keluaran}
+{'jadwal': ['Senin', 'Rabu'], '1': 'satu'}
+Traceback (most recent call last):
+  ...
+TypeError: Object of type set is not JSON serializable
+\end{keluaran}
+
+Tuple kembali sebagai list, key angka \texttt{1} kembali sebagai string \texttt{'1'}, dan set ditolak sama sekali. Ketiga hal ini sering menjadi sumber bug yang sulit dilacak, karena data terlihat tersimpan dengan baik dan masalahnya baru muncul ketika data dibaca kembali.
+
+\begin{info}[Huruf Non-ASCII]
+Secara bawaan, \texttt{json.dump()} menulis huruf di luar ASCII sebagai kode, misalnya huruf \'e menjadi \texttt{\textbackslash u00e9}. File tetap benar, tetapi sulit dibaca manusia. Tambahkan argumen \texttt{ensure\_ascii=False} agar huruf tersebut ditulis apa adanya.
+\end{info}
+
+\begin{table}[htbp]
+\caption{Perbandingan CSV dan JSON.}
+\begin{tabularx}{\linewidth}{P{28mm}LL}
+\kepala \kp{Aspek} & \kp{CSV} & \kp{JSON} \\
+Bentuk data & tabel: baris dan kolom & bersarang: dictionary di dalam list, dan sebaliknya \\
+Tipe data & semua dibaca sebagai string & string, angka, boolean, \texttt{null}, list, dictionary \\
+Dibuka dengan & Excel, Google Sheets, editor teks & editor teks, hampir semua bahasa pemrograman \\
+Cocok untuk & data nilai, daftar hadir, laporan transaksi & data aplikasi, konfigurasi, data object \\
+\end{tabularx}
+\end{table}
+
+% =====================================================================
+\section{Serialisasi Data Sederhana}
+% =====================================================================
+
+Sejauh ini kita menyimpan dictionary dan list. Bagaimana dengan object buatan sendiri?
+
+\begin{kode}[Object tidak bisa langsung disimpan]
+class Buku:
+    def __init__(self, judul, penulis, tahun):
+        self.judul = judul
+        self.penulis = penulis
+        self.tahun = tahun
+
+json.dumps(Buku("Laskar Pelangi", "Andrea Hirata", 2005))
+\end{kode}
+
+\begin{keluaran}
+Traceback (most recent call last):
+  ...
+TypeError: Object of type Buku is not JSON serializable
+\end{keluaran}
+
+Module \texttt{json} tidak tahu attribute mana yang perlu disimpan dan bagaimana membuat object itu kembali. Proses mengubah object menjadi bentuk yang bisa disimpan atau dikirim disebut \emph{serialisasi}. Kebalikannya, mengubah data simpanan kembali menjadi object, disebut \emph{deserialisasi}. Untuk object buatan sendiri, kedua proses itu harus kita sediakan sendiri.
+
+Pola yang paling sederhana adalah memberi class dua method: \texttt{ke\_dict()} untuk mengubah object menjadi dictionary, dan class method \texttt{dari\_dict()} untuk membuat object dari dictionary. Method kedua adalah \emph{alternative constructor} yang kita pelajari di Bab 3.
+
+\begin{kode}[Serialisasi dengan ke\_dict dan dari\_dict]
+class Buku:
+    def __init__(self, judul, penulis, tahun):
+        self.judul = judul
+        self.penulis = penulis
+        self.tahun = tahun
+
+    def ke_dict(self):
+        return {"judul": self.judul, "penulis": self.penulis,
+                "tahun": self.tahun}
+
+    @classmethod
+    def dari_dict(cls, data):
+        return cls(data["judul"], data["penulis"], data["tahun"])
+
+    def __str__(self):
+        return f"{self.judul} ({self.tahun}), {self.penulis}"
+
+koleksi = [Buku("Laskar Pelangi", "Andrea Hirata", 2005),
+           Buku("Bumi Manusia", "Pramoedya Ananta Toer", 1980)]
+
+with open("koleksi.json", "w", encoding="utf-8") as f:
+    json.dump([b.ke_dict() for b in koleksi], f, indent=2)
+
+with open("koleksi.json", encoding="utf-8") as f:
+    dimuat = [Buku.dari_dict(d) for d in json.load(f)]
+
+for buku in dimuat:
+    print(buku)
+\end{kode}
+
+\begin{keluaran}
+Laskar Pelangi (2005), Andrea Hirata
+Bumi Manusia (1980), Pramoedya Ananta Toer
+\end{keluaran}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    b9tahap/.style={rectangle,fill=marun,text=white,font=\sffamily\small\bfseries,minimum width=22mm,minimum height=11mm,align=center},
+    b9maju/.style={-{Latex},line width=1pt,emas},
+    b9balik/.style={-{Latex},line width=1pt,biru},
+    b9ket/.style={font=\ttfamily\footnotesize,text=gelap}]
+  \node[b9tahap] (o) at (0,0)     {object\\\texttt{\mdseries Buku}};
+  \node[b9tahap] (d) at (4.4,0)   {dictionary\\\texttt{\mdseries dict}};
+  \node[b9tahap] (j) at (8.8,0)   {teks JSON\\\texttt{\mdseries str}};
+  \node[b9tahap] (f) at (13.2,0)  {file\\\texttt{\mdseries .json}};
+  \draw[b9maju] ([yshift=2.5mm]o.east) -- node[above,b9ket]{ke\_dict()} ([yshift=2.5mm]d.west);
+  \draw[b9maju] ([yshift=2.5mm]d.east) -- node[above,b9ket]{json.dumps()} ([yshift=2.5mm]j.west);
+  \draw[b9maju] ([yshift=2.5mm]j.east) -- node[above,b9ket]{write()} ([yshift=2.5mm]f.west);
+  \draw[b9balik] ([yshift=-2.5mm]d.west) -- node[below,b9ket]{dari\_dict()} ([yshift=-2.5mm]o.east);
+  \draw[b9balik] ([yshift=-2.5mm]j.west) -- node[below,b9ket]{json.loads()} ([yshift=-2.5mm]d.east);
+  \draw[b9balik] ([yshift=-2.5mm]f.west) -- node[below,b9ket]{read()} ([yshift=-2.5mm]j.east);
+  \draw[b9maju] (2.2,1.35) -- node[above,font=\sffamily\footnotesize,text=gelap]{serialisasi} (11.0,1.35);
+  \draw[b9balik] (11.0,-1.35) -- node[below,font=\sffamily\footnotesize,text=gelap]{deserialisasi} (2.2,-1.35);
+\end{tikzpicture}
+\caption{Tahapan serialisasi (kiri ke kanan) dan deserialisasi (kanan ke kiri). Fungsi \texttt{json.dump()} dan \texttt{json.load()} menggabungkan dua tahap terakhir sekaligus.}
+\end{figure}
+
+Mengapa \texttt{dari\_dict()} dibuat sebagai class method? Karena method ini \emph{membuat} object, sementara object-nya belum ada saat method dipanggil. Pemakaian \texttt{cls} sebagai ganti nama class juga membuat class turunan, misalnya \texttt{BukuCetak}, otomatis menghasilkan object dari class turunan itu, seperti yang dibahas di Bab 3.
+
+\subsection{Serialisasi Data Class}
+
+Untuk data class dari Bab 5, kita tidak perlu menulis \texttt{ke\_dict()} sendiri. Fungsi \texttt{asdict()} dari module \texttt{dataclasses} mengubah object data class menjadi dictionary. Kebalikannya cukup ditulis dengan \texttt{**}, yang membuka dictionary menjadi argumen kata kunci seperti \texttt{**kwargs} di Bab 3.
+
+\begin{kode}[asdict dan pembukaan dictionary]
+from dataclasses import dataclass, asdict
+
+@dataclass
+class Mahasiswa:
+    nim: str
+    nama: str
+    ipk: float
+
+teks = json.dumps(asdict(Mahasiswa("24051204084", "Ani", 3.72)))
+print(teks)
+print(Mahasiswa(**json.loads(teks)))
+\end{kode}
+
+\begin{keluaran}
+{"nim": "24051204084", "nama": "Ani", "ipk": 3.72}
+Mahasiswa(nim='24051204084', nama='Ani', ipk=3.72)
+\end{keluaran}
+
+\begin{penting}[Bagaimana dengan \texttt{pickle}?]
+Python juga punya module \texttt{pickle} yang bisa menyimpan hampir semua object tanpa perlu \texttt{ke\_dict()}. Namun file pickle tidak bisa dibaca manusia dan hanya bisa dibuka oleh Python. Yang lebih berbahaya, membuka file pickle dapat menjalankan kode apa pun yang disisipkan di dalamnya, sehingga file pickle dari sumber yang tidak dipercaya tidak boleh dibuka. Untuk data aplikasi sederhana, JSON adalah pilihan yang lebih aman dan lebih mudah diperiksa.
+\end{penting}
+
+% =====================================================================
+\section{Integrasi File Handling dengan Object}
+% =====================================================================
+
+Kini kita gabungkan semuanya agar perpustakaan bisa mengingat data peminjaman. Agar fokus pada penyimpanan, model perpustakaan di subbab ini disederhanakan: peminjam dicatat dengan namanya saja.
+
+Satu keputusan desain penting diambil sejak awal: class \texttt{Perpustakaan} \emph{tidak} membuka file sendiri. Urusan file diserahkan kepada object terpisah yang disebut \emph{penyimpanan}, dengan dua method saja: \texttt{muat()} dan \texttt{simpan()}. Dalam struktur proyek Bab 7, class-class ini menempati module \texttt{penyimpanan.py}.
+
+\begin{kode}[penyimpanan.py]
+import json
+from pathlib import Path
+from typing import Protocol
+
+class DataRusakError(Exception):
+    pass
+
+class Penyimpanan(Protocol):
+    def muat(self) -> list[dict]: ...
+    def simpan(self, data: list[dict]) -> None: ...
+
+class PenyimpananJSON:
+    def __init__(self, path):
+        self.path = Path(path)
+
+    def muat(self):
+        try:
+            with open(self.path, encoding="utf-8") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return []                               # belum pernah disimpan
+        except json.JSONDecodeError as e:
+            raise DataRusakError(f"{self.path} rusak: {e}") from e
+
+    def simpan(self, data):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+class PenyimpananMemori:
+    """Penyimpanan untuk uji coba: data hanya disimpan di memori."""
+    def __init__(self, data=None):
+        self.data = data or []
+
+    def muat(self):
+        return list(self.data)
+
+    def simpan(self, data):
+        self.data = list(data)
+\end{kode}
+
+\begin{kode}[perpus.py]
+from penyimpanan import Penyimpanan
+
+class BukuSedangDipinjamError(Exception):
+    pass
+
+class Buku:
+    def __init__(self, kode, judul, peminjam=None):
+        self.kode = kode
+        self.judul = judul
+        self.peminjam = peminjam
+
+    def ke_dict(self):
+        return {"kode": self.kode, "judul": self.judul,
+                "peminjam": self.peminjam}
+
+    @classmethod
+    def dari_dict(cls, data):
+        return cls(data["kode"], data["judul"], data["peminjam"])
+
+class Perpustakaan:
+    def __init__(self, penyimpanan: Penyimpanan):
+        self._penyimpanan = penyimpanan
+        self._buku = {}
+        for data in penyimpanan.muat():
+            buku = Buku.dari_dict(data)
+            self._buku[buku.kode] = buku
+
+    def jumlah_buku(self):
+        return len(self._buku)
+
+    def tambah_buku(self, kode, judul):
+        if kode not in self._buku:                  # abaikan jika sudah ada
+            self._buku[kode] = Buku(kode, judul)
+
+    def pinjamkan(self, kode, nama):
+        buku = self._buku[kode]
+        if buku.peminjam is not None:
+            raise BukuSedangDipinjamError(
+                f"'{buku.judul}' sedang dipinjam {buku.peminjam}")
+        buku.peminjam = nama
+
+    def simpan(self):
+        self._penyimpanan.simpan([b.ke_dict() for b in self._buku.values()])
+
+    def laporan(self):
+        for b in self._buku.values():
+            status = f"dipinjam {b.peminjam}" if b.peminjam else "tersedia"
+            print(f"  {b.kode}  {b.judul:<24} {status}")
+\end{kode}
+
+Program utama berikut dijalankan dua kali berturut-turut. Isinya sama persis, tetapi keluarannya berbeda, karena pada kali kedua program memuat data yang disimpan oleh kali pertama.
+
+\begin{kode}[main.py]
+from penyimpanan import PenyimpananJSON
+from perpus import BukuSedangDipinjamError, Perpustakaan
+
+perpus = Perpustakaan(PenyimpananJSON("data/perpus.json"))
+print("Dimuat dari file:", perpus.jumlah_buku(), "buku")
+
+perpus.tambah_buku("B01", "Laskar Pelangi")
+perpus.tambah_buku("B02", "Bumi Manusia")
+perpus.tambah_buku("B03", "Dasar PBO dengan Python")
+try:
+    perpus.pinjamkan("B01", "Ani")
+    print("Ani meminjam B01")
+except BukuSedangDipinjamError as e:
+    print("Ditolak:", e)
+
+perpus.simpan()
+perpus.laporan()
+\end{kode}
+
+\begin{keluaran}[python main.py (pertama kali)]
+Dimuat dari file: 0 buku
+Ani meminjam B01
+  B01  Laskar Pelangi           dipinjam Ani
+  B02  Bumi Manusia             tersedia
+  B03  Dasar PBO dengan Python  tersedia
+\end{keluaran}
+
+\begin{keluaran}[python main.py (kedua kali)]
+Dimuat dari file: 3 buku
+Ditolak: 'Laskar Pelangi' sedang dipinjam Ani
+  B01  Laskar Pelangi           dipinjam Ani
+  B02  Bumi Manusia             tersedia
+  B03  Dasar PBO dengan Python  tersedia
+\end{keluaran}
+
+\begin{keluaran}[isi data/perpus.json]
+[
+  {
+    "kode": "B01",
+    "judul": "Laskar Pelangi",
+    "peminjam": "Ani"
+  },
+  {
+    "kode": "B02",
+    "judul": "Bumi Manusia",
+    "peminjam": null
+  },
+  {
+    "kode": "B03",
+    "judul": "Dasar PBO dengan Python",
+    "peminjam": null
+  }
+]
+\end{keluaran}
+
+Pada kali pertama, file \texttt{data/perpus.json} belum ada. Method \texttt{muat()} menangkap \texttt{FileNotFoundError} dan mengembalikan list kosong, sehingga perpustakaan dimulai tanpa buku. Folder \texttt{data/} pun dibuat otomatis oleh \texttt{mkdir()} saat pertama kali menyimpan. Pada kali kedua, ketiga buku beserta status peminjamannya dimuat dari file, sehingga permintaan pinjam yang sama ditolak. Perpustakaan kita akhirnya punya ingatan.
+
+\subsection{File yang Rusak}
+
+Method \texttt{muat()} memperlakukan dua keadaan dengan cara yang berbeda. File yang \emph{belum ada} dianggap wajar dan menghasilkan list kosong. File yang \emph{rusak}, misalnya terpotong karena listrik padam saat penyimpanan, justru dilaporkan dengan \texttt{DataRusakError}.
+
+\begin{kode}[Memuat file JSON yang terpotong]
+from penyimpanan import PenyimpananJSON
+
+with open("rusak.json", "w", encoding="utf-8") as f:
+    f.write('[{"kode": "B01", "judul": "Laskar')      # isi file terpotong
+
+PenyimpananJSON("rusak.json").muat()
+\end{kode}
+
+\begin{keluaran}
+Traceback (most recent call last):
+  ...
+penyimpanan.DataRusakError: rusak.json rusak: Unterminated string starting at: line 1 column 27 (char 26)
+\end{keluaran}
+
+Mengapa file rusak tidak ikut dianggap kosong saja? Karena program akan menyimpan kembali datanya. Jika file rusak diperlakukan sebagai list kosong, pemanggilan \texttt{simpan()} berikutnya akan menimpa file itu dengan daftar kosong, dan data yang sebenarnya masih bisa diselamatkan hilang untuk selamanya. Kesalahan yang berisiko menghilangkan data harus dilaporkan dengan jelas, bukan disembunyikan.
+
+\begin{tips}[Menyimpan dengan Aman]
+Untuk aplikasi sungguhan, tulislah data ke file sementara lebih dulu, misalnya \texttt{perpus.json.tmp}, lalu ganti file lama dengan \texttt{os.replace()}. Penggantian ini terjadi dalam satu langkah, sehingga file data tidak pernah tertinggal dalam keadaan setengah tertulis walaupun program berhenti di tengah penyimpanan.
+\end{tips}
+
+\subsection{Penyimpanan yang Dapat Ditukar}
+
+Class \texttt{Perpustakaan} hanya tahu bahwa penyimpanannya punya method \texttt{muat()} dan \texttt{simpan()}, sesuai \texttt{Protocol} \texttt{Penyimpanan} (Bab 5). Ia tidak tahu apakah data berasal dari file JSON, file CSV, basis data, atau sekadar list di memori. Inilah polymorphism dari Bab 6 yang diterapkan pada urusan penyimpanan.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    b9kls/.style={rectangle,fill=marun,text=white,font=\sffamily\small\bfseries,minimum width=34mm,minimum height=8mm},
+    b9proto/.style={rectangle,draw=marun,line width=0.9pt,fill=merahmuda,align=center,minimum width=34mm,inner sep=2mm},
+    lbl/.style={font=\sffamily\scriptsize,text=gelap}]
+  \node[b9kls] (p) at (0,0)     {Perpustakaan};
+  \node[b9kls] (b) at (0,-2.6)  {Buku};
+  \node[b9proto] (s) at (6,0)   {\textit{\guillemotleft protocol\guillemotright}\\\textbf{Penyimpanan}\\\texttt{\footnotesize muat(), simpan()}};
+  \node[b9kls] (j) at (3.9,-2.6) {PenyimpananJSON};
+  \node[b9kls] (m) at (8.1,-2.6) {PenyimpananMemori};
+  \draw[{Diamond[length=4mm,width=3mm]}-,line width=0.9pt,marun] (p.south) -- node[right,lbl]{*} (b.north);
+  \draw[-{Latex},line width=0.9pt,marun] (p.east) -- node[above,lbl]{1} (s.west);
+  \draw[-{Triangle[open,length=3.4mm,width=3.4mm]},line width=0.9pt,marun,dashed] (j.north) -- (s.south -| j.north);
+  \draw[-{Triangle[open,length=3.4mm,width=3.4mm]},line width=0.9pt,marun,dashed] (m.north) -- (s.south -| m.north);
+\end{tikzpicture}
+\caption{\texttt{Perpustakaan} tersusun dari banyak \texttt{Buku} (composition) dan mengenal satu penyimpanan lewat protocol \texttt{Penyimpanan}. Panah putus-putus bersegitiga menyatakan bahwa sebuah class memenuhi protocol tanpa pewarisan.}
+\end{figure}
+
+Manfaatnya langsung terasa saat menguji program. Dengan \texttt{PenyimpananMemori}, perilaku perpustakaan bisa diperiksa tanpa membuat atau mengubah file apa pun.
+
+\begin{kode}[Menguji perpustakaan tanpa file]
+from penyimpanan import PenyimpananMemori
+from perpus import Perpustakaan
+
+data_awal = [{"kode": "X01", "judul": "Buku Uji", "peminjam": None}]
+memori = PenyimpananMemori(data_awal)
+uji = Perpustakaan(memori)
+uji.pinjamkan("X01", "Budi")
+uji.simpan()
+print(memori.data)
+\end{kode}
+
+\begin{keluaran}
+[{'kode': 'X01', 'judul': 'Buku Uji', 'peminjam': 'Budi'}]
+\end{keluaran}
+
+Menambah format penyimpanan baru juga tidak mengubah \texttt{Perpustakaan} sedikit pun. Cukup tulis class baru yang punya \texttt{muat()} dan \texttt{simpan()}, lalu berikan object-nya saat membuat perpustakaan. Praktik 3 di akhir bab meminta Anda membuat versi CSV.
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item Data di memori hilang saat program berhenti. \textbf{File handling} menulis data ke disk agar bertahan, lalu membacanya kembali saat dibutuhkan.
+  \item \texttt{open(path, mode, encoding="utf-8")} membuka file. Mode \texttt{"r"} membaca, \texttt{"w"} menulis dan \emph{mengosongkan} file lama, \texttt{"a"} menambah di akhir, dan \texttt{"x"} hanya membuat file baru.
+  \item Isi file dibaca dengan \texttt{read()}, \texttt{readline()}, \texttt{readlines()}, atau perulangan \texttt{for baris in f}. Setiap baris yang dibaca masih membawa karakter \texttt{\textbackslash n}.
+  \item File harus selalu ditutup. Pernyataan \textbf{\texttt{with}} menutup file secara otomatis dalam keadaan apa pun dan setara dengan pola \texttt{try}--\texttt{finally}.
+  \item Class menjadi \textbf{context manager} dengan mengimplementasikan \texttt{\_\_enter\_\_} dan \texttt{\_\_exit\_\_}.
+  \item \textbf{CSV} cocok untuk data tabel. Gunakan module \texttt{csv} dengan \texttt{newline=""}, dan ingat bahwa semua nilai dibaca sebagai string. \texttt{DictReader} dan \texttt{DictWriter} memakai nama kolom sebagai key.
+  \item \textbf{JSON} cocok untuk data bersarang dan mempertahankan tipe angka, boolean, dan \texttt{None}. Tuple kembali sebagai list, key dictionary selalu menjadi string, dan set ditolak.
+  \item \textbf{Serialisasi} mengubah object menjadi data yang bisa disimpan. Pola \texttt{ke\_dict()} dan class method \texttt{dari\_dict()} bekerja untuk class biasa, sedangkan data class bisa memakai \texttt{asdict()}.
+  \item Urusan file sebaiknya dipisahkan ke class penyimpanan tersendiri. File yang belum ada ditangani dengan wajar, file yang rusak dilaporkan, dan penyimpanan yang berbeda dapat ditukar berkat polymorphism.
+\end{itemize}
+
+% =====================================================================
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat.
+
+\begin{enumerate}
+  \item File \texttt{data.txt} sudah berisi 100 baris. Apa yang terjadi jika file itu dibuka dengan \texttt{open("data.txt", "w")}?
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item isi lama tetap ada dan teks baru ditambahkan di akhir
+    \item isi lama langsung dikosongkan
+    \item terjadi \texttt{FileExistsError}
+    \item file hanya bisa dibaca
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 2]
+with open("catatan.txt", encoding="utf-8") as f:
+    baris_pertama = f.readline()
+print(f.closed, repr(baris_pertama[-1]))
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{False 'n'}
+    \item \texttt{True '\textbackslash n'}
+    \item \texttt{False '\textbackslash n'}
+    \item \texttt{True 'i'}
+  \end{enumerate}
+
+  \item Argumen \texttt{newline=""} dipakai saat membuka file CSV agar \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item file dibuka dalam mode biner
+    \item module \texttt{csv} mengatur akhir baris sendiri sehingga tidak muncul baris kosong tambahan
+    \item baris kosong di file otomatis dihapus
+    \item koma di dalam nilai diabaikan
+  \end{enumerate}
+
+  \item Baris CSV \texttt{Ani,85} dibaca dengan \texttt{csv.reader} ke variabel \texttt{baris}. Apa hasil \texttt{baris[1] + baris[1]}?
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{170}
+    \item \texttt{'8585'}
+    \item \texttt{TypeError}
+    \item \texttt{'85 85'}
+  \end{enumerate}
+
+  \item Hasil \texttt{json.dumps(\{"aktif": True, "wali": None\})} adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{\{"aktif": True, "wali": None\}}
+    \item \texttt{\{"aktif": true, "wali": null\}}
+    \item \texttt{\{'aktif': true, 'wali': null\}}
+    \item \texttt{TypeError}, karena \texttt{None} tidak bisa disimpan
+  \end{enumerate}
+
+  \item Sebuah tuple \texttt{(1, 2)} disimpan ke file JSON, lalu dibaca kembali. Tipe datanya sekarang adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{tuple}
+    \item \texttt{list}
+    \item \texttt{str}
+    \item \texttt{dict}
+  \end{enumerate}
+
+  \item Pemanggilan \texttt{json.dump(buku, f)} dengan \texttt{buku} sebuah object class \texttt{Buku} buatan sendiri menghasilkan \texttt{TypeError}. Perbaikan yang paling tepat adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item membuka file dengan mode \texttt{"a"}
+    \item menyimpan \texttt{buku.ke\_dict()} dan menyediakan \texttt{Buku.dari\_dict()} untuk membacanya kembali
+    \item mengganti \texttt{json.dump} dengan \texttt{f.write(buku)}
+    \item menambahkan \texttt{indent=2}
+  \end{enumerate}
+
+  \item Method \texttt{\_\_exit\_\_} pada sebuah context manager dipanggil \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item hanya jika blok \texttt{with} selesai tanpa exception
+    \item hanya jika terjadi exception di dalam blok \texttt{with}
+    \item setiap kali program keluar dari blok \texttt{with}, dalam keadaan apa pun
+    \item sebelum \texttt{\_\_enter\_\_}
+  \end{enumerate}
+
+  \item Perbedaan \texttt{json.dump()} dan \texttt{json.dumps()} adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{dump()} menulis ke file, \texttt{dumps()} menghasilkan string
+    \item \texttt{dump()} untuk dictionary, \texttt{dumps()} untuk list
+    \item \texttt{dumps()} menulis beberapa file sekaligus
+    \item tidak ada perbedaan
+  \end{enumerate}
+
+  \item Method \texttt{PenyimpananJSON.muat()} melempar \texttt{DataRusakError} untuk file yang rusak, bukan mengembalikan list kosong. Alasannya adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item agar program berjalan lebih cepat
+    \item agar data lama tidak tertimpa daftar kosong saat \texttt{simpan()} dipanggil berikutnya
+    \item karena \texttt{json.load()} tidak bisa membaca file kosong
+    \item karena file rusak pasti tidak bisa dibuka dengan \texttt{open()}
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Jelaskan perbedaan mode \texttt{"r"}, \texttt{"w"}, \texttt{"a"}, dan \texttt{"x"} pada \texttt{open()}. Untuk setiap mode, berikan satu contoh situasi yang tepat untuk memakainya.
+  \item Mengapa file harus ditutup setelah dipakai? Jelaskan mengapa \texttt{with} lebih aman daripada memanggil \texttt{close()} di akhir kode.
+  \item Bandingkan format CSV dan JSON. Data apa yang lebih cocok disimpan dengan CSV, dan data apa yang lebih cocok dengan JSON? Berikan masing-masing satu contoh dari lingkungan kampus.
+  \item Jelaskan apa yang dimaksud serialisasi dan deserialisasi. Mengapa \texttt{dari\_dict()} sebaiknya dibuat sebagai class method?
+  \item Pada studi kasus perpustakaan, class \texttt{Perpustakaan} tidak membuka file sendiri, tetapi menerima object penyimpanan. Jelaskan dua keuntungan rancangan ini.
+\end{enumerate}
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Kerjakan praktik berikut secara berurutan. Simpan setiap praktik dalam folder terpisah, jalankan dari folder tersebut, dan pastikan keluarannya sesuai dengan contoh. Gunakan \texttt{with} dan \texttt{encoding="utf-8"} untuk setiap file.
+
+\subsection{Praktik 1: Buku Harian}
+
+\begin{itemize}
+  \item Buat class \texttt{BukuHarian} dengan attribute \texttt{path} dan dua method: \texttt{tulis(tanggal, teks)} yang menambahkan satu baris berformat \texttt{tanggal | teks} ke file, dan \texttt{tampilkan()} yang mencetak seluruh catatan beserta nomor urutnya.
+  \item Jika file belum ada, \texttt{tampilkan()} mencetak \texttt{Buku harian masih kosong} tanpa traceback.
+  \item Tolak teks kosong dengan \texttt{ValueError}, dan pastikan tidak ada baris yang tertulis ke file dalam kasus itu.
+  \item Jalankan program dua kali dan tunjukkan bahwa catatan dari kali pertama masih ada pada kali kedua.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 1]
+Buku harian masih kosong
+1. 2026-10-20 | Mulai mengerjakan tugas PBO
+2. 2026-10-21 | Bab 9 selesai dibaca
+Ditolak: teks catatan tidak boleh kosong
+\end{keluaran}
+
+\subsection{Praktik 2: Dari CSV ke Laporan JSON}
+
+Buat file \texttt{nilai\_pbo.csv} berisi kolom \texttt{nim}, \texttt{nama}, \texttt{tugas}, \texttt{uts}, dan \texttt{uas} untuk minimal lima mahasiswa. Sisipkan satu baris yang sengaja rusak, misalnya nilai UAS berisi \texttt{"-"}.
+
+\begin{itemize}
+  \item Baca file dengan \texttt{csv.DictReader}. Hitung nilai akhir dengan bobot 20\% tugas, 30\% UTS, dan 50\% UAS, lalu tentukan nilai huruf.
+  \item Baris yang rusak dilewati dan dilaporkan, tanpa menghentikan program.
+  \item Tulis hasilnya ke \texttt{laporan.json} dalam bentuk dictionary berisi nama kelas, jumlah mahasiswa, rata-rata kelas, dan list data setiap mahasiswa.
+  \item Baca kembali \texttt{laporan.json} dan tampilkan mahasiswa dengan nilai tertinggi.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 2]
+Baris 4 dilewati (Dodi): nilai uas '-' bukan angka
+Laporan ditulis: 4 mahasiswa, rata-rata 81.65
+Nilai tertinggi: Citra (90.4, A)
+\end{keluaran}
+
+\subsection{Praktik 3: Gudang Persisten}
+
+Kembangkan class \texttt{Gudang} dari Praktik 2 Bab 8 agar stoknya tersimpan di file.
+
+\begin{langkah}{Langkah Pengerjaan}
+  \item Pisahkan urusan file dari class \texttt{Gudang}. Constructor \texttt{Gudang} menerima object penyimpanan dengan method \texttt{muat()} dan \texttt{simpan()}, seperti class \texttt{Perpustakaan} di bab ini.
+  \item Buat \texttt{PenyimpananJSON} dan \texttt{PenyimpananCSV} untuk gudang. Pada versi CSV, ubah kembali kolom jumlah stok menjadi \texttt{int} saat memuat, karena CSV membaca semua nilai sebagai string.
+  \item Tangani file yang belum ada sebagai gudang kosong, dan laporkan file yang rusak dengan custom exception.
+  \item Simpan stok secara otomatis setelah setiap transaksi yang berhasil, dan pastikan transaksi yang gagal tidak mengubah isi file.
+  \item Jalankan program dua kali dengan penyimpanan JSON, lalu dua kali dengan penyimpanan CSV. Tunjukkan bahwa keduanya menghasilkan keluaran yang sama tanpa mengubah satu baris pun di class \texttt{Gudang}.
+\end{langkah}
+
+\begin{penting}[Kriteria Penilaian]
+\begin{itemize}
+  \item Semua file dibuka dengan \texttt{with} dan \texttt{encoding="utf-8"}, serta \texttt{newline=""} untuk CSV.
+  \item Class \texttt{Gudang} tidak membuka file sendiri, dan kedua penyimpanan dapat ditukar tanpa mengubahnya.
+  \item File yang belum ada dan file yang rusak ditangani dengan cara yang berbeda dan tepat.
+  \item Data yang dimuat dari CSV dikonversi ke tipe yang benar sebelum dipakai.
+\end{itemize}
+\end{penting}

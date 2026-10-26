@@ -1,0 +1,436 @@
+\subjudul{Memberi tampilan pada aplikasi yang sudah dibangun.}
+\chapter{Implementasi GUI}
+
+% Pengaturan listing dibatasi pada bab ini.
+\begingroup
+\ifPDFTeX\else
+  \lstset{basicstyle=\ttfamily\small\addfontfeatures{Ligatures=TeXOff}}
+\fi
+
+\begin{dibabini}
+  \item Implementasi GUI
+  \item Komponen GUI
+  \item Event handling
+  \item Integrasi GUI dengan class OOP
+\end{dibabini}
+
+Pada Bab 12, petugas perpustakaan sudah dapat mendaftarkan buku dan anggota, mencatat peminjaman, mengembalikan buku, serta menyimpan data melalui menu terminal. Sekarang kita menyediakan pekerjaan yang sama melalui jendela, formulir, tombol, dan tabel. Class domain serta layanan tetap menjadi dasar aplikasi; yang kita tambahkan adalah cara pengguna berinteraksi dengannya.
+
+Bab ini melanjutkan dasar Tkinter pada Bab 10 dan rancangan aplikasi pada Bab 11. Hasilnya adalah GUI Sistem Peminjaman Perpustakaan dengan tiga tab: Buku, Anggota, dan Peminjaman. Seluruh kode tambahan ditempatkan dalam satu file \texttt{gui.py} agar hubungan antarkomponen mudah ditelusuri sebelum tampilan dipecah menjadi beberapa module.
+
+\begin{info}[Capaian Pembelajaran]
+Setelah mempelajari bab ini, Anda diharapkan mampu:
+\begin{itemize}
+  \item mengubah kebutuhan aplikasi menjadi susunan formulir dan tabel;
+  \item memilih widget dan mengatur hubungan widget dengan data masukan;
+  \item menulis event handler yang membaca input, memanggil layanan, dan memperbarui tampilan;
+  \item menghubungkan GUI dengan package OOP tanpa menggandakan aturan transaksi;
+  \item menangani kegagalan operasi, penyimpanan, dan penutupan jendela;
+  \item memeriksa kesesuaian data di layar dengan keadaan layanan serta file simpanan.
+\end{itemize}
+\end{info}
+
+% =====================================================================
+\section{Implementasi GUI}
+% =====================================================================
+
+\subsection{Menentukan Pekerjaan Pengguna}
+
+Implementasi GUI dimulai dengan pekerjaan yang ingin diselesaikan pengguna. Petugas membutuhkan tempat untuk mengisi data, melihat hasil pendaftaran, memilih buku yang tersedia, dan mengetahui apakah peminjaman sudah selesai. Tombol dan tabel dipilih untuk mendukung pekerjaan tersebut.
+
+\begin{table}[htbp]
+\caption{Pemetaan kebutuhan ke bagian antarmuka.}
+\label{tab:b13-kebutuhan}
+\begin{tabularx}{\linewidth}{P{32mm}LL}
+\kepala \kp{Kebutuhan} & \kp{Bagian GUI} & \kp{Operasi layanan} \\
+Mendaftarkan buku & Formulir kode, judul, dan jenis pada tab Buku & \texttt{tambah\_buku()} \\
+Mendaftarkan anggota & Formulir ID dan nama pada tab Anggota & \texttt{tambah\_anggota()} \\
+Meminjam buku & Pilihan anggota, buku tersedia, tanggal, dan tombol Pinjam & \texttt{pinjamkan()} \\
+Mengembalikan buku & Pilihan baris riwayat, tanggal, dan tombol pengembalian & \texttt{kembalikan()} \\
+Melihat keadaan & Tabel buku, anggota, dan seluruh riwayat & Method daftar dan \texttt{tersedia()} \\
+Menyimpan data & Tombol Simpan dan konfirmasi saat keluar & \texttt{simpan()} \\
+\end{tabularx}
+\end{table}
+
+Tab Buku memperlihatkan jenis dan status ketersediaan buku. Tab Anggota memuat ID dan nama anggota. Tab Peminjaman menampilkan tanggal pinjam, jatuh tempo, tanggal kembali, dan status transaksi. Pilihan buku pada formulir hanya memuat kode yang tersedia. Layanan tetap memeriksa ketersediaan ketika transaksi diminta.
+
+\subsection{Menyiapkan Proyek dan Tkinter}
+
+Gunakan proyek Bab 12 yang sudah lengkap dan berhasil dijalankan. Tambahkan \texttt{gui.py} sejajar dengan \texttt{main.py}; isi lengkap file tersebut terdapat pada Subbab Integrasi GUI dengan Class OOP. Package \texttt{perpustakaan} tetap dipakai melalui antarmuka publiknya.
+
+\begin{keluaran}[Struktur file yang digunakan]
+proyek_perpustakaan/
+|-- main.py
+|-- gui.py
+|-- perpustakaan/
+|   |-- __init__.py
+|   |-- kesalahan.py
+|   |-- model.py
+|   |-- penyimpanan.py
+|   `-- layanan.py
+`-- data/
+    `-- perpustakaan.json
+\end{keluaran}
+
+Gunakan Python 3.10 atau yang lebih baru dengan dukungan Tkinter. Periksa dukungannya dari terminal dengan perintah berikut; sebuah jendela demonstrasi akan terbuka jika Tkinter tersedia. Tutup jendela itu sebelum menjalankan aplikasi.
+
+\begin{keluaran}[Memeriksa Tkinter]
+python -m tkinter
+\end{keluaran}
+
+Tkinter merupakan antarmuka Python untuk Tcl/Tk, tetapi dapat tidak disertakan pada distribusi Python tertentu. Jika module tidak ditemukan atau jendela tidak dapat dibuka, lengkapi dukungan Tkinter sesuai petunjuk distribusi Python dan jalankan pada lingkungan desktop. Rujukan resmi tersedia pada \href{https://docs.python.org/3.12/library/tkinter.html}{dokumentasi Tkinter Python}.
+
+\begin{penting}[Satu Aplikasi untuk Satu File Data]
+Versi terminal dan GUI menggunakan lokasi data yang sama, yaitu folder \texttt{data} di samping file program. Jalankan salah satunya dalam satu waktu. Aplikasi belum mengatur perubahan serentak dari beberapa proses; dua jendela yang menyimpan data berbeda dapat saling menimpa hasil simpanan. Gunakan salinan proyek untuk latihan agar data percobaan mudah dimulai ulang.
+\end{penting}
+
+\subsection{Menentukan Alur Kerja Jendela}
+
+Saat aplikasi dimulai, data dimuat sebelum jendela utama ditampilkan. Jika belum ada file, layanan memulai keadaan kosong. Jika file ada tetapi rusak atau tidak dapat dibaca, GUI menampilkan pesan dan berhenti. Keputusan ini mengikuti perilaku aplikasi terminal pada Bab 12.
+
+Selama aplikasi berjalan, perubahan berada di memori. Tombol Simpan menulis keadaan terbaru ke file. Setelah perubahan yang berhasil, teks status mengingatkan bahwa data belum disimpan. Jika pengguna menutup jendela dalam keadaan tersebut, aplikasi menawarkan pilihan menyimpan, keluar tanpa menyimpan, atau membatalkan penutupan.
+
+% =====================================================================
+\section{Komponen GUI}
+% =====================================================================
+
+\subsection{Memilih Widget sesuai Tugasnya}
+
+Contoh ini memakai \texttt{tkinter.ttk} untuk widget bertema. Tampilan detail tombol, tab, dan tabel dapat mengikuti sistem operasi. Kita mengatur susunan serta perilakunya melalui kode, tanpa bergantung pada kesamaan warna atau bentuk di setiap komputer.
+
+\begin{table}[htbp]
+\caption{Widget dan perannya pada aplikasi perpustakaan.}
+\label{tab:b13-widget}
+\begin{tabularx}{\linewidth}{P{35mm}L}
+\kepala \kp{Komponen} & \kp{Pemakaian} \\
+\texttt{Tk} & Satu jendela utama yang menjalankan event loop. \\
+\texttt{ttk.Notebook} & Mengelompokkan pekerjaan ke tab Buku, Anggota, dan Peminjaman. \\
+\texttt{ttk.Frame} & Menampung formulir, tabel, atau baris tombol. \\
+\texttt{ttk.Label} & Memberi nama kolom isian, petunjuk, judul, dan pesan status. \\
+\texttt{ttk.Entry} & Menerima teks kode, judul, ID, nama, dan tanggal transaksi. \\
+\texttt{ttk.Combobox} & Memilih jenis buku, ID anggota terdaftar, dan kode buku tersedia. \\
+\texttt{ttk.Button} & Menjalankan pendaftaran, peminjaman, pengembalian, penyimpanan, atau penutupan. \\
+\texttt{ttk.Treeview} & Menampilkan data dalam baris dan kolom serta memilih satu catatan. \\
+\texttt{ttk.Scrollbar} & Menggeser tabel secara vertikal dan horizontal. \\
+\texttt{messagebox} & Melaporkan penolakan atau meminta keputusan sebelum menutup. \\
+\end{tabularx}
+\end{table}
+
+\texttt{StringVar} menghubungkan nilai teks dengan widget melalui opsi \texttt{textvariable}. Method \texttt{get()} membaca isinya, sedangkan \texttt{set()} memperbaruinya. Nilai tanggal di \texttt{StringVar} masih berupa teks; GUI mengubahnya menjadi \texttt{date} sebelum memanggil layanan.
+
+\subsection{Menyusun Formulir dan Tabel}
+
+Jendela dibagi menjadi judul, area tab yang dapat membesar, serta baris status dan tombol di bagian bawah. Di dalam setiap tab, formulir berada di atas tabel. \texttt{pack()} mengatur susunan antarkelompok, sedangkan \texttt{grid()} mengatur kolom formulir dan hubungan tabel dengan scrollbar. Keduanya digunakan pada parent yang berbeda.
+
+Pengaturan \texttt{fill="both"} dan \texttt{expand=True} memberi ruang tambahan kepada area tabel. Pada parent yang memakai \texttt{grid()}, bobot baris dan kolom ditetapkan dengan \texttt{rowconfigure()} serta \texttt{columnconfigure()}. Scrollbar tetap tersedia ketika isi tabel lebih panjang atau lebih lebar daripada area yang terlihat.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm,font=\sffamily\footnotesize,
+  b13teks/.style={anchor=west,inner sep=0pt,text=gelap},
+  b13kolom/.style={anchor=west,draw=abu,fill=white,minimum height=7mm,
+    inner xsep=2mm,align=left,text=gelap},
+  b13tombol/.style={draw=marun,fill=merahmuda,text=marun,
+    minimum height=7mm,inner xsep=3mm}]
+  \filldraw[fill=kertas,draw=abu] (0,0) rectangle (158,-104);
+  \fill[marun] (0,0) rectangle (158,-8);
+  \node[b13teks,text=white] at (4,-4) {Sistem Peminjaman Perpustakaan};
+  \node[b13teks,text=abu] at (5,-14) {Buku};
+  \node[b13teks,text=abu] at (28,-14) {Anggota};
+  \filldraw[fill=white,draw=garis] (51,-10) rectangle (88,-18);
+  \node[b13teks,text=merah] at (54,-14) {Peminjaman};
+  \draw[garis] (3,-18) -- (155,-18);
+  \node[b13teks] at (4,-24) {ID anggota};
+  \node[b13teks] at (43,-24) {Kode buku tersedia};
+  \node[b13teks] at (91,-24) {Tanggal transaksi};
+  \node[b13kolom,text width=27mm] at (4,-32) {M001};
+  \node[b13kolom,text width=35mm] at (43,-32) {pilih kode buku};
+  \node[b13kolom,text width=48mm] at (91,-32) {2026-10-27};
+  \node[b13tombol,anchor=west] at (4,-44) {Pinjam};
+  \node[b13tombol,anchor=west] at (33,-44) {Kembalikan pilihan};
+  \node[b13teks,font=\sffamily\scriptsize] at (4,-54)
+    {Untuk pengembalian, pilih satu baris riwayat dan isi tanggal transaksi.};
+  \filldraw[fill=white,draw=garis] (4,-59) rectangle (154,-86);
+  \fill[merahmuda] (4,-59) rectangle (154,-67);
+  \foreach \x/\t in {6/ID,23/Anggota,43/Buku,60/Pinjam,85/Jatuh tempo,111/Kembali,138/Status}
+    \node[b13teks,font=\sffamily\scriptsize\bfseries] at (\x,-63) {\t};
+  \foreach \x/\t in {6/P001,23/M001,43/B001,60/2026-10-27,85/2026-11-10,111/-,138/aktif}
+    \node[b13teks,font=\sffamily\scriptsize] at (\x,-73) {\t};
+  \draw[garis] (4,-79) -- (154,-79);
+  \node[b13teks,font=\sffamily\scriptsize] at (4,-95)
+    {Peminjaman tercatat. Perubahan belum disimpan.};
+  \node[b13tombol] at (121,-96) {Simpan};
+  \node[b13tombol] at (145,-96) {Tutup};
+\end{tikzpicture}
+\caption{Skema tab Peminjaman setelah B001 dipinjam. B001 tidak lagi muncul sebagai pilihan buku tersedia. Gambar menunjukkan susunan informasi; bentuk widget sebenarnya mengikuti tema Tkinter pada komputer pembaca.}
+\label{fig:b13-tampilan}
+\end{figure}
+
+\subsection{Memakai Identitas yang Tetap pada Pilihan}
+
+Combobox anggota menyimpan ID anggota, dan combobox buku menyimpan kode buku. Nama anggota dan judul dapat dilihat pada tab masing-masing. Pemakaian ID menghindari masalah ketika dua anggota bernama sama atau dua eksemplar buku berjudul sama. Program tidak perlu memotong teks label untuk menebak identitas object.
+
+Pada \texttt{Treeview}, setiap baris diberi \texttt{iid} yang sama dengan identitas domainnya. Misalnya, baris peminjaman P001 memakai \texttt{iid="P001"}. Hasil \texttt{selection()} dapat langsung digunakan sebagai ID ketika memanggil layanan. Posisi baris tidak dijadikan ID karena urutannya dapat berubah.
+
+Combobox dibuat dengan \texttt{state="readonly"} agar pengguna memilih dari daftar yang disediakan. Tabel memakai \texttt{selectmode="browse"} agar hanya satu catatan dipilih untuk pengembalian. Widget tersebut membantu masukan pengguna; aturan tentang keabsahan ID dan keadaan transaksi tetap diperiksa oleh layanan.
+
+% =====================================================================
+\section{Event Handling}
+% =====================================================================
+
+\subsection{Menghubungkan Tindakan dengan Method}
+
+Event handler pada aplikasi berupa method dari object \texttt{AplikasiPerpustakaan}. Tombol menerima rujukan method melalui \texttt{command}, sedangkan event keyboard atau perubahan pilihan didaftarkan melalui \texttt{bind()}. Pendaftaran dilakukan sekali ketika widget dibuat; Tkinter memanggil handler ketika event yang sesuai terjadi.
+
+\begin{table}[htbp]
+\caption{Event dan handler pada GUI.}
+\label{tab:b13-event}
+\begin{tabularx}{\linewidth}{P{41mm}P{34mm}L}
+\kepala \kp{Tindakan pengguna} & \kp{Handler} & \kp{Hasil} \\
+Klik Daftarkan buku & \texttt{tambah\_buku()} & Membentuk buku sesuai jenis dan mendaftarkannya. \\
+Klik Daftarkan anggota & \texttt{tambah\_anggota()} & Membentuk anggota dan mendaftarkannya. \\
+Klik Pinjam & \texttt{pinjam()} & Membaca pilihan serta tanggal, lalu meminta transaksi baru. \\
+Klik Kembalikan pilihan & \texttt{kembalikan()} & Menggunakan ID baris yang dipilih untuk pengembalian. \\
+Pilih baris pada tabel buku & \texttt{pilih\_buku(event)} & Mengisi pilihan buku jika kode tersebut tersedia. \\
+Klik Simpan atau tekan Ctrl+S & \texttt{simpan(}\newline\texttt{event=None)} & Menyimpan data dan memperbarui teks status. \\
+Klik Tutup atau tombol X & \texttt{tutup()} & Memeriksa perubahan yang belum disimpan. \\
+\end{tabularx}
+\end{table}
+
+\begin{penting}[Rujukan Method, Bukan Hasil Pemanggilannya]
+Gunakan \texttt{command=self.pinjam}, tanpa tanda kurung. Bentuk \texttt{command=self.pinjam()} menjalankan method ketika tombol dibuat dan menyerahkan hasilnya sebagai callback. Handler dari \texttt{bind()} menerima object event; parameter \texttt{event=None} memungkinkan handler tertentu dipakai oleh tombol maupun event keyboard.
+\end{penting}
+
+\subsection{Membaca Input dan Menangani Penolakan}
+
+Satu operasi GUI mengikuti urutan: baca input, ubah format bila diperlukan, panggil layanan, lalu perbarui tampilan jika berhasil. Fungsi \texttt{baca\_tanggal()} menerima teks seperti \texttt{2026-10-27} dan menghasilkan object \texttt{date}. Format yang salah atau tanggal yang tidak ada, seperti 30 Februari, ditolak dengan pesan yang menjelaskan bentuk input yang benar.
+
+Validasi format termasuk pekerjaan antarmuka. Validasi aturan seperti tanggal kembali yang mendahului tanggal pinjam tetap berada pada model. Dengan pembagian ini, kesalahan input dapat dijelaskan kepada pengguna tanpa memindahkan aturan peminjaman ke handler.
+
+Method bantuan \texttt{\_jalankan()} menerima sebuah fungsi operasi dan pesan keberhasilan. Ia menangkap \texttt{PerpustakaanError} serta \texttt{ValueError}, menampilkan kotak pesan jika operasi ditolak, lalu mengembalikan \texttt{False}. Jika operasi berhasil, ia menandai adanya perubahan, menyegarkan tampilan, dan mengembalikan \texttt{True}. Formulir pendaftaran hanya dikosongkan setelah hasilnya \texttt{True}, sehingga input yang ditolak masih dapat dikoreksi.
+
+\texttt{\_jalankan()} tidak menangkap seluruh \texttt{Exception}. Kesalahan pemrograman yang belum dikenali perlu diperbaiki, bukan disembunyikan sebagai masukan pengguna yang salah. Handler juga tidak memanggil \texttt{input()} atau membuat perulangan \texttt{while True}; setelah selesai, kendali kembali ke event loop.
+
+\subsection{Menyegarkan Tampilan setelah Keadaan Berubah}
+
+Method \texttt{segarkan()} membaca daftar terbaru dari layanan, mengisi ulang tabel, lalu memperbarui pilihan anggota dan buku tersedia. Jika sebuah kode buku sudah tidak tersedia, pilihan lama untuk kode tersebut dikosongkan. Pemilihan baris yang masih ada dipertahankan melalui \texttt{iid}.
+
+Contohnya, setelah P001 dibuat, tabel riwayat menampilkan P001 sebagai aktif, tabel buku menampilkan B001 sebagai dipinjam, dan combobox tidak lagi menawarkan B001. Setelah P001 dikembalikan, riwayat tetap ada dengan status selesai dan B001 kembali tersedia. Semua perubahan layar berasal dari keadaan layanan yang sama.
+
+\subsection{Menyimpan dan Menutup dengan Keputusan yang Jelas}
+
+Attribute \texttt{berubah} menandai adanya operasi yang berhasil sejak penyimpanan terakhir. Ini adalah keadaan antarmuka, berbeda dari property \texttt{aktif} pada transaksi. Memilih baris atau mengganti isi formulir yang belum dikirim tidak mengubah data domain dan tidak menandai perubahan yang perlu disimpan.
+
+Ketika \texttt{simpan()} berhasil, penanda menjadi \texttt{False}. Ketika penyimpanan gagal, penanda tetap seperti sebelumnya dan jendela tetap terbuka. Tombol X dihubungkan ke \texttt{tutup()} melalui protokol \texttt{WM\_DELETE\_WINDOW}, sehingga pemeriksaan tersebut berlaku juga ketika pengguna menutup lewat bingkai jendela.
+
+\begin{table}[htbp]
+\caption{Keputusan saat menutup jendela dengan perubahan belum tersimpan.}
+\label{tab:b13-tutup}
+\begin{tabularx}{\linewidth}{P{28mm}L}
+\kepala \kp{Pilihan} & \kp{Perilaku aplikasi} \\
+Ya & Menyimpan terlebih dahulu; jendela ditutup hanya jika penyimpanan berhasil. \\
+Tidak & Menutup tanpa menyimpan perubahan sesi tersebut. File simpanan sebelumnya tetap digunakan pada pembukaan berikutnya. \\
+Batal & Membatalkan penutupan dan kembali ke jendela dengan keadaan yang sama. \\
+\end{tabularx}
+\end{table}
+
+\texttt{askyesnocancel()} menghasilkan \texttt{True}, \texttt{False}, atau \texttt{None}. Pemeriksaan \texttt{jawaban is None} membedakan Batal dari Tidak. Menyatukan keduanya dengan \texttt{if not jawaban} akan kehilangan perbedaan keputusan tersebut.
+
+% =====================================================================
+\needspace{8\baselineskip}
+\section{Integrasi GUI dengan Class OOP}
+% =====================================================================
+
+\subsection{Memisahkan Tampilan, Layanan, dan Penyimpanan}
+
+Class \texttt{AplikasiPerpustakaan} menerima object jendela dan object layanan melalui constructor. Class ini memiliki rujukan ke keduanya serta menyimpan widget dan variabel formulir sebagai attribute. Class domain tidak mewarisi widget dan tidak mengimpor \texttt{tkinter}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm,font=\sffamily\small,
+  b13lapis/.style={draw=marun,fill=kertas,align=center,text width=40mm,
+    minimum height=17mm,inner sep=2mm},
+  b13panah/.style={-{Latex},draw=marun,line width=0.9pt}]
+  \node[b13lapis] (gui) at (0,0) {\textbf{GUI}\\widget dan handler};
+  \node[b13lapis] (layanan) at (53,0) {\textbf{Perpustakaan}\\koordinasi aturan};
+  \node[b13lapis] (model) at (106,0) {\textbf{Model domain}\\buku, anggota, transaksi};
+  \node[b13lapis] (json) at (53,-35) {\textbf{PenyimpananJSON}\\baca dan tulis file};
+  \draw[b13panah] (gui) -- (layanan);
+  \draw[b13panah] (layanan) -- (model);
+  \draw[b13panah] (layanan) -- node[right,font=\sffamily\footnotesize]{simpan/muat} (json);
+\end{tikzpicture}
+\caption{GUI memakai layanan yang sama dengan menu terminal. Tanda panah menyatakan arah pemakaian komponen; bukan relasi inheritance.}
+\label{fig:b13-integrasi}
+\end{figure}
+
+GUI membuat object \texttt{BukuCetak}, \texttt{EBook}, atau \texttt{Anggota} dari formulir, kemudian mendaftarkannya lewat layanan. Peminjaman baru dibuat oleh layanan melalui \texttt{pinjamkan()}, sesuai rancangan composition pada Bab 11. GUI membaca property transaksi untuk menampilkan hasil, tanpa menulis ke dictionary atau attribute internal model.
+
+Pemisahan tersebut memungkinkan pemeriksaan layanan Bab 12 tetap dipakai ketika antarmuka berubah. Pendekatan menyusun dan memeriksa komponen secara bertahap juga dibahas oleh \cite{wilson2024design}. Pada bab ini, pemeriksaan GUI ditambahkan untuk menilai hubungan input, callback, dan tampilan yang tidak tercakup oleh pemeriksaan layanan saja.
+
+\subsection{Kode Lengkap Antarmuka}
+
+Buat \texttt{gui.py} di folder utama proyek, lalu salin \textbf{seluruh listing berikut sebagai isi file tersebut}. Seluruh helper widget, handler, dan fungsi awal aplikasi sudah disertakan. Tidak ada perubahan yang diperlukan pada package \texttt{perpustakaan} dari Bab 12.
+
+\begin{kode}[gui.py]
+%<file:gui.py>
+\end{kode}
+
+Method yang diawali garis bawah dipakai untuk menyusun bagian tampilan atau menjalankan pekerjaan bantuan. Method publik seperti \texttt{pinjam()}, \texttt{kembalikan()}, dan \texttt{simpan()} menjadi callback. Fungsi lokal \texttt{aksi()} serta \texttt{lambda} menunda pemanggilan layanan sampai fungsi itu dijalankan oleh \texttt{\_jalankan()}.
+
+Fungsi \texttt{main()} membuat satu object \texttt{Tk}, menyembunyikannya sementara selama pemuatan, lalu menampilkan jendela setelah layanan siap. Jika pemuatan gagal, kotak pesan ditampilkan dengan parent yang jelas dan jendela dihancurkan. Jika berhasil, \texttt{mainloop()} menangani interaksi sampai pengguna menutup aplikasi.
+
+\subsection{Menjalankan dan Menelusuri Hasilnya}
+
+Jalankan dari folder proyek dengan perintah berikut. Hasil program berupa jendela, tabel, teks status, dan kotak pesan; tidak ada rangkaian \texttt{print()} seperti pada demo terminal.
+
+\begin{keluaran}[Perintah menjalankan aplikasi]
+python gui.py
+\end{keluaran}
+
+Untuk memperoleh hasil yang dapat dibandingkan, gunakan salinan proyek dengan folder data baru, lalu ikuti langkah berikut.
+
+\begin{langkah}{Mencoba Satu Siklus Peminjaman}
+  \item Pada tab Buku, daftarkan B001 berjudul Dasar OOP dengan jenis cetak dan E001 berjudul Dasar Python dengan jenis ebook.
+  \item Pada tab Anggota, daftarkan M001 dengan nama Ani.
+  \item Pada tab Peminjaman, pilih M001 dan B001, isi tanggal \texttt{2026-10-27}, lalu klik Pinjam.
+  \item Periksa P001: tanggal jatuh tempo \texttt{2026-11-10}, tanggal kembali berupa tanda \texttt{-}, dan status aktif. B001 ditampilkan sebagai dipinjam dan tidak lagi muncul pada pilihan buku tersedia.
+  \item Pilih baris P001, ubah tanggal transaksi menjadi \texttt{2026-11-02}, lalu klik Kembalikan pilihan. P001 menjadi selesai dan B001 tersedia kembali.
+  \item Pilih M001 dan E001, gunakan tanggal \texttt{2026-11-03}, lalu klik Pinjam. Transaksi P002 jatuh tempo pada \texttt{2026-11-10}, sesuai masa pinjam e-book tujuh hari.
+  \item Klik Simpan, tutup aplikasi, lalu buka kembali. Kedua buku, anggota, dan dua catatan riwayat harus tetap terlihat.
+\end{langkah}
+
+\begin{table}[htbp]
+\caption{Keadaan layar yang diharapkan pada percobaan.}
+\label{tab:b13-hasil}
+\begin{tabularx}{\linewidth}{P{37mm}LL}
+\kepala \kp{Tahap} & \kp{Buku} & \kp{Riwayat} \\
+Pendaftaran selesai & B001 dan E001 tersedia & Belum ada transaksi \\
+B001 dipinjam & B001 dipinjam; E001 tersedia & P001 aktif, jatuh tempo 10 November \\
+B001 dikembalikan & B001 dan E001 tersedia & P001 selesai, kembali 2 November \\
+E001 dipinjam & B001 tersedia; E001 dipinjam & P001 selesai dan P002 aktif \\
+Simpan dan buka ulang & Sama dengan keadaan terakhir tersimpan & ID, tanggal, dan status tetap sama \\
+\end{tabularx}
+\end{table}
+
+Tanggal awal pada formulir diisi dengan tanggal komputer saat aplikasi dibuka. Pembaca harus menggantinya dengan tanggal pada langkah percobaan jika ingin mencocokkan hasil tersebut. ID P001 dan P002 berlaku untuk data baru; proyek yang sudah memiliki riwayat akan melanjutkan nomor yang tersimpan.
+
+\subsection{Memeriksa Penolakan dan Penutupan}
+
+Periksa pula masukan dan keputusan yang gagal. Keberhasilan GUI mencakup kemampuan menjelaskan penolakan sambil mempertahankan data yang benar. Gunakan tabel berikut sebagai daftar skenario yang dapat diulang pada salinan proyek.
+
+\begin{table}[htbp]
+\caption{Pemeriksaan GUI di luar alur normal.}
+\label{tab:b13-pemeriksaan}
+\begin{tabularx}{\linewidth}{P{44mm}L}
+\kepala \kp{Percobaan} & \kp{Hasil yang diharapkan} \\
+Daftarkan kode buku yang sama & Pesan penolakan; buku lama tetap ada dan isian masih dapat dikoreksi. \\
+Pinjam tanpa memilih anggota atau buku & Pesan meminta pilihan; tidak ada transaksi baru. \\
+Isi tanggal \texttt{2026-02-30} & Pesan format/tanggal tidak sah; riwayat tidak berubah. \\
+Kembalikan tanpa memilih baris & Pesan meminta satu baris; tidak ada catatan yang berubah. \\
+Kembalikan sebelum tanggal pinjam & Layanan menolak; transaksi tetap aktif. \\
+Kembalikan catatan yang sudah selesai & Layanan menolak; tanggal kembali sebelumnya tetap ada. \\
+Tutup setelah perubahan, lalu pilih Batal & Jendela tetap terbuka dengan data dan penanda perubahan yang sama. \\
+Pilih Ya, tetapi penyimpanan gagal & Pesan kegagalan; jendela tetap terbuka dan perubahan belum dianggap tersimpan. \\
+Buka salinan file JSON yang rusak & Pesan pemuatan gagal; jendela utama tidak melanjutkan dengan data kosong. \\
+\end{tabularx}
+\end{table}
+
+Daftar pilihan buku tersedia merupakan bantuan tampilan, bukan pengganti pemeriksaan transaksi. Larangan peminjaman ganda sudah diperiksa pada layanan Bab 12 dan tetap berlaku ketika method dipanggil dari antarmuka lain. Pengujian GUI melengkapi pemeriksaan tersebut dengan menilai pilihan widget, perubahan tabel, pesan, dan keputusan penutupan.
+
+\begin{tips}[Jika Jendela Terasa Tidak Menanggapi]
+Handler berjalan pada event loop yang sama dengan tampilan. Pekerjaan yang lama dapat menunda respons jendela. Contoh ini membaca dan menulis file lokal berukuran kecil. Jika kelak ada unduhan atau pengolahan besar, pelajari pembagian pekerjaan dan penjadwalan pembaruan GUI; jangan menambahkan \texttt{sleep()} atau perulangan panjang ke handler.
+\end{tips}
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item GUI menerjemahkan pekerjaan pengguna menjadi formulir, pilihan, tombol, tabel, dan umpan balik yang jelas.
+  \item \texttt{StringVar} menghubungkan teks dengan widget. Konversi format dilakukan sebelum nilai diteruskan ke layanan.
+  \item Event handler didaftarkan sebagai rujukan method. \texttt{command} dan \texttt{bind()} mempunyai cara pemberian argumen yang berbeda.
+  \item ID domain dipakai sebagai nilai pilihan dan identitas baris tabel, sehingga operasi tidak bergantung pada urutan baris atau keunikan nama.
+  \item Tampilan disegarkan dari layanan setelah operasi berhasil; operasi yang ditolak tidak dianggap sebagai perubahan data baru.
+  \item Model dan layanan menjaga aturan OOP, sedangkan GUI membaca input, memanggil operasi, dan menyajikan hasilnya.
+  \item Penyimpanan yang gagal serta pembatalan penutupan tidak boleh dianggap sebagai keberhasilan menyimpan data.
+\end{itemize}
+
+% =====================================================================
+\needspace{9\baselineskip}
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+\begin{enumerate}
+  \item Pendaftaran callback tombol yang benar adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{command=self.pinjam()}
+    \item \texttt{command=self.pinjam}
+    \item \texttt{command="self.pinjam()"}
+    \item \texttt{command=None} untuk menjalankan peminjaman
+  \end{enumerate}
+  \item Keuntungan memakai ID peminjaman sebagai \texttt{iid} tabel adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item identitas catatan tetap dapat ditemukan walaupun urutan baris berubah
+    \item semua tanggal otomatis menjadi sah
+    \item layanan tidak lagi diperlukan
+    \item catatan selesai otomatis dihapus
+  \end{enumerate}
+  \item Pemeriksaan buku masih tersedia ketika transaksi dibuat menjadi tanggung jawab \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item warna tombol
+    \item teks judul jendela
+    \item layanan \texttt{Perpustakaan}
+    \item scrollbar tabel
+  \end{enumerate}
+  \item Jika pengguna memilih Batal pada dialog penutupan, aplikasi harus \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item menutup tanpa menyimpan
+    \item menghapus perubahan di memori
+    \item menganggap penyimpanan berhasil
+    \item tetap membuka jendela dengan keadaan yang sama
+  \end{enumerate}
+  \item Pernyataan yang tepat setelah pengembalian berhasil adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item seluruh riwayat peminjaman buku dihapus
+    \item layanan berubah, kemudian GUI membaca keadaan terbaru untuk ditampilkan
+    \item GUI cukup mengubah tulisan status tanpa memanggil layanan
+    \item tanggal kembali pada model tetap kosong
+  \end{enumerate}
+\end{enumerate}
+
+\begin{info}[Kunci Pilihan Ganda]
+1 b; 2 a; 3 c; 4 d; 5 b.
+\end{info}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Jelaskan perbedaan pemeriksaan format tanggal di GUI dan pemeriksaan tanggal kembali pada model.
+  \item Mengapa pilihan buku perlu diperbarui setelah peminjaman maupun pengembalian?
+  \item Telusuri apa yang terjadi jika pengguna memilih Ya saat menutup, tetapi penulisan file gagal. Sebutkan keadaan jendela dan penanda perubahan.
+\end{enumerate}
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+\subsection{Praktik 1: Menyaring Riwayat Aktif}
+
+Tambahkan \texttt{ttk.Checkbutton} untuk menampilkan hanya peminjaman aktif. Gunakan parameter \texttt{aktif\_saja} pada layanan. Hasil wajib: catatan selesai tersembunyi ketika filter aktif dan muncul kembali ketika filter dimatikan; tidak ada catatan domain yang dihapus.
+
+\subsection{Praktik 2: Mempermudah Pencarian Buku}
+
+Tambahkan isian pencarian judul pada tab Buku. Cocokkan teks tanpa membedakan huruf besar dan kecil, lalu tampilkan hasilnya pada tabel. Pertahankan kode buku sebagai \texttt{iid}. Hasil wajib: pencarian tidak mengubah koleksi layanan dan pemilihan baris hasil tetap mengarah ke buku yang benar.
+
+\subsection{Praktik 3: Memeriksa Keputusan Penutupan}
+
+Buat catatan pemeriksaan untuk kondisi tanpa perubahan, perubahan belum disimpan, Batal, Tidak, Ya berhasil, dan Ya dengan penyimpanan gagal. Gunakan salinan proyek atau penyimpanan percobaan. Hasil wajib: hanya penyimpanan berhasil yang menghapus penanda perubahan, dan kegagalan menyimpan tidak menutup jendela.
+
+Nilai hasil praktik dari ketepatan perilaku, pemakaian method publik layanan, keterbacaan susunan widget, dan bukti pemeriksaan. Setelah alur tersebut dipahami, pembaca dapat memecah class GUI menjadi module tampilan per tab tanpa mengubah kontrak layanan.
+
+\begin{info}[Referensi Teknis Lanjutan]
+Pelajari \href{https://docs.python.org/3.12/library/tkinter.html}{dokumentasi resmi Tkinter} untuk hubungan widget, event loop, dan handler. Rincian \texttt{Notebook}, \texttt{Combobox}, \texttt{Treeview}, serta scrollbar dapat dibaca pada \href{https://docs.python.org/3.12/library/tkinter.ttk.html}{dokumentasi resmi \texttt{tkinter.ttk}}. Gunakan dokumentasi yang sesuai dengan versi Python yang dipakai.
+\end{info}
+\endgroup

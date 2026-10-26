@@ -1,0 +1,1053 @@
+\subjudul{Dari terminal ke jendela, tombol, dan kolom isian.}
+\chapter{Dasar GUI}
+
+% ---------------------------------------------------------------------
+% Gaya TikZ khusus bab ini untuk gambar tiruan jendela (prefix b10)
+% ---------------------------------------------------------------------
+\tikzset{
+  b10teks/.style={anchor=west,font=\sffamily\small,text=gelap,inner sep=0pt},
+  b10isian/.style={anchor=west,draw=abu,line width=0.5pt,fill=white,minimum height=6mm,text width=#1,align=left,
+    inner xsep=1.5mm,font=\sffamily\small,text=gelap},
+  b10isian/.default=36mm,
+  b10tombol/.style={draw=abu,line width=0.5pt,fill=garis!60,rounded corners=1pt,minimum height=6.5mm,inner xsep=3mm,
+    font=\sffamily\small,text=gelap},
+  b10ket/.style={font=\sffamily\footnotesize,text=merah,align=left},
+  b10garis/.style={draw=merah,line width=0.5pt},
+}
+% \jendelaGUI{x}{y}{lebar}{tinggi}{judul}: bingkai jendela dengan (x,y) di pojok kiri atas
+\newcommand{\jendelaGUI}[5]{%
+  \filldraw[fill=white,draw=abu,line width=0.6pt] (#1,#2) rectangle ++(#3,-#4);
+  \fill[gelap] (#1,#2) rectangle ++(#3,-0.55);
+  \node[anchor=west,text=white,font=\sffamily\footnotesize,inner sep=0pt] at (#1+0.25,#2-0.275) {#5};
+  \fill[merah] (#1+#3-0.3,#2-0.275) circle (0.09);
+  \fill[abu!70] (#1+#3-0.6,#2-0.275) circle (0.09);
+  \fill[abu!70] (#1+#3-0.9,#2-0.275) circle (0.09);
+}
+
+\begin{dibabini}
+  \item Prinsip dasar GUI
+  \item Komponen GUI
+  \item Event handling
+  \item Integrasi dengan class OOP
+  \item GUI web dengan Streamlit
+\end{dibabini}
+
+Semua program di buku ini berkomunikasi lewat terminal: \texttt{print()} menampilkan teks, dan \texttt{input()} menunggu pengguna mengetik. Bagi programmer, cara ini sudah cukup. Namun kebanyakan pengguna komputer terbiasa dengan jendela, tombol, dan kolom isian yang bisa diklik. Kasir kantin tidak akan mau mengetik perintah di terminal hanya untuk mencatat pesanan, dan dosen lebih suka mengisi nilai di formulir daripada menyusun list Python.
+
+Bab ini membahas dasar-dasar \emph{Graphical User Interface} (GUI) dengan Tkinter, library GUI yang sudah terpasang bersama Python. Kita akan mempelajari cara kerja program GUI yang berbeda dari program terminal, komponen-komponen dasarnya, cara menanggapi klik dan ketikan pengguna, serta cara menyusun program GUI dengan class. Di akhir bab, kita juga mengenal Streamlit, library untuk membuat aplikasi web yang banyak dipakai untuk memamerkan model kecerdasan artifisial. Bab 13 nanti memakai semua dasar ini untuk membangun tampilan aplikasi utuh yang dirancang di Bab 11.
+
+% =====================================================================
+\section{Prinsip Dasar GUI}
+% =====================================================================
+
+Perbedaan terbesar antara program terminal dan program GUI bukan pada tampilannya, melainkan pada \emph{siapa yang menentukan urutan kejadian}. Program terminal berjalan dari atas ke bawah: program meminta nama, lalu NIM, lalu nilai, dalam urutan yang ditentukan programmer. Program GUI menampilkan semua kolom sekaligus, lalu \emph{menunggu}. Pengguna bebas mengisi kolom mana pun lebih dulu, mengklik tombol kapan saja, atau menutup jendela. Setiap tindakan pengguna itu disebut \emph{event}, dan program yang alurnya digerakkan oleh event disebut \emph{event-driven}.
+
+\begin{table}[htbp]
+\caption{Perbedaan program terminal dan program GUI.}
+\begin{tabularx}{\linewidth}{P{26mm}LL}
+\kepala \kp{Aspek} & \kp{Program terminal} & \kp{Program GUI} \\
+Masukan & \texttt{input()}, satu per satu dalam urutan tetap & kolom isian, tombol, dan pilihan yang bisa dipakai dalam urutan bebas \\
+Keluaran & \texttt{print()} ke terminal & label, daftar, dan kotak pesan di jendela \\
+Alur & ditentukan program, dari atas ke bawah & ditentukan pengguna melalui event \\
+Berakhir & setelah baris terakhir dijalankan & ketika jendela ditutup \\
+\end{tabularx}
+\end{table}
+
+\subsection{Event Loop}
+
+Di balik setiap program GUI terdapat sebuah perulangan yang disebut \emph{event loop}. Perulangan ini terus menunggu event, lalu memanggil fungsi yang sudah kita daftarkan untuk menangani event tersebut. Fungsi seperti ini disebut \emph{event handler}. Setelah event handler selesai, tampilan jendela diperbarui dan event loop kembali menunggu. Di Tkinter, event loop dijalankan oleh method \texttt{mainloop()}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    b10tahap/.style={rectangle,rounded corners=2mm,draw=marun,line width=0.9pt,fill=merahmuda,align=center,text width=36mm,inner sep=2mm},
+    b10putar/.style={-{Latex},line width=1.1pt,emas}]
+  \node[b10tahap] (tunggu)  at (0,2.1)   {\texttt{mainloop()} menunggu event};
+  \node[b10tahap] (event)   at (4.4,0)   {pengguna mengklik, mengetik, atau memilih};
+  \node[b10tahap] (handler) at (0,-2.1)  {Tkinter memanggil event handler, misalnya \texttt{sapa()}};
+  \node[b10tahap] (ubah)    at (-4.4,0)  {tampilan jendela diperbarui};
+  \node[rectangle,fill=marun,text=white,align=center,text width=48mm,inner sep=2mm] (selesai) at (0,4.1)
+    {jendela ditutup: \texttt{mainloop()} selesai, baris sesudahnya dijalankan};
+  \draw[b10putar] (tunggu.east) to[out=0,in=90] (event.north);
+  \draw[b10putar] (event.south) to[out=-90,in=0] (handler.east);
+  \draw[b10putar] (handler.west) to[out=180,in=-90] (ubah.south);
+  \draw[b10putar] (ubah.north) to[out=90,in=180] (tunggu.west);
+  \draw[-{Latex},line width=1.1pt,marun,dashed] (tunggu.north) -- (selesai.south);
+  \node[font=\sffamily\small\itshape,text=abu] at (0,0) {event loop};
+\end{tikzpicture}
+\caption{Event loop. Program GUI menghabiskan hampir seluruh waktunya untuk menunggu event, lalu menjalankan event handler yang sesuai.}
+\end{figure}
+
+\subsection{Jendela Pertama}
+
+Program GUI paling sederhana terdiri atas empat langkah: membuat jendela, mengatur jendela, menaruh komponen di dalamnya, lalu menjalankan event loop.
+
+\begin{kode}[Jendela pertama]
+import tkinter as tk
+
+jendela = tk.Tk()                         # 1. membuat jendela utama
+jendela.title("Halo Tkinter")             # 2. mengatur judul dan ukuran
+jendela.geometry("320x120")
+
+label = tk.Label(jendela, text="Selamat datang di PBO!")
+label.pack(pady=40)                       # 3. menaruh label di jendela
+
+jendela.mainloop()                        # 4. menjalankan event loop
+\end{kode}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+  \jendelaGUI{0}{0}{6.4}{2.95}{Halo Tkinter}
+  \node[font=\sffamily\small,text=gelap] (lbl) at (3.2,-1.75) {Selamat datang di PBO!};
+  \draw[b10garis] (6.4,-0.275) -- (7.0,-0.275) node[b10ket,anchor=west]{\texttt{title("Halo Tkinter")}};
+  \draw[b10garis] (lbl.east) -- (7.0,-1.75) node[b10ket,anchor=west]{\texttt{Label} yang ditaruh dengan \texttt{pack()}};
+  \draw[b10garis,{Latex}-{Latex}] (0,-3.25) -- node[below,b10ket]{320 piksel} (6.4,-3.25);
+  \draw[b10garis,{Latex}-{Latex}] (-0.3,-0.55) -- node[left,b10ket]{120 piksel} (-0.3,-2.95);
+\end{tikzpicture}
+\caption{Jendela yang dihasilkan program pertama. Ukuran dari \texttt{geometry()} adalah ukuran isi jendela, belum termasuk baris judul.}
+\end{figure}
+
+Baris \texttt{import tkinter as tk} memberi alias pendek \texttt{tk}, seperti yang kita pelajari di Bab 7. Class \texttt{tk.Tk} adalah jendela utama, dan setiap program Tkinter biasanya hanya punya satu object \texttt{Tk}. Method \texttt{pack()} menaruh label di dalam jendela. Tanpa \texttt{pack()} atau cara penataan lain, label sudah dibuat tetapi tidak pernah tampil.
+
+Baris terakhir, \texttt{mainloop()}, tidak langsung selesai. Program ``tertahan'' di baris itu selama jendela masih terbuka. Kode yang ditulis sesudahnya baru dijalankan setelah pengguna menutup jendela.
+
+\begin{kode}[Kode setelah mainloop()]
+import tkinter as tk
+
+jendela = tk.Tk()
+print("sebelum mainloop")
+jendela.mainloop()
+print("setelah jendela ditutup")
+\end{kode}
+
+\begin{keluaran}
+sebelum mainloop
+setelah jendela ditutup
+\end{keluaran}
+
+Baris kedua pada keluaran di atas baru muncul setelah jendela ditutup. Karena itu semua komponen harus dibuat dan ditata \emph{sebelum} \texttt{mainloop()} dipanggil.
+
+\subsection{Ciri GUI yang Baik}
+
+Jendela yang berfungsi belum tentu nyaman dipakai. Tabel berikut merangkum beberapa prinsip sederhana yang membedakan GUI yang membingungkan dari GUI yang menyenangkan. Prinsip-prinsip ini akan kita terapkan pada contoh-contoh di bab ini.
+
+\begin{table}[htbp]
+\caption{Prinsip dasar GUI yang baik.}
+\begin{tabularx}{\linewidth}{P{34mm}LP{50mm}}
+\kepala \kp{Prinsip} & \kp{Artinya} & \kp{Contoh} \\
+Umpan balik & setiap tindakan pengguna memberi tanda bahwa tindakan itu diterima & label berubah menjadi ``Data tersimpan'' \\
+Label yang jelas & setiap kolom isian diberi keterangan, termasuk format yang diharapkan & ``NIM (11 digit)'' \\
+Mencegah kesalahan & pilihan yang tidak sah dibuat tidak bisa dipilih & tombol Daftar nonaktif sampai syarat dicentang \\
+Pesan kesalahan yang membantu & pesan menjelaskan apa yang salah dan cara memperbaikinya & ``Nilai harus 0 sampai 100'', bukan ``Error'' \\
+Konsisten & tombol dan istilah yang sama selalu berada di tempat dan bernama sama & tombol Simpan selalu di kanan bawah \\
+\end{tabularx}
+\end{table}
+
+% =====================================================================
+\section{Komponen GUI}
+% =====================================================================
+
+Setiap komponen yang tampil di jendela, misalnya label, tombol, atau kolom isian, disebut \emph{widget}. Di Tkinter, setiap widget adalah object dari sebuah class. Perintah \texttt{tk.Label(jendela, text="Halo")} membuat object dari class \texttt{Label}, persis seperti membuat object \texttt{Mahasiswa} di Bab 1. Argumen pertama adalah \emph{wadah} tempat widget itu berada. Jendela berisi widget-widget, sehingga hubungan keduanya adalah composition seperti yang dibahas di Bab 6.
+
+\begin{kode}[Widget adalah object]
+import tkinter as tk
+
+jendela = tk.Tk()
+label = tk.Label(jendela, text="Halo")
+print(type(label).__name__, isinstance(label, tk.Widget))
+
+label.config(text="Halo, Ani", fg="white", bg="#6B0F1A")
+print(label["text"], label.cget("bg"))
+print(label.master is jendela)
+jendela.destroy()
+\end{kode}
+
+\begin{keluaran}
+Label True
+Halo, Ani #6B0F1A
+True
+\end{keluaran}
+
+Pengaturan sebuah widget, seperti teks dan warnanya, disebut \emph{option}. Option bisa diberikan saat widget dibuat, diubah kemudian dengan method \texttt{config()}, dan dibaca dengan \texttt{cget()} atau dengan tanda kurung siku seperti dictionary. Attribute \texttt{master} menunjuk wadah widget tersebut.
+
+\begin{table}[htbp]
+\caption{Widget Tkinter yang paling sering dipakai.}
+\begin{tabularx}{\linewidth}{P{30mm}LP{58mm}}
+\kepala \kp{Widget} & \kp{Kegunaan} & \kp{Contoh pembuatan} \\
+\texttt{Label} & menampilkan teks yang tidak bisa diubah pengguna & \texttt{tk.Label(w, text="Nama")} \\
+\texttt{Button} & tombol yang menjalankan fungsi saat diklik & \texttt{tk.Button(w, text="Simpan", command=f)} \\
+\texttt{Entry} & isian teks satu baris & \texttt{tk.Entry(w, width=20)} \\
+\texttt{Text} & isian teks banyak baris & \texttt{tk.Text(w, height=5)} \\
+\texttt{Checkbutton} & pilihan ya atau tidak & \texttt{tk.Checkbutton(w, text="Setuju")} \\
+\texttt{Radiobutton} & satu pilihan dari beberapa & \texttt{tk.Radiobutton(w, text="Pagi", value=1)} \\
+\texttt{ttk.Combobox} & daftar pilihan yang terbuka ke bawah & \texttt{ttk.Combobox(w, values=[\ldots])} \\
+\texttt{Listbox} & daftar item yang bisa dipilih & \texttt{tk.Listbox(w, height=6)} \\
+\texttt{Frame} & wadah untuk mengelompokkan widget & \texttt{tk.Frame(w)} \\
+\texttt{messagebox} & kotak pesan (berupa fungsi, bukan widget) & \texttt{messagebox.showinfo(judul, pesan)} \\
+\end{tabularx}
+\end{table}
+
+\begin{info}[Module \texttt{tkinter.ttk}]
+Tkinter memiliki dua set widget. Widget di \texttt{tkinter} adalah versi klasik yang mudah diatur warnanya. Widget di \texttt{tkinter.ttk} (\emph{themed Tk}) mengikuti tampilan sistem operasi sehingga terlihat lebih modern, tetapi warnanya diatur lewat \emph{style}. Keduanya bisa dicampur dalam satu jendela. Buku ini memakai widget klasik agar contoh tetap ringkas, kecuali \texttt{ttk.Combobox} yang tidak punya versi klasik.
+\end{info}
+
+\subsection{Menata Widget: \texttt{pack}, \texttt{grid}, dan \texttt{place}}
+
+Widget yang sudah dibuat harus ditata di dalam wadahnya dengan salah satu dari tiga \emph{geometry manager}.
+
+\begin{table}[htbp]
+\caption{Tiga cara menata widget.}
+\begin{tabularx}{\linewidth}{P{20mm}LL}
+\kepala \kp{Cara} & \kp{Cara kerja} & \kp{Cocok untuk} \\
+\texttt{pack()} & menumpuk widget berurutan dari atas ke bawah atau dari kiri ke kanan & susunan sederhana, misalnya satu kolom tombol \\
+\texttt{grid()} & menempatkan widget di baris dan kolom seperti tabel & formulir dengan label di kiri dan isian di kanan \\
+\texttt{place()} & menempatkan widget pada koordinat piksel tertentu & jarang dipakai, karena tidak menyesuaikan diri ketika ukuran jendela berubah \\
+\end{tabularx}
+\end{table}
+
+Formulir adalah tempat \texttt{grid()} paling berguna. Setiap widget diberi nomor baris (\texttt{row}) dan kolom (\texttt{column}). Option \texttt{sticky} menentukan ke sisi mana widget menempel di dalam selnya: \texttt{"w"} (\emph{west}) berarti kiri dan \texttt{"e"} (\emph{east}) berarti kanan. Option \texttt{padx} dan \texttt{pady} memberi jarak di sekeliling widget. Karena jaraknya sama untuk semua widget, kedua option itu dikumpulkan dalam dictionary \texttt{jarak}, lalu dibuka menjadi argumen kata kunci dengan \texttt{**jarak}, seperti di Bab 9.
+
+\begin{kode}[Formulir dengan grid]
+import tkinter as tk
+from tkinter import ttk
+
+jendela = tk.Tk()
+jendela.title("Pendaftaran Seminar")
+jarak = {"padx": 8, "pady": 4}          # jarak yang sama untuk semua widget
+
+tk.Label(jendela, text="Nama").grid(row=0, column=0, sticky="w", **jarak)
+tk.Entry(jendela, width=30).grid(row=0, column=1, **jarak)
+
+tk.Label(jendela, text="NIM").grid(row=1, column=0, sticky="w", **jarak)
+tk.Entry(jendela, width=30).grid(row=1, column=1, **jarak)
+
+tk.Label(jendela, text="Prodi").grid(row=2, column=0, sticky="w", **jarak)
+prodi = ttk.Combobox(jendela, width=28, state="readonly", values=[
+    "Kecerdasan Artifisial", "Teknik Informatika", "Sistem Informasi"])
+prodi.grid(row=2, column=1, **jarak)
+
+pengingat = tk.Checkbutton(jendela, text="Kirimi saya pengingat lewat email")
+pengingat.grid(row=3, column=1, sticky="w", **jarak)
+tk.Button(jendela, text="Daftar").grid(row=4, column=1, sticky="e", **jarak)
+
+jendela.mainloop()
+\end{kode}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+  \jendelaGUI{0}{0}{8.6}{5.0}{Pendaftaran Seminar}
+  \foreach \y/\t in {-1.1/Nama, -1.95/NIM, -2.8/Prodi}
+    \node[b10teks] at (0.35,\y) {\t};
+  \node[b10isian=60mm] at (1.85,-1.1) {};
+  \node[b10isian=60mm] at (1.85,-1.95) {};
+  \node[b10isian=60mm] (cb) at (1.85,-2.8) {Kecerdasan Artifisial};
+  \fill[gelap] ($(cb.east)+(-0.45,0.07)$) -- ++(0.22,0) -- ++(-0.11,-0.13) -- cycle;
+  \draw[abu,fill=white,line width=0.5pt] (1.9,-3.73) rectangle ++(0.26,0.26);
+  \node[b10teks] at (2.3,-3.6) {Kirimi saya pengingat lewat email};
+  \node[b10tombol,anchor=east] at (8.25,-4.45) {Daftar};
+  \foreach \y in {-0.7,-1.52,-2.37,-3.22,-4.0,-4.9}
+    \draw[b10garis,dashed] (0.15,\y) -- (8.45,\y);
+  \foreach \x in {0.15,1.72,8.45}
+    \draw[b10garis,dashed] (\x,-0.7) -- (\x,-4.9);
+  \foreach \y/\r in {-1.1/0, -1.95/1, -2.8/2, -3.6/3, -4.45/4}
+    \node[b10ket,anchor=east] at (-0.1,\y) {\texttt{row=\r}};
+  \node[b10ket] at (0.93,-5.25) {\texttt{column=0}};
+  \node[b10ket] at (5.08,-5.25) {\texttt{column=1}};
+\end{tikzpicture}
+\caption{Hasil formulir dengan \texttt{grid()}. Garis putus-putus memperlihatkan baris dan kolom yang tidak tampak di jendela sebenarnya.}
+\end{figure}
+
+\begin{penting}[Jangan Mencampur \texttt{pack} dan \texttt{grid}]
+Di dalam \emph{satu wadah yang sama}, pakailah hanya satu geometry manager. Tkinter menolak campuran keduanya dengan pesan \texttt{TclError: cannot use geometry manager grid inside \ldots\ which already has slaves managed by pack}. Jika sebagian jendela lebih cocok ditata dengan \texttt{pack} dan sebagian lain dengan \texttt{grid}, kelompokkan widget ke dalam beberapa \texttt{Frame}. Setiap frame boleh memakai cara penataannya sendiri.
+\end{penting}
+
+\subsection{Variabel Tkinter}
+
+Nilai di dalam widget bisa dihubungkan dengan object variabel khusus dari Tkinter: \texttt{StringVar}, \texttt{IntVar}, \texttt{DoubleVar}, dan \texttt{BooleanVar}. Nilai variabel ini dibaca dengan \texttt{get()} dan diubah dengan \texttt{set()}. Begitu nilainya diubah, semua widget yang terhubung ikut berubah secara otomatis.
+
+\begin{kode}[Variabel Tkinter]
+import tkinter as tk
+
+jendela = tk.Tk()
+nama = tk.StringVar(value="Ani")
+setuju = tk.BooleanVar()
+
+isian = tk.Entry(jendela, textvariable=nama)
+sapaan = tk.Label(jendela, textvariable=nama)
+centang = tk.Checkbutton(jendela, text="Setuju", variable=setuju)
+
+nama.set("Budi")                    # isian dan label ikut berubah
+centang.invoke()                    # meniru klik pada kotak centang
+print(isian.get(), sapaan["text"], setuju.get())
+jendela.destroy()
+\end{kode}
+
+\begin{keluaran}
+Budi Budi True
+\end{keluaran}
+
+Method \texttt{invoke()} menjalankan sebuah widget seolah-olah widget itu diklik. Di buku ini \texttt{invoke()} dipakai agar hasil klik bisa ditampilkan sebagai keluaran. Dalam program sungguhan, penggunalah yang mengklik.
+
+% =====================================================================
+\section{Event Handling}
+% =====================================================================
+
+Jendela yang hanya menampilkan widget belum bisa berbuat apa-apa. Supaya program bereaksi, kita mendaftarkan event handler untuk event tertentu. Cara paling sederhana adalah option \texttt{command} pada tombol.
+
+\begin{kode}[Tombol dengan event handler]
+import tkinter as tk
+
+def sapa():
+    hasil.config(text=f"Halo, {isian.get()}!")
+
+jendela = tk.Tk()
+jendela.title("Sapaan")
+isian = tk.Entry(jendela, width=24)
+isian.pack(padx=10, pady=(10, 4))
+tk.Button(jendela, text="Sapa", command=sapa).pack()
+hasil = tk.Label(jendela, text="")
+hasil.pack(pady=10)
+
+jendela.mainloop()
+\end{kode}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+  \foreach \x/\teks/\keterangan in {0/{}/{sebelum diklik}, 7.0/{Halo, Ani!}/{sesudah diklik}} {
+    \jendelaGUI{\x}{0}{5.0}{3.3}{Sapaan}
+    \node[b10isian=37mm] at (\x+0.5,-1.05) {Ani};
+    \node[b10tombol] at (\x+2.5,-1.85) {Sapa};
+    \node[font=\sffamily\small,text=gelap] at (\x+2.5,-2.65) {\teks};
+    \node[b10ket] at (\x+2.5,-3.6) {\keterangan};
+  }
+  \draw[-{Latex},line width=1.1pt,emas] (5.3,-1.85) -- node[above,font=\sffamily\footnotesize,text=gelap]{klik Sapa} (6.7,-1.85);
+\end{tikzpicture}
+\caption{Saat tombol Sapa diklik, Tkinter memanggil fungsi \texttt{sapa()}, yang membaca isian lalu mengubah teks label.}
+\end{figure}
+
+Option \texttt{command=sapa} memberikan \emph{fungsinya}, bukan hasil pemanggilannya. Di Bab 3 kita belajar bahwa fungsi adalah object yang bisa diberikan ke fungsi lain. Tkinter menyimpan object fungsi itu dan memanggilnya setiap kali tombol diklik. Fungsi yang diberikan untuk dipanggil belakangan seperti ini disebut \emph{callback}.
+
+\begin{penting}[\texttt{command=sapa}, Bukan \texttt{command=sapa()}]
+Tanda kurung setelah nama fungsi berarti ``panggil sekarang''. Jika ditulis \texttt{command=sapa()}, fungsi \texttt{sapa} langsung dijalankan satu kali ketika tombol \emph{dibuat}, lalu nilai kembaliannya, yaitu \texttt{None}, yang diberikan sebagai command. Akibatnya tombol tidak melakukan apa pun ketika diklik.
+\end{penting}
+
+\begin{kode}[Kesalahan umum: memanggil fungsi saat membuat tombol]
+import tkinter as tk
+
+def simpan():
+    print("data disimpan")
+
+jendela = tk.Tk()
+tombol = tk.Button(jendela, text="Simpan", command=simpan())    # salah
+print("command tombol:", repr(tombol["command"]))
+jendela.destroy()
+\end{kode}
+
+\begin{keluaran}
+data disimpan
+command tombol: ''
+\end{keluaran}
+
+Teks \texttt{data disimpan} tercetak padahal tidak ada tombol yang diklik, dan tombolnya sendiri tidak punya command.
+
+\subsection{Event Handler dengan Argumen}
+
+Option \texttt{command} memanggil fungsinya tanpa argumen. Jika event handler membutuhkan argumen, misalnya tombol penilaian bintang satu sampai tiga, kita membungkusnya dengan \texttt{lambda}, yaitu fungsi tanpa nama yang ditulis dalam satu baris.
+
+\begin{kode}[Event handler dengan argumen]
+import tkinter as tk
+
+def pilih(bintang):
+    print("Anda memberi", bintang, "bintang")
+
+jendela = tk.Tk()
+tombol = []
+for bintang in range(1, 4):
+    t = tk.Button(jendela, text="*" * bintang,
+                  command=lambda b=bintang: pilih(b))
+    t.pack(side="left")
+    tombol.append(t)
+
+tombol[0].invoke()                  # meniru klik tombol pertama
+tombol[2].invoke()                  # meniru klik tombol ketiga
+jendela.destroy()
+\end{kode}
+
+\begin{keluaran}
+Anda memberi 1 bintang
+Anda memberi 3 bintang
+\end{keluaran}
+
+Bagian \texttt{b=bintang} pada lambda tidak boleh dilupakan. Tanpa bagian itu, lambda baru membaca nilai variabel \texttt{bintang} ketika tombol diklik. Saat itu perulangan sudah lama selesai dan \texttt{bintang} bernilai 3, sehingga \emph{semua} tombol memberi tiga bintang.
+
+\begin{kode}[Lambda tanpa nilai default]
+jendela = tk.Tk()
+salah = []
+for bintang in range(1, 4):
+    salah.append(tk.Button(jendela, command=lambda: pilih(bintang)))
+
+salah[0].invoke()                   # tombol pertama, tetapi...
+jendela.destroy()
+\end{kode}
+
+\begin{keluaran}
+Anda memberi 3 bintang
+\end{keluaran}
+
+\subsection{Event Keyboard dan Mouse dengan \texttt{bind()}}
+
+Option \texttt{command} hanya tersedia pada widget seperti tombol. Untuk event lain, misalnya menekan Enter di kolom isian atau mengklik sebuah label, kita memakai method \texttt{bind()}. Event handler untuk \texttt{bind()} selalu menerima satu argumen, yaitu object \emph{event} yang berisi keterangan tentang kejadian tersebut, misalnya tombol keyboard yang ditekan (\texttt{event.keysym}) atau posisi mouse (\texttt{event.x} dan \texttt{event.y}).
+
+\begin{table}[htbp]
+\caption{Beberapa nama event yang sering dipakai dengan \texttt{bind()}.}
+\begin{tabularx}{\linewidth}{P{40mm}L}
+\kepala \kp{Nama event} & \kp{Terjadi ketika} \\
+\texttt{"<Button-1>"} & tombol kiri mouse diklik pada widget \\
+\texttt{"<Double-Button-1>"} & tombol kiri mouse diklik dua kali, misalnya untuk membuka item di Listbox \\
+\texttt{"<Return>"} & tombol Enter ditekan \\
+\texttt{"<KeyRelease>"} & tombol keyboard apa pun dilepas \\
+\texttt{"<FocusOut>"} & pengguna meninggalkan sebuah kolom isian \\
+\texttt{"<Enter>"}, \texttt{"<Leave>"} & penunjuk mouse masuk ke atau keluar dari widget \\
+\end{tabularx}
+\end{table}
+
+\begin{kode}[Menanggapi ketikan dan tombol Enter]
+import tkinter as tk
+
+def hitung_digit(event):
+    n = len(isian.get())
+    info.config(text=f"{n}/11 digit", fg="#2E7D4F" if n == 11 else "#231417")
+
+def kirim(event):
+    print("NIM dikirim:", isian.get())
+
+jendela = tk.Tk()
+jendela.title("Isian NIM")
+isian = tk.Entry(jendela, width=20)
+isian.pack(padx=10, pady=(10, 2))
+info = tk.Label(jendela, text="0/11 digit")
+info.pack(pady=(0, 10))
+
+isian.bind("<KeyRelease>", hitung_digit)      # setiap tombol keyboard dilepas
+isian.bind("<Return>", kirim)                 # tombol Enter
+jendela.mainloop()
+\end{kode}
+
+Label \texttt{info} berubah setiap kali pengguna mengetik satu angka, dan warnanya berubah hijau begitu NIM mencapai sebelas digit. Ini contoh prinsip \emph{umpan balik}: pengguna tahu bahwa isiannya sudah benar sebelum menekan apa pun.
+
+\subsection{Menangani Kesalahan di Event Handler}
+
+Pengguna bisa mengetik apa saja di kolom isian, termasuk teks yang bukan angka. Exception yang terjadi di dalam event handler tidak menghentikan program. Tkinter hanya mencetak traceback ke terminal, sementara jendelanya tetap terbuka. Dari sisi pengguna, tombol terlihat tidak bekerja dan tidak ada penjelasan apa pun. Karena itu event handler harus menangkap exception yang mungkin terjadi, lalu menyampaikannya dengan kotak pesan dari module \texttt{messagebox}.
+
+Contoh berikut adalah konverter suhu yang memakai class \texttt{Suhu} dari Bab 2. Class itu melempar \texttt{ValueError} jika suhu berada di bawah nol mutlak.
+
+\begin{kode}[Konverter suhu]
+import tkinter as tk
+from tkinter import messagebox
+
+class Suhu:                                  # dari Bab 2, diringkas
+    NOL_MUTLAK = -273.15
+
+    def __init__(self, celsius):
+        if celsius < Suhu.NOL_MUTLAK:
+            raise ValueError("Suhu tidak boleh di bawah nol mutlak.")
+        self.celsius = celsius
+
+    @property
+    def fahrenheit(self):
+        return self.celsius * 9 / 5 + 32
+
+    @property
+    def kelvin(self):
+        return self.celsius - Suhu.NOL_MUTLAK
+
+def konversi(event=None):
+    teks = isian.get().replace(",", ".")     # terima 36,5 maupun 36.5
+    try:
+        celsius = float(teks)
+    except ValueError:
+        messagebox.showerror("Masukan tidak valid",
+                             "Isi suhu dengan angka, misalnya 36,5.")
+        return
+    try:
+        suhu = Suhu(celsius)
+    except ValueError as e:
+        messagebox.showerror("Suhu tidak mungkin", str(e))
+        return
+    hasil.config(text=f"{suhu.fahrenheit:.1f} F   |   {suhu.kelvin:.2f} K")
+
+jendela = tk.Tk()
+jendela.title("Konverter Suhu")
+tk.Label(jendela, text="Suhu (Celsius)").grid(row=0, column=0, padx=8, pady=8)
+isian = tk.Entry(jendela, width=10)
+isian.grid(row=0, column=1, padx=8)
+isian.bind("<Return>", konversi)
+tombol = tk.Button(jendela, text="Konversi", command=konversi)
+tombol.grid(row=1, column=0, columnspan=2)
+hasil = tk.Label(jendela, text="", font=("TkDefaultFont", 11, "bold"))
+hasil.grid(row=2, column=0, columnspan=2, pady=8)
+
+jendela.mainloop()
+\end{kode}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+  \jendelaGUI{0}{0}{5.8}{3.6}{Konverter Suhu}
+  \node[b10teks] at (0.35,-1.1) {Suhu (Celsius)};
+  \node[b10isian=17mm] at (3.0,-1.1) {30};
+  \node[b10tombol] at (2.9,-1.95) {Konversi};
+  \node[font=\sffamily\small\bfseries,text=gelap] at (2.9,-2.85) {86.0 F \ \ | \ \ 303.15 K};
+  \jendelaGUI{7.0}{-0.3}{5.8}{3.0}{Suhu tidak mungkin}
+  \node[circle,fill=merah,text=white,font=\sffamily\bfseries,minimum size=7mm,inner sep=0pt] at (7.75,-1.5) {!};
+  \node[anchor=west,font=\sffamily\small,text=gelap,text width=42mm,align=left] at (8.3,-1.5) {Suhu tidak boleh di bawah nol mutlak.};
+  \node[b10tombol,anchor=east,minimum width=16mm] at (12.5,-2.65) {OK};
+\end{tikzpicture}
+\caption{Kiri: hasil konversi untuk masukan 30. Kanan: kotak pesan yang muncul jika pengguna memasukkan $-300$.}
+\end{figure}
+
+Beberapa hal pada contoh ini patut diperhatikan:
+
+\begin{itemize}
+  \item Fungsi \texttt{konversi()} dipakai untuk dua hal: sebagai \texttt{command} tombol (dipanggil tanpa argumen) dan sebagai handler \texttt{bind()} untuk tombol Enter (dipanggil dengan object event). Parameter \texttt{event=None} membuat keduanya bisa memakai fungsi yang sama.
+  \item Kegagalan \texttt{float()} dan pelanggaran aturan \texttt{Suhu} ditangani di dua blok terpisah. Pesan bawaan \texttt{float()}, yaitu \texttt{could not convert string to float}, tidak ramah bagi pengguna, sehingga diganti pesan yang menjelaskan cara memperbaikinya.
+  \item Class \texttt{Suhu} tidak tahu bahwa dirinya dipakai di jendela. Ia hanya melempar exception, dan event handler yang memutuskan cara menampilkannya. Pembagian tugas ini sama dengan \texttt{Rekening} dan \texttt{ATM} di Bab 8.
+\end{itemize}
+
+% =====================================================================
+\section{Integrasi GUI dengan Class OOP}
+% =====================================================================
+
+Konverter suhu di atas bekerja, tetapi strukturnya punya masalah yang akan membesar seiring program tumbuh. Fungsi \texttt{konversi()} memakai variabel global \texttt{isian} dan \texttt{hasil}. Jendela dengan dua puluh widget akan punya dua puluh variabel global, dan setiap fungsi bisa membaca maupun mengubah semuanya. Solusinya adalah cara yang sudah kita pelajari sejak Bab 1: bungkus data dan perilaku yang saling berkaitan ke dalam sebuah class.
+
+\subsection{Aplikasi sebagai Class}
+
+Jendela aplikasi dijadikan class turunan \texttt{tk.Tk} (inheritance, Bab 4). Widget yang perlu diakses kembali disimpan sebagai attribute, dan event handler menjadi method.
+
+\begin{kode}[Konverter suhu sebagai class]
+import tkinter as tk
+from tkinter import messagebox
+
+class AplikasiSuhu(tk.Tk):
+    def __init__(self):
+        super().__init__()                    # menyiapkan jendela Tk
+        self.title("Konverter Suhu")
+        label = tk.Label(self, text="Suhu (Celsius)")
+        label.grid(row=0, column=0, padx=8, pady=8)
+        self.isian = tk.Entry(self, width=10)
+        self.isian.grid(row=0, column=1, padx=8)
+        self.isian.bind("<Return>", lambda event: self.konversi())
+        tombol = tk.Button(self, text="Konversi", command=self.konversi)
+        tombol.grid(row=1, column=0, columnspan=2)
+        self.hasil = tk.Label(self, font=("TkDefaultFont", 11, "bold"))
+        self.hasil.grid(row=2, column=0, columnspan=2, pady=8)
+
+    def konversi(self):
+        try:
+            suhu = Suhu(float(self.isian.get().replace(",", ".")))
+        except ValueError as e:
+            messagebox.showerror("Masukan tidak valid", str(e))
+            return
+        teks = f"{suhu.fahrenheit:.1f} F   |   {suhu.kelvin:.2f} K"
+        self.hasil.config(text=teks)
+
+if __name__ == "__main__":
+    AplikasiSuhu().mainloop()
+\end{kode}
+
+Tidak ada lagi variabel global selain nama class. Semua widget menjadi milik object aplikasi, dan method \texttt{konversi()} mengaksesnya lewat \texttt{self}. Perhatikan juga \texttt{command=self.konversi}: method yang ditulis tanpa tanda kurung adalah \emph{bound method} yang sudah membawa \texttt{self}-nya, sehingga Tkinter cukup memanggilnya tanpa argumen. Demi ringkasnya contoh, kedua jenis kesalahan di sini ditangani dalam satu blok \texttt{except}. Pada aplikasi sungguhan, pesan \texttt{float()} sebaiknya tetap diganti seperti pada versi sebelumnya.
+
+\begin{info}[Mewarisi atau Memiliki Jendela?]
+Selain mewarisi \texttt{tk.Tk}, class aplikasi juga bisa \emph{memiliki} jendela sebagai attribute (composition), misalnya \texttt{self.jendela = tk.Tk()}. Kedua cara sama-sama umum. Mewarisi \texttt{tk.Frame} juga sering dipakai agar sebuah bagian tampilan bisa ditaruh di dalam jendela lain.
+\end{info}
+
+\subsection{Memisahkan Model dan Tampilan}
+
+Langkah berikutnya lebih penting lagi: memisahkan \emph{aturan dan data} dari \emph{tampilan}. Bagian pertama disebut \emph{model}, dan bagian kedua disebut \emph{view}. Model tidak boleh mengimpor \texttt{tkinter}. Ia hanya berisi class biasa yang menyimpan data, menjaga aturan, dan melempar exception. View berisi jendela dan widget, membaca masukan pengguna, memanggil model, lalu menampilkan hasilnya.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    b10view/.style={rectangle,draw=marun,line width=0.9pt,fill=merahmuda,align=center,text width=36mm,inner sep=2.5mm},
+    b10model/.style={rectangle,fill=marun,text=white,align=center,text width=62mm,inner sep=3mm},
+    b10pakai/.style={-{Latex},line width=1pt,gelap},
+    lbl/.style={font=\sffamily\footnotesize,text=abu}]
+  \node[b10view] (gui) at (-4.4,2.6) {\texttt{gui.py}\\jendela Tkinter};
+  \node[b10view] (uji) at (0,2.6)    {uji di terminal\\dengan \texttt{print} dan \texttt{assert}};
+  \node[b10view] (web) at (4.4,2.6)  {\texttt{app\_nilai.py}\\halaman web Streamlit};
+  \node[b10model] (model) at (0,0)   {\texttt{model.py}: class \texttt{DaftarNilai}\\data dan aturan, tanpa \texttt{import tkinter}};
+  \draw[b10pakai] (gui.south) -- (model.north west);
+  \draw[b10pakai] (uji.south) -- node[right,lbl]{memakai} (model.north);
+  \draw[b10pakai] (web.south) -- (model.north east);
+\end{tikzpicture}
+\caption{Satu model dapat dipakai oleh beberapa view. Model tidak tahu apa pun tentang tampilan yang memakainya.}
+\end{figure}
+
+Pemisahan ini memberi tiga keuntungan. Model bisa diuji tanpa membuka jendela. Model bisa dipakai ulang oleh tampilan lain, seperti program terminal atau halaman web, tanpa diubah sedikit pun. Perubahan tampilan juga tidak berisiko merusak aturan. Di Bab 7, keuntungan seperti ini kita sebut reusability dan maintainability.
+
+\subsection{Studi Kasus: Pencatat Nilai}
+
+Kita terapkan pemisahan tersebut pada aplikasi kecil untuk mencatat nilai mahasiswa. Modelnya berupa class \texttt{DaftarNilai}, yang juga menyimpan datanya ke file JSON seperti di Bab 9.
+
+\begin{kode}[model.py]
+import json
+
+class DaftarNilai:
+    def __init__(self):
+        self._nilai = {}                         # nama -> nilai
+
+    def tambah(self, nama, nilai):
+        nama = nama.strip()
+        if not nama:
+            raise ValueError("Nama tidak boleh kosong.")
+        if not 0 <= nilai <= 100:
+            raise ValueError("Nilai harus di antara 0 dan 100.")
+        self._nilai[nama] = nilai
+
+    def rata_rata(self):
+        if not self._nilai:
+            return 0
+        return sum(self._nilai.values()) / len(self._nilai)
+
+    def semua(self):
+        return sorted(self._nilai.items())
+
+    def simpan(self, path):
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self._nilai, f, indent=2)
+\end{kode}
+
+Sebelum membuat jendela apa pun, model ini bisa langsung diuji di terminal.
+
+\begin{kode}[Menguji model tanpa jendela]
+from model import DaftarNilai
+
+daftar = DaftarNilai()
+daftar.tambah("Ani", 88)
+daftar.tambah("Budi", 75)
+print(daftar.semua(), daftar.rata_rata())
+try:
+    daftar.tambah("Citra", 120)
+except ValueError as e:
+    print("Ditolak:", e)
+\end{kode}
+
+\begin{keluaran}
+[('Ani', 88), ('Budi', 75)] 81.5
+Ditolak: Nilai harus di antara 0 dan 100.
+\end{keluaran}
+
+View-nya adalah class \texttt{AplikasiNilai} yang menerima object model melalui constructor.
+
+\begin{kode}[gui.py]
+import tkinter as tk
+from tkinter import messagebox
+
+from model import DaftarNilai
+
+JARAK = {"padx": 8, "pady": 4}
+
+class AplikasiNilai(tk.Tk):
+    def __init__(self, daftar):
+        super().__init__()
+        self.daftar = daftar
+        self.title("Pencatat Nilai")
+        self.resizable(False, False)
+
+        tk.Label(self, text="Nama").grid(row=0, column=0, sticky="w", **JARAK)
+        self.isian_nama = tk.Entry(self, width=24)
+        self.isian_nama.grid(row=0, column=1, **JARAK)
+
+        tk.Label(self, text="Nilai").grid(row=1, column=0, sticky="w",
+                                          **JARAK)
+        self.isian_nilai = tk.Entry(self, width=24)
+        self.isian_nilai.grid(row=1, column=1, **JARAK)
+        self.isian_nilai.bind("<Return>", lambda event: self.tambah())
+
+        tombol = tk.Button(self, text="Tambah", command=self.tambah)
+        tombol.grid(row=2, column=1, sticky="e", padx=8)
+
+        self.tampilan = tk.Listbox(self, width=30, height=6,
+                                   font="TkFixedFont")
+        self.tampilan.grid(row=3, column=0, columnspan=2, padx=8, pady=8)
+
+        self.label_rata = tk.Label(self, text="Rata-rata: -")
+        self.label_rata.grid(row=4, column=0, columnspan=2, sticky="w",
+                             padx=8)
+        tombol = tk.Button(self, text="Simpan ke JSON", command=self.simpan)
+        tombol.grid(row=4, column=1, sticky="e", padx=8, pady=8)
+
+    def tambah(self):
+        try:
+            nilai = int(self.isian_nilai.get())
+        except ValueError:
+            messagebox.showerror("Data tidak valid",
+                                 "Nilai harus berupa bilangan bulat.")
+            return
+        try:
+            self.daftar.tambah(self.isian_nama.get(), nilai)
+        except ValueError as e:
+            messagebox.showerror("Data tidak valid", str(e))
+            return
+        self.isian_nama.delete(0, tk.END)
+        self.isian_nilai.delete(0, tk.END)
+        self.isian_nama.focus_set()          # siap untuk data berikutnya
+        self.perbarui()
+
+    def perbarui(self):
+        self.tampilan.delete(0, tk.END)
+        for nama, nilai in self.daftar.semua():
+            self.tampilan.insert(tk.END, f"{nama:<24}{nilai:>4}")
+        rata = self.daftar.rata_rata()
+        self.label_rata.config(text=f"Rata-rata: {rata:.2f}")
+
+    def simpan(self):
+        self.daftar.simpan("nilai.json")
+        messagebox.showinfo("Tersimpan", "Data nilai disimpan ke nilai.json")
+
+if __name__ == "__main__":
+    AplikasiNilai(DaftarNilai()).mainloop()
+\end{kode}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+  \jendelaGUI{0}{0}{7.0}{6.3}{Pencatat Nilai}
+  \node[b10teks] at (0.35,-1.1) {Nama};
+  \node[b10isian=50mm] at (1.55,-1.1) {};
+  \node[b10teks] at (0.35,-1.9) {Nilai};
+  \node[b10isian=50mm] at (1.55,-1.9) {};
+  \node[b10tombol,anchor=east] at (6.7,-2.75) {Tambah};
+  \filldraw[fill=white,draw=abu,line width=0.5pt] (0.3,-3.25) rectangle (6.7,-5.2);
+  \foreach \y/\n/\v in {-3.55/Ani/88, -4.0/Budi/75, -4.45/Citra/92} {
+    \node[anchor=west,font=\ttfamily\small,text=gelap,inner sep=0pt] at (0.45,\y) {\n};
+    \node[anchor=east,font=\ttfamily\small,text=gelap,inner sep=0pt] at (4.75,\y) {\v};
+  }
+  \node[b10teks] at (0.35,-5.75) {Rata-rata: 85.00};
+  \node[b10tombol,anchor=east] at (6.7,-5.75) {Simpan ke JSON};
+\end{tikzpicture}
+\caption{Aplikasi Pencatat Nilai setelah tiga nilai ditambahkan.}
+\end{figure}
+
+Bandingkan isi kedua file. File \texttt{model.py} tidak tahu ada jendela, tombol, atau kotak pesan. File \texttt{gui.py} tidak tahu aturan rentang nilai. Ia hanya meneruskan masukan ke model dan menampilkan pesan exception yang diterimanya. Jika suatu saat aturan berubah, misalnya nilai boleh berupa pecahan, perubahan utamanya ada di model. Jika tampilannya ingin dirombak, model tidak perlu disentuh.
+
+Aplikasi ini juga menerapkan prinsip GUI dari awal bab. Daftar dan rata-rata langsung diperbarui setelah setiap penambahan (umpan balik). Kolom isian dikosongkan dan kursor dikembalikan ke kolom nama sehingga data berikutnya bisa langsung diketik (mencegah kesalahan). Setiap penolakan disertai penjelasan (pesan kesalahan yang membantu).
+
+% =====================================================================
+\section{GUI Berbasis Web dengan Streamlit}
+% =====================================================================
+
+Tkinter membuat jendela \emph{desktop} yang berjalan di komputer pengguna. Di bidang kecerdasan artifisial dan sains data, aplikasi lebih sering dibuat sebagai \emph{halaman web}: demo model klasifikasi gambar, dasbor hasil analisis, atau prototipe yang dibagikan lewat tautan. Library yang paling populer untuk keperluan ini adalah \emph{Streamlit}. Dengan Streamlit, halaman web interaktif ditulis sepenuhnya dalam Python, tanpa HTML, CSS, maupun JavaScript.
+
+Streamlit tidak termasuk pustaka standar, sehingga perlu dipasang dengan \texttt{pip} (Bab 7). Program Streamlit tidak dijalankan dengan \texttt{python}, melainkan dengan perintah \texttt{streamlit run}, yang lalu membuka halamannya di browser.
+
+\begin{keluaran}[Terminal]
+$ pip install streamlit
+$ streamlit run halo_streamlit.py
+
+  Local URL: http://localhost:8501
+\end{keluaran}
+
+\begin{kode}[halo\_streamlit.py]
+import streamlit as st
+
+st.title("Halo Streamlit")
+nama = st.text_input("Siapa nama Anda?")
+if nama:
+    st.write(f"Halo, {nama}!")
+\end{kode}
+
+Tidak ada \texttt{mainloop()}, tidak ada \texttt{command}, dan tidak ada event handler. Fungsi \texttt{st.text\_input()} langsung \emph{mengembalikan} isi kolom saat ini. Rahasianya terletak pada cara kerja Streamlit yang sangat berbeda dari Tkinter: \textbf{setiap kali pengguna berinteraksi, seluruh skrip dijalankan ulang dari baris pertama}. Ketika pengguna selesai mengetik nama, Streamlit menjalankan skrip dari atas lagi. Kali ini \texttt{nama} berisi teks yang diketik, sehingga baris \texttt{st.write()} ikut dijalankan.
+
+\subsection{Object Dibuat Ulang Setiap Interaksi}
+
+Cara kerja ``jalankan ulang dari atas'' membawa satu jebakan penting bagi program OOP. Perhatikan percobaan pertama memakai model \texttt{DaftarNilai}.
+
+\begin{kode}[Percobaan yang keliru]
+import streamlit as st
+from model import DaftarNilai
+
+daftar = DaftarNilai()                  # dibuat ulang pada SETIAP interaksi
+nama = st.text_input("Nama")
+nilai = st.number_input("Nilai", min_value=0, max_value=100, step=1)
+if st.button("Tambah"):
+    daftar.tambah(nama, nilai)
+st.write(daftar.semua())
+\end{kode}
+
+Setelah Ani ditambahkan, daftar memang menampilkan Ani. Namun begitu Budi ditambahkan, Ani menghilang. Setiap klik membuat skrip dijalankan ulang, dan baris pertama membuat object \texttt{DaftarNilai} yang baru dan kosong. Object yang lama ikut hilang bersama semua isinya.
+
+Streamlit menyediakan \texttt{st.session\_state}, yaitu wadah yang isinya \emph{bertahan} di antara satu kali skrip dijalankan dan berikutnya, selama tab browser pengguna masih terbuka. Object model cukup dibuat satu kali, lalu disimpan di sana.
+
+\begin{kode}[app\_nilai.py]
+import streamlit as st
+
+from model import DaftarNilai
+
+st.title("Pencatat Nilai")
+
+if "daftar" not in st.session_state:         # hanya pada kunjungan pertama
+    st.session_state.daftar = DaftarNilai()
+daftar = st.session_state.daftar
+
+with st.form("tambah_nilai", clear_on_submit=True):
+    nama = st.text_input("Nama")
+    nilai = st.number_input("Nilai", min_value=0, max_value=100, step=1)
+    if st.form_submit_button("Tambah"):
+        try:
+            daftar.tambah(nama, nilai)
+        except ValueError as e:
+            st.error(str(e))
+
+st.table([{"Nama": n, "Nilai": v} for n, v in daftar.semua()])
+st.metric("Rata-rata", f"{daftar.rata_rata():.2f}")
+\end{kode}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    b10web/.style={anchor=west,font=\sffamily\small,text=gelap,inner sep=0pt},
+    b10webisian/.style={anchor=west,draw=garis,line width=0.6pt,fill=kertas,rounded corners=1.5pt,minimum height=6.5mm,
+      text width=#1,align=left,inner xsep=2mm,font=\sffamily\small,text=gelap},
+    b10webisian/.default=70mm]
+  \filldraw[fill=white,draw=abu,line width=0.6pt,rounded corners=2pt] (0,0) rectangle (9.4,-10.1);
+  \fill[garis!70,rounded corners=2pt] (0,0) rectangle (9.4,-0.7);
+  \foreach \i/\w in {1/merah,2/emas,3/hijau}
+    \fill[\w] (0.1+0.3*\i,-0.35) circle (0.08);
+  \node[anchor=west,draw=abu!60,fill=white,rounded corners=3pt,font=\ttfamily\footnotesize,text=abu,
+    minimum width=62mm,minimum height=4.5mm] at (1.4,-0.35) {localhost:8501};
+  \node[b10web,font=\sffamily\LARGE\bfseries] at (0.6,-1.45) {Pencatat Nilai};
+  \draw[garis,line width=0.6pt,rounded corners=2pt] (0.5,-2.0) rectangle (8.9,-5.75);
+  \node[b10web,font=\sffamily\footnotesize] at (0.8,-2.35) {Nama};
+  \node[b10webisian=74mm] at (0.8,-2.85) {};
+  \node[b10web,font=\sffamily\footnotesize] at (0.8,-3.5) {Nilai};
+  \node[b10webisian=56mm] at (0.8,-4.0) {0};
+  \node[anchor=west,draw=garis,fill=kertas,font=\sffamily\small,minimum width=9mm,minimum height=6.5mm,inner sep=0pt] at (6.85,-4.0) {$-$};
+  \node[anchor=west,draw=garis,fill=kertas,font=\sffamily\small,minimum width=9mm,minimum height=6.5mm,inner sep=0pt] at (7.75,-4.0) {$+$};
+  \node[anchor=west,draw=garis,line width=0.6pt,fill=white,rounded corners=2pt,font=\sffamily\small,minimum height=6.5mm,inner xsep=3mm]
+    at (0.8,-5.05) {Tambah};
+  \foreach \y/\a/\b/\c in {-6.3/{}/Nama/Nilai, -6.85/0/Ani/88, -7.4/1/Budi/75, -7.95/2/Citra/92} {
+    \node[b10web,font=\sffamily\footnotesize,text=abu] at (0.7,\y) {\a};
+    \node[b10web] at (1.5,\y) {\b};
+    \node[anchor=east,font=\sffamily\small,text=gelap,inner sep=0pt] at (5.2,\y) {\c};
+  }
+  \foreach \y in {-6.58,-7.13,-7.68,-8.23}
+    \draw[garis,line width=0.5pt] (0.5,\y) -- (5.5,\y);
+  \node[b10web,font=\sffamily\footnotesize,text=abu] at (0.6,-8.85) {Rata-rata};
+  \node[b10web,font=\sffamily\huge] at (0.6,-9.5) {85.00};
+\end{tikzpicture}
+\caption{Halaman \texttt{app\_nilai.py} di browser setelah tiga nilai ditambahkan. Kolom \texttt{number\_input} dengan tombol $-$ dan $+$ hanya menerima 0 sampai 100.}
+\end{figure}
+
+Bandingkan dengan versi Tkinter. File \texttt{model.py} dipakai \emph{tanpa diubah satu baris pun}. Inilah buah dari pemisahan model dan tampilan di subbab sebelumnya. Perhatikan juga dua hal berikut.
+
+\begin{itemize}
+  \item \texttt{st.number\_input()} dengan \texttt{min\_value} dan \texttt{max\_value} mencegah pengguna memasukkan nilai di luar rentang, dan selalu mengembalikan angka. Pemeriksaan \texttt{int()} yang kita tulis di versi Tkinter tidak lagi diperlukan. Model tetap menjaga aturannya sendiri, sehingga nama kosong tetap ditolak dan pesannya ditampilkan dengan \texttt{st.error()}.
+  \item \texttt{st.form()} mengumpulkan beberapa isian agar skrip baru dijalankan ulang ketika tombol Tambah diklik, bukan setiap kali satu kolom berubah. Isian dikosongkan kembali sesudahnya karena option \texttt{clear\_on\_submit} bernilai \texttt{True}.
+\end{itemize}
+
+\begin{table}[htbp]
+\caption{Perbandingan Tkinter dan Streamlit.}
+\begin{tabularx}{\linewidth}{P{30mm}LL}
+\kepala \kp{Aspek} & \kp{Tkinter} & \kp{Streamlit} \\
+Bentuk aplikasi & jendela desktop & halaman web di browser \\
+Pemasangan & sudah terpasang bersama Python & \texttt{pip install streamlit} \\
+Cara menjalankan & \texttt{python gui.py} & \texttt{streamlit run app\_nilai.py} \\
+Alur program & event loop memanggil event handler & seluruh skrip dijalankan ulang setiap interaksi \\
+Menyimpan keadaan & attribute object, hidup selama jendela terbuka & \texttt{st.session\_state} \\
+Pengaturan tata letak & sangat bebas: \texttt{grid}, \texttt{pack}, \texttt{place} & terbatas, tetapi rapi tanpa diatur \\
+Cocok untuk & aplikasi kasir, alat bantu kantor, aplikasi tanpa internet & demo model AI, dasbor data, prototipe cepat \\
+\end{tabularx}
+\end{table}
+
+\begin{tips}[Pilih Sesuai Kebutuhan]
+Tidak ada yang lebih baik secara mutlak. Gunakan Tkinter jika aplikasi harus berjalan sebagai program desktop atau tanpa internet. Gunakan Streamlit jika hasil kerja perlu dipamerkan lewat browser, terutama model kecerdasan artifisial dan visualisasi data. Selama model dipisahkan dari tampilan, berpindah dari satu library ke library lain hanya berarti menulis ulang view-nya saja.
+\end{tips}
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item Program GUI bersifat \textbf{event-driven}: alurnya ditentukan oleh event dari pengguna. Method \texttt{mainloop()} menjalankan \textbf{event loop} yang menunggu event dan memanggil \textbf{event handler}, dan kode setelahnya baru berjalan ketika jendela ditutup.
+  \item Setiap \textbf{widget} adalah object. Option-nya diberikan saat pembuatan, diubah dengan \texttt{config()}, dan dibaca dengan \texttt{cget()}. Widget harus ditata dengan \texttt{pack()}, \texttt{grid()}, atau \texttt{place()}, dan satu wadah hanya boleh memakai satu cara penataan.
+  \item \texttt{StringVar}, \texttt{IntVar}, \texttt{DoubleVar}, dan \texttt{BooleanVar} menghubungkan nilai widget dengan object Python.
+  \item Option \texttt{command} menerima \emph{fungsi}, bukan hasil pemanggilannya: \texttt{command=simpan}, bukan \texttt{command=simpan()}. Argumen diberikan lewat \texttt{lambda} dengan nilai default, misalnya \texttt{lambda b=bintang: pilih(b)}.
+  \item Method \texttt{bind()} menghubungkan event keyboard dan mouse, misalnya \texttt{"<Return>"} dan \texttt{"<KeyRelease>"}, dengan handler yang menerima object event.
+  \item Event handler harus menangkap exception dan menyampaikannya dengan \texttt{messagebox}, karena exception yang lolos hanya tercetak di terminal.
+  \item Aplikasi GUI disusun sebagai \textbf{class}, dengan widget sebagai attribute dan event handler sebagai method. \textbf{Model} (data dan aturan) dipisahkan dari \textbf{view} (tampilan), sehingga model bisa diuji dan dipakai ulang tanpa jendela.
+  \item \textbf{Streamlit} membuat halaman web dari skrip Python yang dijalankan ulang dari atas setiap kali pengguna berinteraksi. Object yang harus bertahan disimpan di \texttt{st.session\_state}.
+\end{itemize}
+
+% =====================================================================
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat.
+
+\begin{enumerate}
+  \item Program GUI disebut \emph{event-driven} karena \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item programnya selalu berjalan lebih cepat daripada program terminal
+    \item alurnya ditentukan oleh event dari pengguna, seperti klik dan ketikan
+    \item semua fungsinya harus diberi decorator
+    \item programnya hanya bisa dijalankan di Windows
+  \end{enumerate}
+
+  \item Pernyataan yang benar tentang \texttt{mainloop()} adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item membuat jendela baru setiap kali dipanggil
+    \item menjalankan event loop, dan kode sesudahnya baru dijalankan setelah jendela ditutup
+    \item hanya diperlukan jika jendela berisi tombol
+    \item harus dipanggil sebelum widget pertama dibuat
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 3]
+import tkinter as tk
+
+def simpan():
+    print("tersimpan")
+
+jendela = tk.Tk()
+tk.Button(jendela, text="Simpan", command=simpan()).pack()
+jendela.mainloop()
+\end{kode}
+  Apa yang terjadi ketika program dijalankan dan tombol Simpan diklik tiga kali?
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{tersimpan} tercetak tiga kali
+    \item \texttt{tersimpan} tercetak satu kali saat program dimulai, dan klik tidak mencetak apa pun
+    \item \texttt{tersimpan} tercetak empat kali
+    \item program berhenti dengan \texttt{TypeError}
+  \end{enumerate}
+
+  \item Geometry manager yang paling cocok untuk formulir berisi label di kolom kiri dan isian di kolom kanan adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{pack()}
+    \item \texttt{grid()}
+    \item \texttt{place()}
+    \item \texttt{mainloop()}
+  \end{enumerate}
+
+  \item Tiga tombol dibuat dalam perulangan \texttt{for i in range(1, 4)} dengan \texttt{command=lambda: pilih(i)}. Jika tombol \emph{pertama} diklik, \texttt{pilih()} menerima argumen \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item 1
+    \item 3
+    \item 0
+    \item \texttt{None}
+  \end{enumerate}
+
+  \item Untuk menjalankan sebuah fungsi ketika pengguna menekan tombol Enter di kolom isian, kita menulis \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{isian.bind("<Return>", kirim)}
+    \item \texttt{isian.config(command=kirim)}
+    \item \texttt{isian.bind("Enter", kirim())}
+    \item \texttt{isian.pack(on\_enter=kirim)}
+  \end{enumerate}
+
+  \item Satu \texttt{Frame} berisi widget yang sudah ditata dengan \texttt{pack()}. Apa yang terjadi jika widget lain di frame yang sama ditata dengan \texttt{grid()}?
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item widget itu ditempatkan di bawah widget lain
+    \item Tkinter melempar \texttt{TclError}
+    \item semua widget otomatis berpindah ke \texttt{grid()}
+    \item widget itu tidak tampil, tetapi tidak ada pesan apa pun
+  \end{enumerate}
+
+  \item Keuntungan utama memisahkan model dari view adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item jendela tampil lebih cepat
+    \item model bisa diuji dan dipakai ulang oleh tampilan lain tanpa diubah
+    \item jumlah baris kode pasti berkurang
+    \item model bisa langsung mengatur warna widget
+  \end{enumerate}
+
+  \item Pada aplikasi Streamlit, object \texttt{DaftarNilai()} yang dibuat di baris paling atas skrip kehilangan isinya setiap kali tombol diklik karena \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item Streamlit menghapus semua object setiap satu menit
+    \item seluruh skrip dijalankan ulang dari atas, sehingga object baru yang kosong dibuat lagi; solusinya menyimpan object di \texttt{st.session\_state}
+    \item object tidak boleh dipakai di Streamlit
+    \item tombol Streamlit selalu memanggil \texttt{destroy()}
+  \end{enumerate}
+
+  \item Cara yang paling tepat untuk menangani masukan tidak valid di dalam event handler Tkinter adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item membiarkan exception terjadi agar program berhenti
+    \item menangkap exception, lalu menampilkan pesan yang jelas dengan fungsi \texttt{showerror()} dari \texttt{messagebox}
+    \item mencetak pesan dengan \texttt{print()}
+    \item menutup jendela dengan \texttt{destroy()}
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Jelaskan perbedaan alur program terminal dan program GUI. Apa yang dimaksud event loop, dan apa peran \texttt{mainloop()} di dalamnya?
+  \item Jelaskan mengapa \texttt{command=simpan()} merupakan kesalahan, dan jelaskan cara yang benar untuk memberikan argumen kepada event handler dari sebuah tombol.
+  \item Bandingkan \texttt{pack()}, \texttt{grid()}, dan \texttt{place()}. Untuk masing-masing, berikan contoh tata letak yang cocok.
+  \item Jelaskan maksud pemisahan model dan view. Dengan contoh aplikasi Pencatat Nilai, tunjukkan bagian mana yang termasuk model dan bagian mana yang termasuk view.
+  \item Jelaskan perbedaan cara kerja Tkinter dan Streamlit. Mengapa object model di Streamlit perlu disimpan di \texttt{st.session\_state}, sedangkan di Tkinter cukup disimpan sebagai attribute?
+\end{enumerate}
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Kerjakan praktik berikut secara berurutan. Pisahkan setiap praktik menjadi \texttt{model.py} dan \texttt{gui.py}, dan pastikan \texttt{model.py} tidak mengimpor \texttt{tkinter}. Karena hasilnya berupa jendela, contoh keluaran berikut menjelaskan apa yang harus tampil untuk setiap masukan.
+
+\subsection{Praktik 1: Kalkulator BMI}
+
+\begin{itemize}
+  \item Buat class \texttt{BMI} di \texttt{model.py} dengan constructor \texttt{(berat\_kg, tinggi\_cm)}, property \texttt{nilai}, dan method \texttt{kategori()}: Kurus (di bawah 18,5), Normal (18,5 sampai di bawah 25), Gemuk (25 sampai di bawah 30), dan Obesitas (30 ke atas). Tolak berat atau tinggi yang tidak positif dengan \texttt{ValueError}.
+  \item Buat jendela dengan dua isian, tombol Hitung, dan label hasil. Tombol Enter di isian tinggi juga menjalankan perhitungan.
+  \item Terima angka dengan koma maupun titik desimal, dan tampilkan kotak pesan yang jelas untuk setiap masukan yang tidak valid.
+\end{itemize}
+
+\begin{keluaran}[Contoh hasil Praktik 1]
+berat 60, tinggi 165    -> label: BMI 22.0 (Normal)
+berat 90, tinggi 170    -> label: BMI 31.1 (Obesitas)
+berat 52,5, tinggi 170  -> label: BMI 18.2 (Kurus)
+berat abc               -> kotak pesan: Berat harus berupa angka, misalnya 55,5.
+tinggi 0                -> kotak pesan: Tinggi harus lebih dari nol.
+\end{keluaran}
+
+\subsection{Praktik 2: Formulir Pendaftaran}
+
+\begin{itemize}
+  \item Buat formulir dengan \texttt{grid()} berisi isian nama, isian NIM, \texttt{ttk.Combobox} program studi, dua \texttt{Radiobutton} untuk kelas Pagi atau Malam, dan \texttt{Checkbutton} persetujuan.
+  \item Tombol Daftar dinonaktifkan (\texttt{state="disabled"}) sampai kotak persetujuan dicentang. Gunakan \texttt{BooleanVar} dan option \texttt{command} pada \texttt{Checkbutton}.
+  \item Tampilkan jumlah digit NIM secara langsung dengan \texttt{bind("<KeyRelease>", \ldots)}.
+  \item Validasi data di class \texttt{Pendaftar} pada \texttt{model.py}. Pendaftar yang valid ditambahkan ke \texttt{Listbox}, dan NIM yang sudah terdaftar ditolak.
+\end{itemize}
+
+\begin{keluaran}[Contoh hasil Praktik 2]
+kotak persetujuan belum dicentang -> tombol Daftar tidak bisa diklik
+NIM 2405120408                   -> label: 10/11 digit
+NIM 24051204084 (baru)           -> Listbox: 24051204084  Ani  KA  Pagi
+NIM 24051204084 (lagi)           -> kotak pesan: NIM 24051204084 sudah terdaftar.
+\end{keluaran}
+
+\subsection{Praktik 3: ATM dengan Dua Tampilan}
+
+Buat tampilan untuk class \texttt{Rekening} dan custom exception dari Bab 8.
+
+\begin{langkah}{Langkah Pengerjaan}
+  \item Salin \texttt{Rekening} dan hierarki \texttt{RekeningError} ke \texttt{model.py} tanpa mengubah satu baris pun.
+  \item Buat class \texttt{AplikasiATM(tk.Tk)} di \texttt{gui.py} dengan label saldo, isian nominal, tombol Setor dan Tarik, serta \texttt{Listbox} riwayat transaksi.
+  \item Tangkap \texttt{SaldoTidakCukupError} secara khusus dan tampilkan kekurangannya memakai attribute \texttt{kekurangan}. Tangkap kesalahan rekening lainnya lewat \texttt{RekeningError}.
+  \item Simpan dan muat saldo memakai class penyimpanan JSON dari Bab 9, sehingga saldo tetap ada ketika aplikasi dibuka kembali.
+  \item Buat \texttt{app\_atm.py} dengan Streamlit yang memakai \texttt{model.py} yang sama. Simpan object rekening di \texttt{st.session\_state}.
+\end{langkah}
+
+\begin{penting}[Kriteria Penilaian]
+\begin{itemize}
+  \item \texttt{model.py} tidak mengimpor \texttt{tkinter} maupun \texttt{streamlit}, dan dipakai oleh kedua tampilan tanpa perubahan.
+  \item Tidak ada variabel global untuk widget. Semua widget menjadi attribute dan semua event handler menjadi method.
+  \item Setiap masukan tidak valid menghasilkan pesan yang jelas, dan tidak ada traceback yang muncul di terminal.
+  \item Prinsip GUI diterapkan: umpan balik setelah setiap transaksi, label yang jelas, dan pencegahan kesalahan.
+\end{itemize}
+\end{penting}

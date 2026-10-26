@@ -1,0 +1,21 @@
+{
+  "versi": 1,
+  "nomor_pinjam_berikutnya": 2,
+  "buku": [
+    {"kode": "B001", "judul": "Dasar OOP", "jenis": "cetak"},
+    {"kode": "E001", "judul": "Dasar Python", "jenis": "ebook"}
+  ],
+  "anggota": [
+    {"id_anggota": "M001", "nama": "Ani"}
+  ],
+  "peminjaman": [
+    {
+      "id_pinjam": "P001",
+      "id_anggota": "M001",
+      "kode_buku": "B001",
+      "tanggal_pinjam": "2026-10-27",
+      "tanggal_jatuh_tempo": "2026-11-10",
+      "tanggal_kembali": null
+    }
+  ]
+}

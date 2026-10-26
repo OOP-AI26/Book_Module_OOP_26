@@ -1,0 +1,1431 @@
+\subjudul{Mengenal class dan object sebagai bahan dasar program berorientasi objek.}
+\chapter{Konsep dan Pengantar OOP}
+
+% ---------------------------------------------------------------------
+% Gaya TikZ khusus bab ini (prefix b1 agar tidak bentrok dengan gaya buku)
+% ---------------------------------------------------------------------
+\tikzset{
+  b1obj/.style={rectangle,rounded corners=2pt,draw=merah,line width=0.8pt,fill=merahmuda,
+    text=gelap,inner xsep=2.5mm,inner ysep=1.6mm,font=\ttfamily\small,align=left},
+  b1cls/.style={rectangle,rounded corners=2pt,draw=gelap,line width=0.8pt,fill=gelap!8,
+    text=gelap,inner xsep=2.5mm,inner ysep=1.6mm,font=\ttfamily\small,align=left},
+  b1var/.style={rectangle,draw=gelap,line width=0.6pt,fill=white,text=gelap,
+    inner xsep=2mm,inner ysep=1.4mm,font=\ttfamily\small},
+  b1kode/.style={inner xsep=0pt,inner ysep=1pt,font=\ttfamily\small,text=gelap},
+  b1panah/.style={-{Latex},line width=0.8pt,draw=gelap},
+  b1panahm/.style={-{Latex},line width=0.8pt,draw=merah},
+  b1ket/.style={font=\footnotesize,text=gelap,align=center},
+  b1judul/.style={font=\small\bfseries,text=gelap},
+}
+
+\begin{dibabini}
+  \item Class dan object
+  \item Struktur class di Python
+  \item Attribute dan method
+  \item Pemodelan objek sederhana
+\end{dibabini}
+
+Selama ini kita banyak menulis program dengan gaya \emph{prosedural}: data disimpan dalam variabel, lalu diolah oleh fungsi-fungsi yang terpisah dari data tersebut. Gaya ini cukup untuk program kecil, tetapi mulai merepotkan ketika program membesar. Data dan fungsi yang mengolahnya tercecer di banyak tempat, sehingga sulit dilacak siapa mengubah apa.
+
+Pemrograman Berorientasi Objek (\emph{Object-Oriented Programming}, OOP) menawarkan cara lain: data dan perilaku yang saling berkaitan dibungkus menjadi satu kesatuan yang disebut \emph{object}. Cara berpikir ini dekat dengan dunia nyata. Seorang mahasiswa punya nama dan NIM (data), dan bisa mengisi KRS atau mengumpulkan tugas (perilaku). Dalam OOP, keduanya kita satukan. Perbedaan kedua gaya ini diperlihatkan pada Gambar~\ref{fig:b1-prosedural-oop}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  % --- gaya prosedural ---
+  \node[b1judul] at (19,36) {Gaya prosedural};
+  \node[b1var] (d1) at (0,24) {nama};
+  \node[b1var] (d2) at (0,12) {nim};
+  \node[b1var] (d3) at (0,0)  {semester};
+  \node[b1cls] (f1) at (38,26) {perkenalan()};
+  \node[b1cls] (f2) at (38,13) {ubah\_nim()};
+  \node[b1cls] (f3) at (38,0)  {naik\_semester()};
+  \foreach \a/\b in {d1/f1,d2/f1,d1/f3,d2/f2,d3/f3,d3/f1,d2/f3}
+    \draw[gelap!45,line width=0.6pt] (\a.east) -- (\b.west);
+  % --- gaya OOP ---
+  \node[b1judul] at (85,36) {Gaya berorientasi objek};
+  % Satu kotak dengan tiga bagian; tinggi setiap bagian mengikuti isi teks.
+  \node[rectangle split,rectangle split parts=3,
+    rectangle split part align={center,left,left},
+    rectangle split part fill={merahmuda,white,white},
+    draw=merah,line width=0.8pt,text=gelap,
+    inner xsep=3mm,inner ysep=2mm,font=\ttfamily\small,anchor=north]
+    (b1mhs1) at (85,31)
+    {\textcolor{merah}{\textbf{object mhs1}}
+     \nodepart{two}
+     \parbox{38mm}{{\rmfamily\itshape data:}\\[1mm]
+       nama, nim, semester}
+     \nodepart{three}
+     \parbox{38mm}{{\rmfamily\itshape perilaku:}\\[1mm]
+       perkenalan()\\
+       ubah\_nim()\\
+       naik\_semester()}};
+  % Keterangan kedua diagram sejajar dan selalu berada di bawah kotak.
+  \coordinate (b1keterangan) at ([yshift=-4mm]b1mhs1.south);
+  \node[b1ket,anchor=north] at (19,0 |- b1keterangan)
+    {data dan fungsi terpisah,\\hubungannya sulit dilacak};
+  \node[b1ket,anchor=north] at (b1keterangan)
+    {data dan perilaku\\dibungkus menjadi satu};
+\end{tikzpicture}
+\caption{Gaya prosedural memisahkan data dan fungsi, sedangkan OOP menyatukan keduanya di dalam object.}
+\label{fig:b1-prosedural-oop}
+\end{figure}
+
+Bab ini membahas dua konsep paling dasar dalam OOP, yaitu \emph{class} dan \emph{object}, beserta isi keduanya: \emph{attribute} dan \emph{method}. Di akhir bab, kita akan berlatih mengubah sebuah permasalahan sederhana menjadi rancangan class lalu menuliskannya dalam Python.
+
+% =====================================================================
+\section{Konsep Class}
+% =====================================================================
+
+\emph{Class} adalah cetak biru (\emph{blueprint}) atau templat untuk membuat object. Class mendefinisikan dua hal:
+
+\begin{itemize}
+  \item \textbf{data apa} yang dimiliki setiap object (disebut \emph{attribute}), dan
+  \item \textbf{apa yang bisa dilakukan} oleh setiap object (disebut \emph{method}).
+\end{itemize}
+
+Bayangkan denah rumah yang dibuat arsitek. Denah itu sendiri bukan rumah; kita tidak bisa tinggal di dalamnya. Namun dari satu denah, pengembang bisa membangun puluhan rumah dengan bentuk yang sama. Class berperan seperti denah tersebut, sedangkan rumah-rumah yang dibangun adalah object-nya (Gambar~\ref{fig:b1-denah}).
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[b1cls,dashed,text width=28mm] (denah) at (12,10)
+    {\textbf{class Rumah}\\- warna\\- jumlah\_kamar\\+ buka\_pintu()};
+  \node[b1ket] at (12,-4) {denah (class)};
+  \foreach \x/\nm/\warna in {50/rumah1/merahmuda,72/rumah2/gelap!12,94/rumah3/white}{
+    \filldraw[fill=\warna,draw=gelap,line width=0.7pt] (\x-8,0) rectangle (\x+8,12);
+    \filldraw[fill=merah!80,draw=gelap,line width=0.7pt] (\x-10,12) -- (\x,20) -- (\x+10,12) -- cycle;
+    \filldraw[fill=gelap!60,draw=gelap] (\x-2,0) rectangle (\x+2,7);
+    \filldraw[fill=white,draw=gelap] (\x+3.5,6) rectangle (\x+6.5,9);
+    \node[font=\ttfamily\small,text=gelap] at (\x,-4) {\nm};
+    \draw[b1panahm,dashed] (denah.east) .. controls (40,30) and (\x-10,30) .. (\x,21);
+  }
+  \node[b1ket,text=merah] at (62,32) {instansiasi};
+  \node[b1ket] at (72,-10) {rumah-rumah yang dibangun (object)};
+\end{tikzpicture}
+\caption{Class ibarat denah: satu denah dipakai untuk membangun banyak rumah (object). Setiap rumah berdiri sendiri dan boleh memiliki warna yang berbeda.}
+\label{fig:b1-denah}
+\end{figure}
+
+\begin{contoh}[Analogi Class]
+\begin{itemize}
+  \item Cetakan kue $\rightarrow$ class; kue yang dihasilkan $\rightarrow$ object.
+  \item Formulir pendaftaran kosong $\rightarrow$ class; formulir yang sudah diisi tiap pendaftar $\rightarrow$ object.
+  \item Spesifikasi ``Mobil'' dari pabrik $\rightarrow$ class; mobil dengan nomor polisi L 1234 AB $\rightarrow$ object.
+\end{itemize}
+\end{contoh}
+
+Di Python, class dibuat dengan kata kunci \texttt{class} diikuti nama class dan tanda titik dua. Class paling sederhana bahkan boleh tidak berisi apa pun; kita cukup menuliskan \texttt{pass} sebagai penanda badan class yang kosong.
+
+\begin{kode}[Class paling sederhana]
+class Mahasiswa:
+    pass
+
+print(Mahasiswa)
+\end{kode}
+
+\begin{keluaran}
+<class '__main__.Mahasiswa'>
+\end{keluaran}
+
+Keluaran tersebut menunjukkan bahwa \texttt{Mahasiswa} sudah dikenali Python sebagai sebuah class yang didefinisikan di modul utama (\texttt{\_\_main\_\_}).
+
+\begin{tips}[Aturan Penamaan]
+Menurut panduan gaya Python (PEP 8), nama class ditulis dengan gaya \emph{PascalCase}: setiap kata diawali huruf kapital tanpa garis bawah, misalnya \texttt{Mahasiswa}, \texttt{RekeningBank}, atau \texttt{MataKuliah}. Gunakan kata benda tunggal, karena satu class menggambarkan satu jenis benda.
+\end{tips}
+
+% =====================================================================
+\section{Konsep Object/Instance}
+% =====================================================================
+
+\emph{Object} adalah wujud nyata yang dibuat dari sebuah class. Istilah lain yang sering dipakai adalah \emph{instance}; ``object \texttt{mhs1} adalah instance dari class \texttt{Mahasiswa}''. Proses membuat object dari class disebut \emph{instansiasi}.
+
+Setiap object memiliki tiga ciri:
+
+\begin{itemize}
+  \item \textbf{Identitas}: setiap object unik dan menempati lokasi memori sendiri, walaupun isinya sama dengan object lain.
+  \item \textbf{Keadaan} (\emph{state}): nilai-nilai attribute yang dimiliki object pada suatu saat.
+  \item \textbf{Perilaku} (\emph{behavior}): tindakan yang bisa dilakukan object melalui method-nya.
+\end{itemize}
+
+Gambar~\ref{fig:b1-tiga-ciri} memperlihatkan ketiga ciri tersebut pada satu object, lengkap dengan cara mengaksesnya di Python.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[b1cls,sharp corners,text width=38mm] (c1) at (0,0)
+    {\textbf{mhs1}\\{\rmfamily\itshape menempati alamat memori sendiri}};
+  \node[b1obj,sharp corners,text width=38mm,anchor=north] (c2) at (c1.south)
+    {nama = "Ani"\\nim = "001"};
+  \node[b1var,line width=0.8pt,inner xsep=2.5mm,inner ysep=1.6mm,text width=38mm,
+    align=left,anchor=north] (c3) at (c2.south) {perkenalan()\\kumpul\_tugas()};
+  \node[b1ket,anchor=east,align=right] at ([xshift=-3mm]c1.west) {\textbf{Identitas}\\unik untuk tiap object};
+  \node[b1ket,anchor=east,align=right] at ([xshift=-3mm]c2.west) {\textbf{Keadaan}\\nilai attribute saat ini};
+  \node[b1ket,anchor=east,align=right] at ([xshift=-3mm]c3.west) {\textbf{Perilaku}\\method yang bisa dipanggil};
+  \node[font=\ttfamily\footnotesize,text=gelap,anchor=west] at ([xshift=3mm]c1.east) {id(mhs1)};
+  \node[font=\ttfamily\footnotesize,text=gelap,anchor=west] at ([xshift=3mm]c2.east) {mhs1.nama};
+  \node[font=\ttfamily\footnotesize,text=gelap,anchor=west] at ([xshift=3mm]c3.east) {mhs1.perkenalan()};
+\end{tikzpicture}
+\caption{Tiga ciri sebuah object: identitas, keadaan, dan perilaku.}
+\label{fig:b1-tiga-ciri}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[obj/.style={rectangle,draw=merah,line width=0.8pt,fill=merahmuda,text=gelap,
+    inner xsep=3mm,inner ysep=2mm,text width=44mm,font=\ttfamily\small,align=left}]
+  \node[kelas] (k) at (0,0) {\kelas{Mahasiswa}{- nama\\- nim}{+ perkenalan()}};
+  \node[obj,anchor=west] (o1) at (40mm,24mm)  {\textbf{mhs1}\\nama = "Ani"\\nim = "001"};
+  \node[obj,anchor=west] (o2) at (40mm,0mm)   {\textbf{mhs2}\\nama = "Budi"\\nim = "002"};
+  \node[obj,anchor=west] (o3) at (40mm,-24mm) {\textbf{mhs3}\\nama = "Citra"\\nim = "003"};
+  \foreach \n in {o1,o2,o3}
+    \draw[-{Latex},dashed,merah,line width=0.8pt] (k.east) -- (\n.west);
+\end{tikzpicture}
+\caption{Satu class dapat menghasilkan banyak object dengan keadaan masing-masing.}
+\end{figure}
+
+Untuk membuat object, kita ``memanggil'' class seolah-olah ia sebuah fungsi, yaitu dengan menuliskan nama class diikuti tanda kurung.
+
+\begin{kode}[Membuat dua object]
+class Mahasiswa:
+    pass
+
+mhs1 = Mahasiswa()
+mhs2 = Mahasiswa()
+
+print(type(mhs1))
+print(isinstance(mhs1, Mahasiswa))
+print(mhs1 is mhs2)
+print(id(mhs1) == id(mhs2))
+\end{kode}
+
+\begin{keluaran}
+<class '__main__.Mahasiswa'>
+True
+False
+False
+\end{keluaran}
+
+Fungsi \texttt{type()} memberi tahu dari class mana sebuah object dibuat, sedangkan \texttt{isinstance()} memeriksa apakah object merupakan instance dari class tertentu. Operator \texttt{is} dan fungsi \texttt{id()} membuktikan bahwa \texttt{mhs1} dan \texttt{mhs2} adalah dua object berbeda meskipun dibuat dari class yang sama.
+
+Perlu dipahami juga bahwa variabel seperti \texttt{mhs1} sebenarnya hanyalah \emph{nama} yang menunjuk ke object di memori. Jika kita menulis \texttt{mhs3 = mhs1}, Python tidak membuat object baru; \texttt{mhs3} hanya menjadi nama lain untuk object yang sama, sehingga \texttt{mhs1 is mhs3} bernilai \texttt{True} (Gambar~\ref{fig:b1-memori}).
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \draw[gelap!50,dashed,rounded corners=3pt] (22,-20) rectangle (82,22);
+  \node[b1ket,anchor=north east] at (81,21) {memori};
+  \node[b1var] (v1) at (0,14)  {mhs1};
+  \node[b1var] (v3) at (0,3)   {mhs3};
+  \node[b1var] (v2) at (0,-10) {mhs2};
+  \node[b1obj] (o1) at (52,10)  {\textbf{object Mahasiswa}\\id = \ldots a0};
+  \node[b1obj] (o2) at (52,-10) {\textbf{object Mahasiswa}\\id = \ldots b8};
+  \draw[b1panah] (v1.east) -- (o1.west);
+  \draw[b1panahm,dashed] (v3.east) -- ([yshift=-2mm]o1.west);
+  \draw[b1panah] (v2.east) -- (o2.west);
+  \node[b1ket] at (0,22) {nama variabel};
+  \node[font=\ttfamily\small,text=gelap] at (40,-27)
+    {mhs1 is mhs2 $\rightarrow$ False \qquad mhs1 is mhs3 $\rightarrow$ True};
+\end{tikzpicture}
+\caption{Variabel menunjuk ke object di memori. \texttt{mhs1} dan \texttt{mhs2} menunjuk dua object berbeda, sedangkan \texttt{mhs3 = mhs1} hanya menambah nama baru untuk object yang sama.}
+\label{fig:b1-memori}
+\end{figure}
+
+\begin{info}[Semua Hal di Python Adalah Object]
+Tanpa disadari, kita sudah memakai object sejak awal belajar Python. Angka \texttt{5} adalah object dari class \texttt{int}, teks \texttt{"halo"} adalah object dari class \texttt{str}, dan \texttt{[1, 2, 3]} adalah object dari class \texttt{list}. Coba jalankan \texttt{type(5)} atau \texttt{type("halo")}. Bahkan pemanggilan seperti \texttt{"halo".upper()} sebenarnya adalah pemanggilan method milik object string.
+\end{info}
+
+% =====================================================================
+\section{Struktur Class di Python}
+% =====================================================================
+
+Struktur sebuah class di Python dapat dipahami melalui tiga bagian utama: \textbf{deklarasi class}, \textbf{attribute}, dan \textbf{method}. Ketiganya membantu kita mengenali jenis object yang dimodelkan, data yang dimilikinya, serta perilaku yang dapat dilakukannya.
+
+\begin{enumerate}
+  \item \textbf{Deklarasi class} ditulis dengan kata kunci \texttt{class}, nama class, dan tanda titik dua, misalnya \texttt{class Mahasiswa:}. Baris-baris di dalam badan class ditulis dengan indentasi yang konsisten; buku ini menggunakan empat spasi.
+  \item \textbf{Attribute} menyimpan data atau keadaan yang berkaitan dengan class dan object. Pada contoh \texttt{Mahasiswa}, \texttt{kampus} merupakan \emph{class attribute} yang disimpan pada class, sedangkan \texttt{nama} dan \texttt{nim} merupakan \emph{instance attribute} milik setiap object mahasiswa. Karena itu, dua object mahasiswa dapat memiliki nama dan NIM yang berbeda.
+  \item \textbf{Method} adalah fungsi yang didefinisikan di dalam class untuk menyediakan perilaku. Method \texttt{perkenalan()} pada contoh berikut membaca attribute mahasiswa lalu mengembalikan teks perkenalan. Sebagai \emph{instance method}, method ini menerima \texttt{self} sebagai rujukan ke object yang sedang digunakan.
+\end{enumerate}
+
+Class juga dapat memiliki \emph{docstring}, yaitu dokumentasi singkat tentang kegunaannya. Sementara itu, method khusus \texttt{\_\_init\_\_} bertugas menyiapkan keadaan awal object. Pada contoh berikut, method tersebut menerima nama dan NIM, lalu menyimpannya ke \texttt{self.nama} dan \texttt{self.nim}. Attribute dan method akan dibahas lebih rinci pada subbab berikutnya; untuk saat ini, perhatikan letak dan peran masing-masing dalam satu class.
+
+\begin{kode}[Anatomi sebuah class]
+class Mahasiswa:
+    """Merepresentasikan seorang mahasiswa."""   # docstring
+
+    kampus = "UNESA"                              # class attribute
+
+    def __init__(self, nama, nim):                # inisialisasi object
+        self.nama = nama                          # instance attribute
+        self.nim = nim                            # instance attribute
+
+    def perkenalan(self):                         # instance method
+        return f"Halo, saya {self.nama} ({self.nim}) dari {self.kampus}"
+\end{kode}
+
+\begin{table}[htbp]
+\caption{Bagian-bagian class \texttt{Mahasiswa}.}
+\label{tab:b1-struktur-class}
+\begin{tabularx}{\linewidth}{>{\ttfamily}P{38mm}L}
+\kepala \kp{Bagian} & \kp{Penjelasan} \\
+class Mahasiswa: & Header class: kata kunci \texttt{class}, nama class, lalu titik dua. Seluruh isi class ditulis menjorok ke dalam (indentasi 4 spasi). \\
+"""...""" & \emph{Docstring}, yaitu dokumentasi singkat tentang kegunaan class. Bisa dibaca lewat \texttt{help(Mahasiswa)}. \\
+kampus = "UNESA" & \emph{Class attribute}: data yang dimiliki bersama oleh semua object. \\
+\_\_init\_\_ & Method inisialisasi: menyiapkan keadaan awal object dengan menyimpan nilai parameter ke instance attribute. \\
+self.nama, self.nim & \emph{Instance attribute}: data milik masing-masing object. \\
+perkenalan & \emph{Instance method}: perilaku yang bisa dilakukan setiap object. \\
+\end{tabularx}
+\end{table}
+
+Perhatikan perbedaan \texttt{nama} dan \texttt{self.nama} pada baris \texttt{self.nama = nama}. Nama di sebelah kanan adalah parameter yang menerima masukan, sedangkan \texttt{self.nama} di sebelah kiri adalah attribute tempat nilai itu disimpan pada object. Setelah object dibuat, data dibaca dengan notasi titik, sedangkan method dijalankan dengan menambahkan tanda kurung.
+
+\begin{kode}[Mengakses attribute dan menjalankan method]
+mhs = Mahasiswa("Ani", "001")
+print(Mahasiswa.kampus)   # membaca class attribute
+print(mhs.nama)           # membaca instance attribute
+print(mhs.nim)            # membaca instance attribute
+print(mhs.perkenalan())   # menjalankan instance method
+\end{kode}
+
+\begin{keluaran}
+UNESA
+Ani
+001
+Halo, saya Ani (001) dari UNESA
+\end{keluaran}
+
+Dengan demikian, attribute menjawab pertanyaan ``data apa yang dimiliki?'', sedangkan method menjawab ``apa yang dapat dilakukan?''. Pada contoh ini, \texttt{perkenalan()} memakai data dari attribute untuk menghasilkan informasi tentang mahasiswa yang memanggilnya.
+
+\subsection{Peran Parameter \texttt{self}}
+
+Perhatikan bahwa instance method pada contoh di atas menerima \texttt{self} sebagai parameter pertama. \texttt{self} adalah rujukan ke \emph{object yang sedang dipakai}. Ketika kita menulis \texttt{mhs1.perkenalan()}, Python secara otomatis mengirim \texttt{mhs1} sebagai nilai \texttt{self}. Dengan begitu, di dalam method kita bisa mengakses data milik object tersebut melalui \texttt{self.nama}, \texttt{self.nim}, dan seterusnya. Alur ini digambarkan pada Gambar~\ref{fig:b1-self}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  % baris 1: yang ditulis programmer
+  \node[b1kode,text=merah,anchor=base west] (a1) at (0,24) {mhs1};
+  \node[b1kode,anchor=base west] at (a1.base east) {.perkenalan()};
+  % baris 2: yang dijalankan Python
+  \node[b1kode,anchor=base west] (b0) at (0,10) {Mahasiswa.perkenalan(};
+  \node[b1kode,text=merah,anchor=base west] (b1) at (b0.base east) {mhs1};
+  \node[b1kode,anchor=base west] at (b1.base east) {)};
+  % baris 3-4: definisi method
+  \node[b1kode,anchor=base west] (c0) at (0,-4) {def perkenalan(};
+  \node[b1kode,text=merah,anchor=base west] (c1) at (c0.base east) {self};
+  \node[b1kode,anchor=base west] at (c1.base east) {):};
+  \node[b1kode,anchor=base west] (d0) at (6,-11) {return f"Halo, saya \{};
+  \node[b1kode,text=merah,anchor=base west] (d1) at (d0.base east) {self};
+  \node[b1kode,anchor=base west] at (d1.base east) {.nama\}"};
+  % panah
+  \draw[b1panahm] (a1.south) to[bend right=10] (b1.north);
+  \draw[b1panahm] (b1.south) to[bend left=10] (c1.north);
+  % keterangan
+  \node[b1ket,anchor=base west] at (64,24)  {yang kita tulis};
+  \node[b1ket,anchor=base west] at (64,10)  {yang dijalankan Python};
+  \node[b1ket,anchor=base west] at (64,-4)  {\texttt{self} menerima \texttt{mhs1}};
+  \node[b1ket,anchor=base west] at (64,-11) {\texttt{self.nama} = \texttt{mhs1.nama} = \texttt{"Ani"}};
+\end{tikzpicture}
+\caption{Saat \texttt{mhs1.perkenalan()} dipanggil, Python mengirim \texttt{mhs1} ke parameter \texttt{self}, sehingga \texttt{self.nama} berarti \texttt{mhs1.nama}.}
+\label{fig:b1-self}
+\end{figure}
+
+\begin{penting}[Jangan Lupa \texttt{self}]
+\texttt{self} wajib ditulis sebagai parameter pertama setiap instance method, tetapi \textbf{tidak} ditulis saat method dipanggil. Lupa menuliskan \texttt{self} di definisi method adalah kesalahan yang sangat umum dan akan menghasilkan \texttt{TypeError} seperti \emph{``takes 0 positional arguments but 1 was given''}.
+\end{penting}
+
+\subsection{Constructor \texttt{\_\_init\_\_}}
+
+Nama \texttt{\_\_init\_\_} diawali dan diakhiri dua garis bawah. Method dengan pola nama seperti ini disebut \emph{dunder method} (\emph{double underscore}) atau \emph{magic method}; Python memanggilnya secara otomatis pada momen tertentu. Untuk \texttt{\_\_init\_\_}, momennya adalah saat object baru dibuat. Parameter selain \texttt{self} pada \texttt{\_\_init\_\_} menjadi data yang wajib diberikan saat instansiasi.
+
+\begin{tips}[Konvensi Penulisan]
+\begin{itemize}
+  \item Nama class: \emph{PascalCase} (\texttt{RekeningBank}).
+  \item Nama attribute dan method: \emph{snake\_case} (\texttt{saldo\_awal}, \texttt{hitung\_total()}).
+  \item Pisahkan tiap method dengan satu baris kosong agar class mudah dibaca.
+\end{itemize}
+\end{tips}
+
+% =====================================================================
+\section{Mengakses Attribute dan Method}
+% =====================================================================
+
+Setelah mengenal struktur class, kita perlu mengetahui cara memakai attribute dan method pada object yang sudah dibuat. Keduanya diakses dengan \emph{notasi titik}: nama object, titik, lalu nama attribute atau method. Melalui notasi ini, kita bisa membaca nilai, mengubah nilai, dan memanggil method sebelum mempelajari jenis-jenisnya lebih rinci.
+
+\begin{kode}[Membaca, mengubah, dan memanggil]
+class Mahasiswa:
+    def __init__(self, nama):
+        self.nama = nama
+        self.semester = 1
+
+    def naik_semester(self):
+        self.semester += 1
+
+    def info(self):
+        return f"{self.nama} - semester {self.semester}"
+
+ani = Mahasiswa("Ani")
+
+print(ani.nama)          # membaca attribute
+ani.nama = "Ani Lestari" # mengubah attribute
+ani.naik_semester()      # memanggil method
+print(ani.info())
+print(ani.info)          # tanpa tanda kurung: method tidak dijalankan
+\end{kode}
+
+\begin{keluaran}
+Ani
+Ani Lestari - semester 2
+<bound method Mahasiswa.info of <__main__.Mahasiswa object at 0x...>>
+\end{keluaran}
+
+Perhatikan baris terakhir. Tanpa tanda kurung, \texttt{ani.info} hanya merujuk ke method tersebut (disebut \emph{bound method}) tanpa menjalankannya. Ini kesalahan kecil yang sering membuat bingung pemula. Gambar~\ref{fig:b1-notasi-titik} merangkum bagian-bagian notasi titik dan perbedaan pemanggilan dengan dan tanpa tanda kurung.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  % anatomi notasi titik
+  \node[b1kode,font=\ttfamily,text=merah,anchor=base west,inner xsep=0.6mm] (p1) at (20,20) {ani};
+  \node[b1kode,font=\ttfamily,anchor=base west,inner xsep=0.6mm] (p2) at (p1.base east) {.};
+  \node[b1kode,font=\ttfamily,text=merah,anchor=base west,inner xsep=0.6mm] (p3) at (p2.base east) {naik\_semester};
+  \node[b1kode,font=\ttfamily,anchor=base west,inner xsep=0.6mm] (p4) at (p3.base east) {()};
+  \node[b1ket,anchor=north] (l1) at ([yshift=-5mm]p1.south) {object};
+  \node[b1ket,anchor=north] (l3) at ([yshift=-5mm]p3.south) {nama method};
+  \node[b1ket,anchor=south] (l2) at ([yshift=5mm]p2.north) {notasi titik};
+  \node[b1ket,anchor=south] (l4) at ([yshift=5mm]p4.north) {jalankan method};
+  \draw[gelap!50] (p1.south) -- (l1.north);
+  \draw[gelap!50] (p3.south) -- (l3.north);
+  \draw[gelap!50] (p2.north) -- (l2.south);
+  \draw[gelap!50] (p4.north) -- (l4.south);
+  % dengan dan tanpa kurung
+  \draw[gelap!30,dashed] (-2,4) -- (104,4);
+  \node[b1kode,anchor=base west] at (0,-3) {ani.info()};
+  \node[b1kode,anchor=base west] at (22,-3) {$\rightarrow$ "Ani Lestari - semester 2"};
+  \node[b1ket,anchor=base west]  at (78,-3) {method dijalankan};
+  \node[b1kode,anchor=base west] at (0,-10) {ani.info};
+  \node[b1kode,anchor=base west] at (22,-10) {$\rightarrow$ <bound method ...>};
+  \node[b1ket,anchor=base west,text=merah] at (78,-10) {hanya dirujuk};
+\end{tikzpicture}
+\caption{Bagian-bagian notasi titik. Tanda kurung \texttt{()} yang membuat method benar-benar dijalankan.}
+\label{fig:b1-notasi-titik}
+\end{figure}
+
+\subsection{Mengakses Attribute yang Tidak Ada}
+
+Pada object \texttt{ani} di atas, attribute \texttt{ipk} belum dibuat. Jika kita mencoba membacanya dengan notasi titik, Python menghasilkan \texttt{AttributeError}. Contoh berikut sengaja menunjukkan kesalahan tersebut dan dijalankan terpisah dari contoh selanjutnya.
+
+\begin{kode}[AttributeError]
+print(ani.ipk)
+\end{kode}
+
+\begin{keluaran}
+Traceback (most recent call last):
+  ...
+AttributeError: 'Mahasiswa' object has no attribute 'ipk'
+\end{keluaran}
+
+\subsection{Akses Dinamis dengan \texttt{getattr}, \texttt{setattr}, dan \texttt{hasattr}}
+
+Notasi titik cocok ketika nama attribute sudah ditulis langsung dalam kode, misalnya \texttt{ani.semester}. Namun, kadang nama attribute disimpan dalam variabel dan baru ditentukan saat program berjalan. Untuk keperluan ini, Python menyediakan fungsi bawaan \texttt{getattr}, \texttt{setattr}, dan \texttt{hasattr}. Ketiganya menerima nama attribute sebagai \emph{string}, tetapi memiliki tugas dan hasil yang berbeda.
+
+\begin{enumerate}
+  \item \textbf{\texttt{getattr(objek, nama)}} digunakan untuk \textbf{membaca nilai} attribute. Sebagai contoh, \texttt{getattr(ani, "semester")} membaca nilai yang sama dengan \texttt{ani.semester}. Jika attribute tidak ditemukan, bentuk ini menghasilkan \texttt{AttributeError}. Kita dapat memberikan argumen ketiga sebagai nilai cadangan, misalnya \texttt{getattr(ani, "ipk", 0.0)}. Jika \texttt{ipk} belum ada, hasilnya \texttt{0.0}; pembacaan dengan nilai cadangan ini tidak membuat attribute baru.
+  \item \textbf{\texttt{setattr(objek, nama, nilai)}} digunakan untuk \textbf{menetapkan nilai} attribute. Pada contoh ini, \texttt{setattr(ani, "semester", 5)} setara dengan \texttt{ani.semester = 5}. Jika attribute belum ada dan object mengizinkannya, fungsi ini juga dapat membuat attribute baru. Nilai kembaliannya adalah \texttt{None}, sehingga hasil perubahan perlu dibaca kembali dari attribute object.
+  \item \textbf{\texttt{hasattr(objek, nama)}} digunakan untuk \textbf{memeriksa apakah attribute dapat ditemukan}. Hasilnya \texttt{True} jika akses ke attribute berhasil, atau \texttt{False} jika akses tersebut menghasilkan \texttt{AttributeError}. Fungsi ini tidak mengembalikan isi attribute dan tidak memastikan bahwa isinya memenuhi aturan tertentu; misalnya, keberadaan \texttt{ipk} belum membuktikan bahwa nilainya berada dalam rentang 0 sampai 4.
+\end{enumerate}
+
+\begin{table}[htbp]
+\caption{Perbedaan fungsi akses attribute secara dinamis.}
+\label{tab:b1-akses-dinamis}
+\begin{tabularx}{\linewidth}{P{22mm}LP{45mm}}
+\kepala \kp{Fungsi} & \kp{Tujuan} & \kp{Nilai kembalian} \\
+\texttt{getattr} & Membaca nilai attribute & Nilai attribute atau nilai cadangan \\
+\texttt{setattr} & Mengisi atau mengubah nilai attribute & \texttt{None} \\
+\texttt{hasattr} & Memeriksa apakah attribute dapat ditemukan & \texttt{True} atau \texttt{False} \\
+\end{tabularx}
+\end{table}
+
+Contoh berikut melanjutkan object \texttt{ani} dari contoh ``Membaca, mengubah, dan memanggil''. Pada awal contoh ini, \texttt{ani.semester} bernilai \texttt{2} dan attribute \texttt{ipk} belum ada. Variabel \texttt{nama\_attribute} menunjukkan bahwa nama attribute yang dibaca tidak harus ditulis langsung setelah titik.
+
+\begin{kode}[Akses attribute secara dinamis]
+nama_attribute = "semester"
+
+print(hasattr(ani, "nama"))         # memeriksa keberadaan attribute
+print(hasattr(ani, "ipk"))
+print(getattr(ani, nama_attribute)) # membaca semester melalui variabel
+print(getattr(ani, "ipk", 0.0))     # nilai cadangan; tidak membuat ipk
+print(hasattr(ani, "ipk"))          # ipk masih belum ada
+
+setattr(ani, "semester", 5)         # mengubah attribute yang sudah ada
+print(ani.semester)
+
+setattr(ani, "ipk", 3.75)           # membuat attribute baru pada contoh ini
+print(getattr(ani, "ipk"))
+print(hasattr(ani, "ipk"))
+\end{kode}
+
+\begin{keluaran}
+True
+False
+2
+0.0
+False
+5
+3.75
+True
+\end{keluaran}
+
+Perhatikan dua hasil pemeriksaan \texttt{ipk} sebelum \texttt{setattr} dijalankan: keduanya masih \texttt{False}, walaupun \texttt{getattr} sudah mengembalikan nilai cadangan \texttt{0.0}. Attribute \texttt{ipk} baru tersedia setelah \texttt{setattr(ani, "ipk", 3.75)} dijalankan. Sesudah itu, \texttt{getattr} membaca \texttt{3.75} dan \texttt{hasattr} menghasilkan \texttt{True}.
+
+Nama method juga dapat diakses dengan \texttt{getattr}. Bentuk \texttt{getattr(ani, "info")} memperoleh method yang terikat pada \texttt{ani}, sedangkan \texttt{getattr(ani, "info")()} menjalankannya. Seperti pada notasi titik, tanda kurung tetap diperlukan untuk memanggil method.
+
+% =====================================================================
+\section{Konsep Attribute}
+% =====================================================================
+
+\emph{Attribute} adalah variabel yang ``menempel'' pada sebuah object atau class. Attribute menyimpan keadaan object: nama seorang mahasiswa, saldo sebuah rekening, warna sebuah mobil, atau status sebuah lampu (menyala atau mati).
+
+Attribute dibuat dengan cara memberi nilai melalui notasi titik, umumnya di dalam \texttt{\_\_init\_\_} menggunakan \texttt{self}. Nilai attribute boleh bertipe apa saja: angka, string, boolean, list, dictionary, bahkan object lain.
+
+\begin{kode}[Attribute dengan berbagai tipe data]
+class Mahasiswa:
+    def __init__(self, nama, nim):
+        self.nama = nama          # str
+        self.nim = nim            # str
+        self.semester = 1         # int, nilai awal tetap
+        self.aktif = True         # bool
+        self.daftar_nilai = []    # list kosong
+
+mhs = Mahasiswa("Ani", "24051204001")
+print(mhs.nama)
+print(mhs.semester)
+print(mhs.__dict__)
+\end{kode}
+
+\begin{keluaran}
+Ani
+1
+{'nama': 'Ani', 'nim': '24051204001', 'semester': 1, 'aktif': True, 'daftar_nilai': []}
+\end{keluaran}
+
+\subsection{Perbedaan Attribute dan Parameter}
+
+Attribute dan parameter dapat memiliki nama yang sama, tetapi keduanya mempunyai peran berbeda. \textbf{Parameter} adalah nama yang ditulis pada definisi fungsi atau method untuk menerima masukan saat pemanggilan. Pada \texttt{def \_\_init\_\_(self, nama, nim)}, \texttt{nama} dan \texttt{nim} adalah parameter masukan, sedangkan \texttt{self} adalah parameter yang menerima rujukan ke object secara otomatis.
+
+\textbf{Attribute} adalah data yang disimpan pada object atau class. Dalam contoh ini, \texttt{self.nama} dan \texttt{self.nim} merupakan attribute object. Pada baris \texttt{self.nama = nama}, parameter \texttt{nama} di sebelah kanan menyediakan nilai masukan, lalu nilai tersebut disimpan melalui attribute \texttt{self.nama} di sebelah kiri. Parameter tidak otomatis menjadi attribute; penugasan itulah yang membuat data nama tersedia pada object.
+
+Saat kita menulis \texttt{Mahasiswa("Ani", "24051204001")}, nilai \texttt{"Ani"} dan \texttt{"24051204001"} disebut \emph{argumen}, yaitu nilai yang diberikan saat pemanggilan. Di dalam \texttt{\_\_init\_\_}, kedua nilai itu diterima melalui parameter \texttt{nama} dan \texttt{nim}.
+
+\begin{table}[htbp]
+\caption{Perbedaan parameter dan attribute pada contoh \texttt{Mahasiswa}.}
+\label{tab:b1-attribute-parameter}
+\begin{tabularx}{\linewidth}{P{28mm}LL}
+\kepala \kp{Aspek} & \kp{Parameter} & \kp{Attribute object} \\
+Letak penulisan & Dalam daftar parameter definisi method, misalnya \texttt{nama} & Diakses melalui object, misalnya \texttt{self.nama} atau \texttt{mhs.nama} \\
+Peran & Menerima masukan untuk diproses oleh method & Menyimpan data atau keadaan object \\
+Ruang lingkup & Nama lokal pada pemanggilan method tersebut & Melekat pada object dan dapat diakses melalui rujukan ke object \\
+Sumber nilai & Argumen saat pemanggilan atau nilai default parameter & Dapat berasal dari parameter, nilai tetap, atau hasil perhitungan \\
+\end{tabularx}
+\end{table}
+
+Setelah \texttt{\_\_init\_\_} selesai, kita tetap dapat membaca nama mahasiswa melalui \texttt{mhs.nama}. Hal ini terjadi karena nama sudah disimpan sebagai attribute, bukan karena parameter \texttt{nama} menjadi variabel yang dapat diakses dari luar method. Nama parameter dan attribute juga tidak wajib sama; misalnya, parameter bernama \texttt{nama\_lengkap} dapat disimpan dengan penugasan \texttt{self.nama = nama\_lengkap}.
+
+Dengan demikian, \textbf{attribute tidak harus berasal dari parameter}. Pada contoh di atas, \texttt{self.nama} dan \texttt{self.nim} memperoleh nilai dari parameter, sedangkan \texttt{self.semester = 1}, \texttt{self.aktif = True}, dan \texttt{self.daftar\_nilai = []} menetapkan nilai awal langsung di dalam method. List kosong tersebut dibuat baru untuk setiap object mahasiswa, sehingga daftar nilai antarmahasiswa tidak dipakai bersama.
+
+Pada contoh ini, attribute khusus \texttt{\_\_dict\_\_} menampilkan instance attribute yang tersimpan pada object dalam bentuk dictionary. Isinya membantu kita memeriksa data object saat \emph{debugging}.
+
+\begin{penting}[Definisikan Semua Attribute di \texttt{\_\_init\_\_}]
+Python mengizinkan kita menambah attribute baru dari luar class, misalnya \texttt{mhs.hobi = "catur"}. Namun cara ini membuat object dari class yang sama memiliki isi berbeda-beda dan menyulitkan pembacaan kode. Biasakan mendefinisikan seluruh attribute di dalam \texttt{\_\_init\_\_}, walaupun nilai awalnya hanya \texttt{None} atau list kosong.
+\end{penting}
+
+% =====================================================================
+\section{Instance Attribute dan Class Attribute}
+% =====================================================================
+
+Python membedakan dua jenis attribute berdasarkan siapa pemiliknya.
+
+\begin{itemize}
+  \item \textbf{Instance attribute} dimiliki oleh masing-masing object. Biasanya nilai awalnya ditetapkan melalui \texttt{self.nama = ...} di dalam \texttt{\_\_init\_\_}, tetapi nilainya juga dapat diubah setelah object dibuat: secara langsung melalui \texttt{objek.nama = nilai\_baru} atau melalui method lain yang menulis \texttt{self.nama = nilai\_baru}. Pada dua object yang berbeda, pemberian nilai baru pada attribute milik satu object tidak mengubah attribute milik object lainnya.
+  \item \textbf{Class attribute} dimiliki oleh class dan dipakai bersama oleh semua object. Ditulis langsung di badan class, di luar method mana pun.
+\end{itemize}
+
+\begin{kode}[Instance attribute vs class attribute]
+class Mahasiswa:
+    kampus = "UNESA"     # class attribute
+    jumlah = 0           # class attribute
+
+    def __init__(self, nama):
+        self.nama = nama          # instance attribute
+        Mahasiswa.jumlah += 1     # ubah class attribute lewat nama class
+
+    def ubah_nama(self, nama_baru):
+        self.nama = nama_baru     # ubah attribute di luar __init__
+
+a = Mahasiswa("Ani")
+b = Mahasiswa("Budi")
+
+print(a.nama, b.nama)
+print(a.kampus, b.kampus, Mahasiswa.kampus)
+print("Jumlah mahasiswa:", Mahasiswa.jumlah)
+\end{kode}
+
+\begin{keluaran}
+Ani Budi
+UNESA UNESA UNESA
+Jumlah mahasiswa: 2
+\end{keluaran}
+
+Saat kita menulis \texttt{a.kampus}, Python mencari attribute \texttt{kampus} terlebih dahulu di object \texttt{a}. Karena tidak ditemukan di sana, pencarian dilanjutkan ke class \texttt{Mahasiswa}, dan nilainya ditemukan. Urutan pencarian \emph{object dulu, lalu class} ini (Gambar~\ref{fig:b1-pencarian}) penting untuk memahami jebakan berikut.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[b1cls] (cls) at (40,26) {\textbf{class Mahasiswa}\\kampus = "UNESA"\\jumlah = 2};
+  \node[b1obj] (a) at (8,2)  {\textbf{a}\\nama = "Ani"};
+  \node[b1obj] (b) at (72,2) {\textbf{b}\\nama = "Budi"};
+  \draw[b1panah,dashed] (a.north) -- node[b1ket,above left]{tidak ada?\\cari di class} (cls.south west);
+  \draw[b1panah,dashed] (b.north) -- (cls.south east);
+  \node[b1ket] at (40,8) {milik bersama};
+  % contoh pencarian
+  \node[b1kode,anchor=base west] at (-2,-14) {a.nama};
+  \node[b1kode,anchor=base west] at (18,-14) {$\rightarrow$ "Ani"};
+  \node[b1ket,anchor=base west]  at (42,-14) {ditemukan di object \texttt{a}};
+  \node[b1kode,anchor=base west] at (-2,-21) {a.kampus};
+  \node[b1kode,anchor=base west] at (18,-21) {$\rightarrow$ "UNESA"};
+  \node[b1ket,anchor=base west]  at (42,-21) {tidak ada di \texttt{a}, ditemukan di class};
+\end{tikzpicture}
+\caption{Instance attribute tersimpan di tiap object, class attribute tersimpan di class. Python mencari attribute di object terlebih dahulu, baru kemudian di class.}
+\label{fig:b1-pencarian}
+\end{figure}
+
+\begin{table}[htbp]
+\caption{Perbandingan instance attribute dan class attribute.}
+\begin{tabularx}{\linewidth}{P{30mm}LL}
+\kepala \kp{Aspek} & \kp{Instance attribute} & \kp{Class attribute} \\
+Pemilik & Masing-masing object & Class (dipakai bersama) \\
+Tempat definisi & Di dalam method, lewat \texttt{self} & Di badan class, di luar method \\
+Cara mengakses & \texttt{objek.attr} & \texttt{NamaClass.attr} atau \texttt{objek.attr} \\
+Cara mengubah & \texttt{objek.attr = nilai} atau melalui instance method & \texttt{NamaClass.attr = nilai} \\
+Cocok untuk & Data yang berbeda tiap object (nama, NIM, saldo) & Data yang sama untuk semua object (nama kampus, konstanta, penghitung) \\
+\end{tabularx}
+\end{table}
+
+\subsection{Mengubah Instance Attribute setelah Object Dibuat}
+
+Method \texttt{\_\_init\_\_} menyiapkan nilai awal, bukan membatasi kapan attribute boleh diubah. Setelah object terbentuk, nilainya dapat diperbarui sesuai kebutuhan program. Dua cara berikut memakai class \texttt{Mahasiswa} pada contoh sebelumnya; jalankan potongan kodenya secara berurutan setelah definisi class tersebut.
+
+\subsubsection{Mengubah Langsung dari Luar Class}
+
+Untuk attribute publik seperti \texttt{nama}, gunakan notasi titik diikuti penugasan nilai baru. Object yang ditulis di sebelah kiri titik menentukan data siapa yang diubah.
+
+\begin{kode}[Mengubah attribute melalui nama object]
+mhs1 = Mahasiswa("Ani")
+mhs2 = Mahasiswa("Budi")
+
+print("Sebelum:", mhs1.nama, "|", mhs2.nama)
+mhs1.nama = "Ani Lestari"
+print("Sesudah:", mhs1.nama, "|", mhs2.nama)
+\end{kode}
+
+\begin{keluaran}
+Sebelum: Ani | Budi
+Sesudah: Ani Lestari | Budi
+\end{keluaran}
+
+Penugasan \texttt{mhs1.nama = "Ani Lestari"} mengganti nilai attribute milik \texttt{mhs1}. Nilai \texttt{mhs2.nama} tetap \texttt{"Budi"}, karena kedua nama disimpan pada object yang berbeda.
+
+\subsubsection{Mengubah melalui Method di Luar \texttt{\_\_init\_\_}}
+
+Pada definisi class sebelumnya, \texttt{ubah\_nama()} ditulis sejajar dengan \texttt{\_\_init\_\_}, sehingga merupakan method tersendiri di dalam class. Method itu menerima parameter \texttt{nama\_baru}, lalu menjalankan \texttt{self.nama = nama\_baru}. Ketika dipanggil melalui \texttt{mhs2}, \texttt{self} merujuk ke \texttt{mhs2}; karena itu, nama mahasiswa kedua yang berubah.
+
+\begin{kode}[Mengubah attribute melalui method]
+mhs2.ubah_nama("Budi Santoso")
+print(mhs1.nama)
+print(mhs2.nama)
+\end{kode}
+
+\begin{keluaran}
+Ani Lestari
+Budi Santoso
+\end{keluaran}
+
+Kedua cara tersebut mengubah object yang sudah ada, tanpa membuat object baru atau menjalankan ulang \texttt{\_\_init\_\_}. Perbedaannya terletak pada tempat penugasannya: \texttt{mhs1.nama = ...} ditulis oleh kode pemakai class, sedangkan \texttt{self.nama = ...} ditulis di dalam method. Cara kedua juga menyediakan tempat untuk menambahkan aturan pemeriksaan sebelum perubahan dilakukan, yang akan dibahas lebih lanjut pada Bab 2 tentang encapsulation.
+
+\subsection{Jebakan 1: Mengubah Class Attribute Lewat Object}
+
+Memberi nilai baru melalui object \textbf{tidak} mengubah class attribute. Yang terjadi justru Python membuat instance attribute baru dengan nama yang sama di object tersebut, sehingga class attribute ``tertutupi'' (\emph{shadowing}) hanya untuk object itu.
+
+\begin{kode}[Shadowing class attribute]
+a.kampus = "ITS"           # mengubah nilai kampus untuk object a saja
+print(a.kampus)            # ITS
+print(b.kampus)            # UNESA
+print(Mahasiswa.kampus)    # UNESA
+\end{kode}
+
+Gambar~\ref{fig:b1-shadowing} memperlihatkan keadaan setelah baris \texttt{a.kampus = "ITS"} dijalankan. Karena \texttt{a} kini memiliki attribute \texttt{kampus} sendiri, pencarian berhenti di object \texttt{a} dan tidak pernah sampai ke class.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[b1cls] (cls) at (40,26) {\textbf{class Mahasiswa}\\kampus = "UNESA"};
+  \node[b1obj] (a) at (8,2)  {\textbf{a}\\nama = "Ani"\\\textcolor{merah}{\textbf{kampus = "ITS"}}};
+  \node[b1obj] (b) at (72,2) {\textbf{b}\\nama = "Budi"};
+  \draw[b1panah,dashed] (b.north) -- node[b1ket,above right]{diteruskan\\ke class} (cls.south east);
+  \node[b1ket,text=merah] at (8,15) {berhenti di sini};
+  % contoh pencarian
+  \node[b1kode,anchor=base west] at (-2,-16) {a.kampus};
+  \node[b1kode,anchor=base west] at (18,-16) {$\rightarrow$ "ITS"};
+  \node[b1ket,anchor=base west]  at (42,-16) {ditemukan di object \texttt{a}};
+  \node[b1kode,anchor=base west] at (-2,-23) {b.kampus};
+  \node[b1kode,anchor=base west] at (18,-23) {$\rightarrow$ "UNESA"};
+  \node[b1ket,anchor=base west]  at (42,-23) {tidak ada di \texttt{b}, diambil dari class};
+\end{tikzpicture}
+\caption{\emph{Shadowing}: instance attribute \texttt{kampus} milik \texttt{a} menutupi class attribute dengan nama yang sama, tetapi hanya untuk \texttt{a}.}
+\label{fig:b1-shadowing}
+\end{figure}
+
+Karena itu, jika ingin mengubah class attribute, selalu lakukan melalui nama class: \texttt{Mahasiswa.kampus = "ITS"}.
+
+\subsection{Jebakan 2: Class Attribute yang Mutable}
+
+Jika class attribute berupa object yang bisa diubah isinya (\emph{mutable}) seperti list atau dictionary, perubahan isinya akan terlihat oleh object-object yang merujuk data yang sama.
+
+\begin{kode}[List yang tidak sengaja dipakai bersama]
+class Kelompok:
+    anggota = []                   # class attribute, dipakai bersama!
+
+    def tambah(self, nama):
+        self.anggota.append(nama)
+
+k1 = Kelompok()
+k2 = Kelompok()
+k1.tambah("Ani")
+print(k2.anggota)                  # k2 belum pernah memanggil tambah()
+\end{kode}
+
+\begin{keluaran}
+['Ani']
+\end{keluaran}
+
+Keluaran \texttt{['Ani']} muncul pada \texttt{k2.anggota} karena \texttt{anggota = []} ditulis di badan class \texttt{Kelompok}, sehingga merupakan \emph{class attribute}. Pada contoh ini, \texttt{k1} dan \texttt{k2} tidak memiliki instance attribute bernama \texttt{anggota}; keduanya mengakses satu list yang sama melalui class tersebut.
+
+Ketika \texttt{k1.tambah("Ani")} dijalankan, \texttt{self} merujuk ke \texttt{k1}, tetapi pencarian \texttt{self.anggota} menemukan list milik \texttt{Kelompok}. Pemanggilan \texttt{append()} mengubah isi list itu, bukan membuat list baru khusus untuk \texttt{k1}. Karena \texttt{k2.anggota} juga merujuk list yang sama, pembacaannya menghasilkan \texttt{['Ani']} walaupun \texttt{k2} tidak pernah menambahkan anggota.
+
+Perbaikannya adalah membuat list sebagai instance attribute di dalam \texttt{\_\_init\_\_}. Dengan demikian, setiap kali object dibuat, sebuah list kosong baru disiapkan khusus untuk object tersebut.
+
+\begin{kode}[Perbaikan]
+class Kelompok:
+    def __init__(self):
+        self.anggota = []          # instance attribute, milik tiap object
+
+    def tambah(self, nama):
+        self.anggota.append(nama)
+
+k1 = Kelompok()
+k2 = Kelompok()
+k1.tambah("Ani")
+print(k1.anggota)
+print(k2.anggota)
+\end{kode}
+
+\begin{keluaran}
+['Ani']
+[]
+\end{keluaran}
+
+Pada contoh perbaikan, \texttt{k1} dan \texttt{k2} dibuat kembali menggunakan definisi class yang baru. Keduanya kini memiliki list \texttt{anggota} yang berbeda. Karena hanya \texttt{k1} yang memanggil \texttt{tambah("Ani")}, list milik \texttt{k1} berisi \texttt{['Ani']}, sedangkan list milik \texttt{k2} tetap kosong, yaitu \texttt{[]}.
+
+Perbedaan keadaan sebelum dan sesudah perbaikan dapat dilihat pada Gambar~\ref{fig:b1-mutable}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  % --- sebelum ---
+  \node[b1judul] at (25,34) {Sebelum: list dipakai bersama};
+  \node[b1cls] (kc) at (14,20) {\textbf{class Kelompok}\\anggota};
+  \node[b1var,draw=merah,text=merah] (lst) at (44,20) {[\textquotesingle Ani\textquotesingle]};
+  \draw[b1panah] (kc.east) -- (lst.west);
+  \node[b1obj] (k1) at (2,0)  {\textbf{k1}};
+  \node[b1obj] (k2) at (26,0) {\textbf{k2}};
+  \draw[b1panah,dashed] (k1.north) -- (kc.south);
+  \draw[b1panah,dashed] (k2.north) -- (kc.south);
+  \node[b1ket] at (25,-10) {\texttt{k1.anggota} dan \texttt{k2.anggota}\\menunjuk list yang sama};
+  % pemisah
+  \draw[gelap!30,dashed] (57,-14) -- (57,38);
+  % --- sesudah ---
+  \node[b1judul] at (87,34) {Sesudah: list milik tiap object};
+  \node[b1obj] (j1) at (72,20) {\textbf{k1}\\anggota};
+  \node[b1var] (l1) at (100,20) {[\textquotesingle Ani\textquotesingle]};
+  \node[b1obj] (j2) at (72,0) {\textbf{k2}\\anggota};
+  \node[b1var] (l2) at (100,0) {[\,]};
+  \draw[b1panah] (j1.east) -- (l1.west);
+  \draw[b1panah] (j2.east) -- (l2.west);
+  \node[b1ket] at (87,-10) {setiap object memiliki\\list sendiri};
+\end{tikzpicture}
+\caption{Class attribute yang mutable dipakai bersama oleh semua object (kiri). Menjadikannya instance attribute memberi setiap object list miliknya sendiri (kanan).}
+\label{fig:b1-mutable}
+\end{figure}
+
+% =====================================================================
+\section{Konsep Method}
+% =====================================================================
+
+Jika attribute menyimpan keadaan, maka \emph{method} menggambarkan perilaku. Method adalah fungsi yang didefinisikan di dalam class dan bekerja dengan data milik object. Contohnya: rekening bisa \emph{menerima setoran}, lampu bisa \emph{dinyalakan}, mahasiswa bisa \emph{memperkenalkan diri}.
+
+Secara penulisan, method mirip fungsi biasa: diawali \texttt{def}, punya parameter, dan boleh mengembalikan nilai dengan \texttt{return}. Perbedaannya terletak pada tempat dan cara pemanggilannya.
+
+\begin{table}[htbp]
+\caption{Perbedaan fungsi biasa dan method.}
+\begin{tabularx}{\linewidth}{P{30mm}LL}
+\kepala \kp{Aspek} & \kp{Fungsi} & \kp{Method} \\
+Tempat definisi & Di luar class & Di dalam class \\
+Cara memanggil & \texttt{fungsi(data)} & \texttt{objek.method()} \\
+Akses data & Hanya lewat parameter & Langsung ke attribute object lewat \texttt{self} \\
+\end{tabularx}
+\end{table}
+
+Untuk menjalankan \emph{instance method}, kita perlu menentukan object yang datanya akan digunakan. Ada dua cara pemanggilan yang ditunjukkan pada contoh berikut.
+
+\begin{enumerate}
+  \item \textbf{Melalui object}, dengan bentuk \texttt{objek.method()}. Contohnya adalah \texttt{ani.perkenalan()}. Python secara otomatis memberikan object \texttt{ani} sebagai argumen untuk parameter \texttt{self}, sehingga kita tidak perlu menuliskannya lagi di dalam tanda kurung.
+  \item \textbf{Melalui class}, dengan bentuk \texttt{NamaClass.method(objek)}. Contohnya adalah \texttt{Mahasiswa.perkenalan(ani)}. Pada bentuk ini, object \texttt{ani} harus diberikan secara eksplisit sebagai argumen pertama untuk mengisi \texttt{self}.
+\end{enumerate}
+
+Kedua bentuk tersebut tetap memanggil instance method yang sama. Penggunaan nama class pada bentuk kedua tidak menjadikannya \emph{class method}; pemanggilan itu masih memerlukan object mahasiswa yang datanya akan dibaca.
+
+\begin{kode}[Fungsi vs method]
+# Gaya prosedural: data dan fungsi terpisah
+def perkenalan(nama, nim):
+    return f"Halo, saya {nama} ({nim})"
+
+print(perkenalan("Ani", "001"))
+
+# Gaya OOP: data dan perilaku menyatu dalam object
+class Mahasiswa:
+    def __init__(self, nama, nim):
+        self.nama = nama
+        self.nim = nim
+
+    def perkenalan(self):
+        return f"Halo, saya {self.nama} ({self.nim})"
+
+ani = Mahasiswa("Ani", "001")
+print(ani.perkenalan())            # melalui object; self diisi otomatis
+print(Mahasiswa.perkenalan(ani))   # melalui class; ani diberikan sebagai self
+\end{kode}
+
+\begin{keluaran}
+Halo, saya Ani (001)
+Halo, saya Ani (001)
+Halo, saya Ani (001)
+\end{keluaran}
+
+Program lengkap di atas menghasilkan tiga baris keluaran. Baris pertama berasal dari fungsi biasa \texttt{perkenalan("Ani", "001")}, baris kedua dari method yang dipanggil melalui object, dan baris ketiga dari method yang dipanggil melalui class. Ketiganya menghasilkan teks yang sama, tetapi cara memberikan datanya berbeda.
+
+Pada dua pemanggilan method tersebut, object \texttt{ani} sama-sama diterima sebagai \texttt{self}. Dengan demikian, \texttt{self.nama} membaca \texttt{ani.nama} dan \texttt{self.nim} membaca \texttt{ani.nim}. Bentuk \texttt{ani.perkenalan()} lebih ringkas karena pengiriman object dilakukan otomatis, sedangkan \texttt{Mahasiswa.perkenalan(ani)} memperlihatkan argumen object tersebut secara eksplisit, sesuai alur pada Gambar~\ref{fig:b1-self}.
+
+\begin{info}[Jenis-Jenis Method]
+Python mengenal tiga jenis method: \emph{instance method}, \emph{class method}, dan \emph{static method}. Bab ini fokus pada instance method, jenis yang paling sering dipakai. Dua jenis lainnya dibahas di Bab 3.
+\end{info}
+
+% =====================================================================
+\section{Instance Method}
+% =====================================================================
+
+\emph{Instance method} adalah method yang bekerja pada satu object tertentu. Ciri utamanya adalah parameter pertama \texttt{self}. Melalui \texttt{self}, instance method dapat membaca attribute, mengubah attribute, dan memanggil method lain milik object yang sama.
+
+\subsection{Method yang Mengubah Keadaan Object}
+
+\begin{kode}[Class Lampu]
+class Lampu:
+    def __init__(self, lokasi):
+        self.lokasi = lokasi
+        self.menyala = False           # keadaan awal: mati
+
+    def nyalakan(self):
+        self.menyala = True
+
+    def matikan(self):
+        self.menyala = False
+
+    def status(self):
+        keadaan = "menyala" if self.menyala else "mati"
+        return f"Lampu {self.lokasi} {keadaan}"
+
+lampu_kamar = Lampu("kamar")
+lampu_dapur = Lampu("dapur")
+
+lampu_kamar.nyalakan()
+print(lampu_kamar.status())
+print(lampu_dapur.status())
+\end{kode}
+
+\begin{keluaran}
+Lampu kamar menyala
+Lampu dapur mati
+\end{keluaran}
+
+Method \texttt{nyalakan()} hanya mengubah keadaan \texttt{lampu\_kamar}; \texttt{lampu\_dapur} tetap mati. Inilah kekuatan \texttt{self}: kode method ditulis sekali, tetapi bekerja pada data object yang memanggilnya. Gambar~\ref{fig:b1-lampu} menggambarkan method sebagai ``tombol'' yang memindahkan object dari satu keadaan ke keadaan lain.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[circle,draw=gelap,line width=0.8pt,fill=gelap!10,minimum size=17mm,font=\small] (mati) at (0,0) {mati};
+  \node[circle,draw=merah,line width=0.8pt,fill=merahmuda,minimum size=17mm,font=\small] (nyala) at (40,0) {menyala};
+  \draw[b1panahm] (mati) to[bend left=35] node[above,font=\ttfamily\small,text=gelap]{nyalakan()} (nyala);
+  \draw[b1panah] (nyala) to[bend left=35] node[below,font=\ttfamily\small,text=gelap]{matikan()} (mati);
+  \draw[b1panah] (-20,0) -- node[above,font=\ttfamily\footnotesize,text=gelap]{\_\_init\_\_} (mati.west);
+  % keadaan tiap object
+  \node[b1ket] at (78,16) {keadaan setelah kode dijalankan};
+  \node[b1obj] at (78,6)  {\textbf{lampu\_kamar}\\menyala = True};
+  \node[b1cls] at (78,-9) {\textbf{lampu\_dapur}\\menyala = False};
+\end{tikzpicture}
+\caption{Setiap object \texttt{Lampu} berawal dari keadaan mati. Method \texttt{nyalakan()} dan \texttt{matikan()} hanya mengubah keadaan object yang memanggilnya.}
+\label{fig:b1-lampu}
+\end{figure}
+
+\subsection{Method dengan Parameter dan Nilai Kembali}
+
+Instance method dapat menerima parameter tambahan setelah \texttt{self} dan mengembalikan hasil perhitungan. Sebuah method juga bisa memanggil method lain di class yang sama melalui \texttt{self}.
+
+\begin{kode}[Class PersegiPanjang]
+class PersegiPanjang:
+    def __init__(self, panjang, lebar):
+        self.panjang = panjang
+        self.lebar = lebar
+
+    def luas(self):
+        return self.panjang * self.lebar
+
+    def keliling(self):
+        return 2 * (self.panjang + self.lebar)
+
+    def perbesar(self, faktor):
+        self.panjang *= faktor
+        self.lebar *= faktor
+
+    def info(self):
+        # memanggil method lain lewat self
+        ukuran = f"{self.panjang} x {self.lebar}"
+        return f"{ukuran}, luas {self.luas()}, keliling {self.keliling()}"
+
+    def __str__(self):
+        return self.info()        # representasi teks untuk print(pp)
+
+pp = PersegiPanjang(4, 3)
+print(pp.info())
+pp.perbesar(2)
+print(pp.info())
+\end{kode}
+
+\begin{keluaran}
+4 x 3, luas 12, keliling 14
+8 x 6, luas 48, keliling 28
+\end{keluaran}
+
+\begin{tips}[Method \texttt{\_\_str\_\_}]
+Pada class yang belum menyediakan representasi teks khusus, \texttt{print(pp)} menampilkan representasi bawaan seperti \texttt{<\_\_main\_\_.PersegiPanjang object at 0x7f...>}. Bagian alamatnya dapat berbeda setiap kali program dijalankan. Agar hasilnya lebih bermakna, class \texttt{PersegiPanjang} di atas dilengkapi method khusus \texttt{\_\_str\_\_(self)} yang mengembalikan string dari \texttt{self.info()}. Method ini memungkinkan kita mencetak object secara langsung dengan \texttt{print(pp)}.
+\end{tips}
+
+Contoh berikut menggunakan class \texttt{PersegiPanjang} yang sudah dilengkapi \texttt{\_\_str\_\_} tersebut. Object dibuat kembali dengan ukuran awal 4 dan 3 agar perubahan hasil cetaknya mudah dibandingkan.
+
+\begin{kode}[Mencetak object dengan print(pp)]
+pp = PersegiPanjang(4, 3)
+print(pp)                 # otomatis memakai __str__()
+pp.perbesar(2)
+print(pp)                 # teks mengikuti ukuran terbaru
+\end{kode}
+
+\begin{keluaran}
+4 x 3, luas 12, keliling 14
+8 x 6, luas 48, keliling 28
+\end{keluaran}
+
+Ketika \texttt{print(pp)} dijalankan, Python memakai \texttt{\_\_str\_\_} untuk memperoleh representasi string object. Method tersebut memanggil \texttt{info()}, yang membaca panjang dan lebar serta menghitung luas dan keliling. Karena itu, setelah \texttt{perbesar(2)} dijalankan, hasil cetak berikutnya menampilkan ukuran yang baru. Di dalam \texttt{\_\_str\_\_}, gunakan \texttt{return} untuk mengembalikan string, bukan \texttt{print()}; pencetakan dilakukan oleh pemanggilnya.
+
+% =====================================================================
+\section{Membuat Object}
+% =====================================================================
+
+Membuat object dilakukan dengan memanggil nama class beserta argumen yang dibutuhkan constructor. Argumen yang kita berikan akan diteruskan ke parameter \texttt{\_\_init\_\_} setelah \texttt{self}.
+
+\begin{langkah}{Apa yang Terjadi Saat \texttt{Mahasiswa("Ani", "001")} Dijalankan}
+  \item Python membuat sebuah object baru yang masih kosong dari class \texttt{Mahasiswa}.
+  \item Python memanggil \texttt{\_\_init\_\_} dengan \texttt{self} berisi object baru tadi, \texttt{nama="Ani"}, dan \texttt{nim="001"}.
+  \item Di dalam \texttt{\_\_init\_\_}, attribute \texttt{self.nama} dan \texttt{self.nim} diisi.
+  \item Object yang sudah terisi dikembalikan dan disimpan ke variabel di sebelah kiri tanda \texttt{=}.
+\end{langkah}
+
+Keempat langkah tersebut divisualisasikan pada Gambar~\ref{fig:b1-instansiasi} untuk perintah \texttt{ani = Mahasiswa("Ani", "001")}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm,
+  nomor/.style={circle,fill=merah,text=white,font=\footnotesize\bfseries,inner sep=0pt,minimum size=4.5mm}]
+  \node[b1var,font=\ttfamily\small\bfseries] (call) at (0,46) {Mahasiswa("Ani", "001")};
+  \node[b1obj,font=\small] (s1) at (0,32) {object baru (kosong)};
+  \node[b1cls] (s2) at (0,18) {\_\_init\_\_(self, "Ani", "001")};
+  \node[b1obj] (s3) at (0,3) {nama = "Ani"\\nim = "001"};
+  \node[b1var] (s4) at (0,-12) {ani};
+  \draw[b1panah] (call) -- (s1);
+  \draw[b1panah] (s1) -- (s2);
+  \draw[b1panah] (s2) -- (s3);
+  \draw[b1panahm] (s4) -- (s3);
+  \node[nomor] at (-32,32)  {1};
+  \node[nomor] at (-32,18)  {2};
+  \node[nomor] at (-32,3)   {3};
+  \node[nomor] at (-32,-12) {4};
+  \node[b1ket,anchor=west] at (30,46)  {pemanggilan class};
+  \node[b1ket,anchor=west] at (30,32)  {Python menyiapkan object kosong};
+  \node[b1ket,anchor=west] at (30,18)  {constructor dipanggil, \texttt{self} = object baru};
+  \node[b1ket,anchor=west] at (30,3)   {attribute diisi lewat \texttt{self}};
+  \node[b1ket,anchor=west] at (30,-12) {variabel \texttt{ani} menunjuk object tersebut};
+\end{tikzpicture}
+\caption{Proses instansiasi langkah demi langkah.}
+\label{fig:b1-instansiasi}
+\end{figure}
+
+\subsection{Parameter Default dan Argumen Kata Kunci}
+
+Seperti fungsi biasa, parameter constructor boleh memiliki nilai default sehingga argumennya tidak wajib diberikan saat object dibuat. Pada contoh berikut, parameter yang memiliki nilai default adalah \texttt{semester}, yang ditulis sebagai \texttt{semester=1}. Angka \texttt{1} digunakan jika pemanggil tidak memberikan argumen untuk \texttt{semester}. Sebaliknya, \texttt{nama} dan \texttt{nim} tidak memiliki nilai default, sehingga keduanya wajib diberikan; \texttt{self} diisi secara otomatis oleh Python.
+
+Kita juga boleh memakai argumen kata kunci (\emph{keyword argument}), yaitu menuliskan nama parameter beserta nilainya saat pemanggilan, misalnya \texttt{semester=5}. Nilai yang diberikan pemanggil akan digunakan sebagai pengganti nilai default.
+
+\begin{kode}[Constructor dengan nilai default]
+class Mahasiswa:
+    # semester memiliki nilai default 1; nama dan nim wajib diberikan
+    def __init__(self, nama, nim, semester=1):
+        self.nama = nama
+        self.nim = nim
+        self.semester = semester  # simpan nilai semester pada object
+
+a = Mahasiswa("Ani", "001")                        # memakai default 1
+b = Mahasiswa("Budi", "002", 3)                    # argumen posisi: 3
+c = Mahasiswa(nim="003", nama="Citra", semester=5) # argumen kata kunci: 5
+
+print(a.semester, b.semester, c.semester)
+\end{kode}
+
+\begin{keluaran}
+1 3 5
+\end{keluaran}
+
+Dampak parameter default pada ketiga object tersebut adalah sebagai berikut.
+
+\begin{itemize}
+  \item Pada \texttt{a = Mahasiswa("Ani", "001")}, argumen \texttt{semester} tidak diberikan. Python memakai nilai default \texttt{1}, sehingga \texttt{a.semester} bernilai \texttt{1}.
+  \item Pada \texttt{b = Mahasiswa("Budi", "002", 3)}, argumen ketiga, yaitu \texttt{3}, mengisi parameter \texttt{semester} berdasarkan posisinya. Nilai default tidak digunakan, sehingga \texttt{b.semester} bernilai \texttt{3}.
+  \item Pada object \texttt{c}, argumen \texttt{semester=5} mengisi parameter berdasarkan namanya. Karena argumen diberikan dengan nama parameter, urutan penulisan \texttt{nim} dan \texttt{nama} dapat ditukar. Nilai default tidak digunakan, sehingga \texttt{c.semester} bernilai \texttt{5}.
+\end{itemize}
+
+Jadi, nilai default membuat pemanggilan lebih ringkas ketika nilai awal yang disediakan sudah sesuai, tetapi tetap memungkinkan pemanggil menentukan nilai lain. Penulisan \texttt{semester=1} pada definisi method menetapkan nilai default parameter, sedangkan \texttt{self.semester = semester} menyimpan nilai parameter yang terpilih sebagai attribute object.
+
+Jika argumen wajib tidak diberikan, misalnya \texttt{Mahasiswa("Dodi")}, Python akan menghentikan program dengan pesan \texttt{TypeError: \_\_init\_\_() missing 1 required positional argument: 'nim'}.
+
+\subsection{Menyimpan Banyak Object}
+
+Dalam program nyata, kita jarang hanya membuat satu atau dua object. Object biasanya disimpan dalam list lalu diproses dengan perulangan.
+
+\begin{kode}[Daftar object dalam list]
+data = [("Ani", "001"), ("Budi", "002"), ("Citra", "003")]
+
+kelas_a = []
+for nama, nim in data:
+    kelas_a.append(Mahasiswa(nama, nim))
+
+for mhs in kelas_a:
+    print(mhs.nim, mhs.nama)
+\end{kode}
+
+\begin{keluaran}
+001 Ani
+002 Budi
+003 Citra
+\end{keluaran}
+
+Seperti terlihat pada Gambar~\ref{fig:b1-list-object}, setiap elemen list sebenarnya menyimpan rujukan ke sebuah object. Saat perulangan berjalan, variabel \texttt{mhs} bergantian menunjuk object-object tersebut.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[b1var] (var) at (-22,15.5) {kelas\_a};
+  \foreach \i in {0,1,2}{
+    \draw[gelap,line width=0.7pt,fill=white] (\i*14,12) rectangle ++(14,7);
+    \node[font=\ttfamily\footnotesize,text=gelap!70] at (\i*14+7,21.5) {[\i]};
+    \fill[gelap] (\i*14+7,15.5) circle (0.8mm);
+  }
+  \draw[b1panah] (var.east) -- (0,15.5);
+  \node[b1obj] (m0) at (-14,-6) {nama = "Ani"\\nim = "001"};
+  \node[b1obj] (m1) at (21,-6)  {nama = "Budi"\\nim = "002"};
+  \node[b1obj] (m2) at (56,-6)  {nama = "Citra"\\nim = "003"};
+  \draw[b1panahm] (7,15.5)  -- (m0.north);
+  \draw[b1panahm] (21,15.5) -- (m1.north);
+  \draw[b1panahm] (35,15.5) -- (m2.north);
+  \node[b1ket] at (21,-18) {tiap elemen list menunjuk satu object \texttt{Mahasiswa}};
+\end{tikzpicture}
+\caption{List \texttt{kelas\_a} berisi rujukan ke tiga object \texttt{Mahasiswa}.}
+\label{fig:b1-list-object}
+\end{figure}
+
+% =====================================================================
+\section{Pemodelan Objek dari Permasalahan Sederhana}
+% =====================================================================
+
+Kemampuan terpenting dalam OOP bukanlah menghafal sintaks, melainkan \emph{memodelkan} masalah: menentukan class apa yang dibutuhkan, data apa yang disimpan, dan perilaku apa yang dimiliki. Teknik sederhana yang bisa langsung dipakai adalah \emph{analisis kata benda dan kata kerja}.
+
+\begin{langkah}{Langkah Memodelkan Masalah}
+  \item Baca deskripsi masalah dengan teliti.
+  \item Tandai \textbf{kata benda utama}; kandidat kuat untuk menjadi class.
+  \item Tandai \textbf{kata benda yang menjelaskan} kata benda utama (milik, ciri, jumlah); kandidat attribute.
+  \item Tandai \textbf{kata kerja}; kandidat method.
+  \item Tentukan aturan yang harus dijaga (misalnya ``saldo tidak boleh negatif''), lalu letakkan di method yang sesuai.
+  \item Tuliskan class-nya, kemudian uji dengan membuat beberapa object.
+\end{langkah}
+
+Secara garis besar, langkah-langkah tersebut membentuk alur kerja dari teks menuju kode seperti pada Gambar~\ref{fig:b1-alur-pemodelan}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm,
+  tahap/.style={b1cls,align=center,text width=20mm,font=\small,minimum height=13mm}]
+  \node[tahap] (t1) at (0,0)  {\textbf{1.} Baca\\deskripsi};
+  \node[tahap] (t2) at (30,0) {\textbf{2.} Tandai\\kata};
+  \node[tahap] (t3) at (60,0) {\textbf{3.} Rancang class diagram};
+  \node[tahap,draw=merah,fill=merahmuda] (t4) at (90,0) {\textbf{4.} Tulis\\kode Python};
+  \foreach \a/\b in {t1/t2,t2/t3,t3/t4} \draw[b1panahm] (\a.east) -- (\b.west);
+  \node[b1ket,text width=25mm,anchor=north] at (0,-10)
+    {``\ldots\ rekening memiliki saldo \ldots\ dapat menyetor \ldots''};
+  \node[b1ket,text width=25mm,anchor=north] at (30,-10)
+    {rekening $\rightarrow$ class\\saldo $\rightarrow$ attribute\\menyetor $\rightarrow$ method};
+  \node[b1ket,text width=25mm,anchor=north,font=\ttfamily\footnotesize] at (60,-10)
+    {Rekening\\- saldo\\+ setor()};
+  \node[b1ket,text width=25mm,anchor=north,font=\ttfamily\footnotesize] at (90,-10)
+    {class Rekening:\\def setor(...)};
+\end{tikzpicture}
+\caption{Alur pemodelan objek: dari deskripsi masalah, ke analisis kata, ke class diagram, lalu ke kode Python.}
+\label{fig:b1-alur-pemodelan}
+\end{figure}
+
+\begin{contoh}[Studi Kasus: Tabungan Koperasi Mahasiswa]
+Koperasi mahasiswa ingin mencatat \textbf{rekening} tabungan anggotanya. Setiap rekening memiliki \underline{nomor rekening}, \underline{nama pemilik}, dan \underline{saldo}. Anggota dapat \emph{menyetor} uang, \emph{menarik} uang selama saldonya mencukupi, dan \emph{melihat informasi} rekening. Setoran dan penarikan harus bernilai lebih dari nol.
+\end{contoh}
+
+\subsection{Identifikasi Class, Attribute, dan Method}
+
+\begin{table}[htbp]
+\caption{Hasil analisis kata benda dan kata kerja.}
+\begin{tabularx}{\linewidth}{P{34mm}P{36mm}L}
+\kepala \kp{Temuan} & \kp{Jenis} & \kp{Menjadi} \\
+rekening & kata benda utama & class \texttt{Rekening} \\
+nomor rekening, nama pemilik, saldo & kata benda penjelas & attribute \texttt{nomor}, \texttt{pemilik}, \texttt{saldo} \\
+menyetor, menarik, melihat informasi & kata kerja & method \texttt{setor()}, \texttt{tarik()}, \texttt{info()} \\
+saldo mencukupi, nilai lebih dari nol & aturan & pemeriksaan di dalam \texttt{setor()} dan \texttt{tarik()} \\
+\end{tabularx}
+\end{table}
+
+Hasil analisis tersebut dapat digambarkan sebagai \emph{class diagram} sederhana. Kotak dibagi tiga: nama class, attribute, dan method. Class diagram akan dibahas lebih lengkap di Bab 11.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+  \node[kelas] {\kelas{Rekening}{- nomor : str\\- pemilik : str\\- saldo : int}{+ setor(jumlah)\\+ tarik(jumlah)\\+ info() : str}};
+\end{tikzpicture}
+\caption{Class diagram \texttt{Rekening}.}
+\end{figure}
+
+\subsection{Implementasi}
+
+\begin{kode}[rekening.py]
+class Rekening:
+    """Rekening tabungan anggota koperasi."""
+
+    def __init__(self, nomor, pemilik, saldo=0):
+        self.nomor = nomor
+        self.pemilik = pemilik
+        self.saldo = saldo
+
+    def setor(self, jumlah):
+        if jumlah <= 0:
+            print("Setoran harus lebih dari nol.")
+            return
+        self.saldo += jumlah
+        print(f"Setor Rp{jumlah:,} berhasil.")
+
+    def tarik(self, jumlah):
+        if jumlah <= 0:
+            print("Penarikan harus lebih dari nol.")
+        elif jumlah > self.saldo:
+            print("Saldo tidak mencukupi.")
+        else:
+            self.saldo -= jumlah
+            print(f"Tarik Rp{jumlah:,} berhasil.")
+
+    def info(self):
+        return f"[{self.nomor}] {self.pemilik} - saldo Rp{self.saldo:,}"
+
+
+rek_ani = Rekening("KM-001", "Ani", 100000)
+rek_budi = Rekening("KM-002", "Budi")
+
+rek_ani.setor(50000)
+rek_ani.tarik(500000)
+rek_budi.setor(-1000)
+rek_budi.setor(25000)
+
+print(rek_ani.info())
+print(rek_budi.info())
+\end{kode}
+
+\begin{keluaran}
+Setor Rp50,000 berhasil.
+Saldo tidak mencukupi.
+Setoran harus lebih dari nol.
+Setor Rp25,000 berhasil.
+[KM-001] Ani - saldo Rp150,000
+[KM-002] Budi - saldo Rp25,000
+\end{keluaran}
+
+Perhatikan bahwa aturan ``saldo tidak boleh kurang dari jumlah penarikan'' ditempatkan di dalam method \texttt{tarik()}. Selama perubahan saldo dilakukan melalui method, aturan itu selalu terjaga. Masalahnya, saat ini siapa pun masih bisa menulis \texttt{rek\_ani.saldo = -999} dari luar class dan melewati aturan tersebut (Gambar~\ref{fig:b1-gerbang}). Cara melindungi attribute dari perubahan langsung seperti ini adalah topik Bab 2, \emph{Visibility dan Encapsulation}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \draw[merah,line width=0.8pt,fill=merahmuda!45,rounded corners=3pt] (30,-18) rectangle (104,26);
+  \node[font=\ttfamily\small\bfseries,text=merah,anchor=north east] at (102,25) {object rek\_ani};
+  \node[b1var,font=\ttfamily] (sal) at (84,6) {saldo};
+  \node[b1cls] (gs) at (30,15) {setor()};
+  \node[b1cls] (gt) at (30,1)  {tarik()};
+  \node[font=\ttfamily\small,text=gelap,anchor=east] (cs) at (14,15) {.setor(50000)};
+  \node[font=\ttfamily\small,text=gelap,anchor=east] (ct) at (14,1)  {.tarik(500000)};
+  \node[font=\ttfamily\small,text=merah,anchor=east] (cx) at (14,-10) {.saldo = -999};
+  \draw[b1panah] (cs.east) -- (gs.west);
+  \draw[b1panah] (ct.east) -- (gt.west);
+  \draw[b1panah] (gs.east) -- node[b1ket,above,sloped]{cek: jumlah $>$ 0} (sal.west);
+  \draw[b1panah] (gt.east) -- node[b1ket,below,sloped]{cek: 0 $<$ jumlah $\le$ saldo} (sal.west);
+  \draw[b1panahm,dashed] (cx.east) -| node[b1ket,pos=0.3,below,text=merah]{langsung, tanpa pemeriksaan} (sal.south);
+\end{tikzpicture}
+\caption{Method berperan sebagai ``gerbang'' yang memeriksa aturan sebelum saldo diubah. Perubahan langsung lewat attribute melewati gerbang tersebut; masalah ini diselesaikan di Bab 2.}
+\label{fig:b1-gerbang}
+\end{figure}
+
+\begin{tips}[Ciri Model yang Baik]
+\begin{itemize}
+  \item Satu class mewakili satu konsep yang jelas.
+  \item Nama attribute dan method mudah dipahami tanpa membaca isinya.
+  \item Aturan bisnis (validasi) berada di dalam method, bukan tersebar di luar class.
+  \item Method kecil dan masing-masing mengerjakan satu tugas.
+\end{itemize}
+\end{tips}
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item \textbf{Class} adalah cetak biru yang mendefinisikan attribute dan method; \textbf{object} (instance) adalah wujud nyata yang dibuat dari class.
+  \item Class dibuat dengan kata kunci \texttt{class}; object dibuat dengan memanggil nama class, misalnya \texttt{Mahasiswa("Ani", "001")}.
+  \item \texttt{\_\_init\_\_} adalah constructor yang otomatis dijalankan saat object dibuat untuk menyiapkan keadaan awalnya.
+  \item \texttt{self} merujuk ke object yang sedang dipakai dan wajib menjadi parameter pertama instance method.
+  \item \textbf{Instance attribute} milik masing-masing object; \textbf{class attribute} dipakai bersama oleh semua object.
+  \item Mengubah class attribute lewat object justru membuat instance attribute baru (\emph{shadowing}); class attribute yang mutable dipakai bersama oleh semua object.
+  \item \textbf{Method} adalah fungsi di dalam class yang menggambarkan perilaku object; \textbf{instance method} bekerja pada data object lewat \texttt{self}.
+  \item Attribute dan method diakses dengan notasi titik; \texttt{getattr}, \texttt{setattr}, dan \texttt{hasattr} dipakai untuk akses dinamis.
+  \item Pemodelan objek dapat dimulai dengan analisis kata benda (class dan attribute) dan kata kerja (method).
+\end{itemize}
+
+% =====================================================================
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat.
+
+\begin{enumerate}
+  \item Pernyataan yang paling tepat tentang hubungan class dan object adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item class adalah wujud nyata dari object
+    \item object adalah cetak biru untuk membuat class
+    \item class adalah cetak biru, object adalah wujud nyata yang dibuat darinya
+    \item class dan object adalah dua istilah untuk hal yang sama
+  \end{enumerate}
+
+  \item Method \texttt{\_\_init\_\_} dijalankan ketika \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item class pertama kali didefinisikan
+    \item object baru dibuat dari class
+    \item object dicetak dengan \texttt{print()}
+    \item program selesai dijalankan
+  \end{enumerate}
+
+  \item Parameter \texttt{self} pada instance method merujuk ke \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item class tempat method didefinisikan
+    \item method itu sendiri
+    \item object yang memanggil method
+    \item modul utama program
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 4]
+class A:
+    x = 10
+
+a1 = A()
+a2 = A()
+a1.x = 20
+print(a2.x, A.x)
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{20 20}
+    \item \texttt{10 10}
+    \item \texttt{20 10}
+    \item \texttt{10 20}
+  \end{enumerate}
+
+  \item Attribute yang paling tepat dijadikan \emph{class attribute} pada class \texttt{Mahasiswa} adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{nim}
+    \item \texttt{nama}
+    \item \texttt{ipk}
+    \item \texttt{nama\_universitas}
+  \end{enumerate}
+
+  \item Apa yang terjadi jika kita menulis \texttt{lampu.nyalakan} (tanpa tanda kurung)?
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item Lampu menyala seperti biasa
+    \item Terjadi \texttt{SyntaxError}
+    \item Method hanya dirujuk dan tidak dijalankan
+    \item Terjadi \texttt{AttributeError}
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 7]
+class Tim:
+    anggota = []
+    def tambah(self, nama):
+        self.anggota.append(nama)
+
+t1, t2 = Tim(), Tim()
+t1.tambah("Ani")
+t2.tambah("Budi")
+print(len(t1.anggota))
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{0}
+    \item \texttt{1}
+    \item \texttt{2}
+    \item Terjadi error
+  \end{enumerate}
+
+  \item Kesalahan yang muncul ketika mengakses attribute yang tidak pernah dibuat adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{NameError}
+    \item \texttt{TypeError}
+    \item \texttt{ValueError}
+    \item \texttt{AttributeError}
+  \end{enumerate}
+
+  \item Pada kalimat ``Setiap \emph{kendaraan} memiliki \emph{nomor polisi} dan dapat \emph{diparkir}'', kandidat method adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item kendaraan
+    \item nomor polisi
+    \item diparkir
+    \item memiliki
+  \end{enumerate}
+
+  \item Pemanggilan \texttt{ani.perkenalan()} setara dengan \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{perkenalan(ani)}
+    \item \texttt{Mahasiswa.perkenalan(ani)}
+    \item \texttt{ani.perkenalan(self)}
+    \item \texttt{Mahasiswa.perkenalan()}
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Jelaskan perbedaan class dan object dengan analogi Anda sendiri (selain analogi yang ada di buku ini).
+  \item Jelaskan perbedaan instance attribute dan class attribute. Berikan masing-masing dua contoh attribute yang tepat untuk class \texttt{Produk} di sebuah toko.
+  \item Mengapa sebaiknya semua attribute didefinisikan di dalam \texttt{\_\_init\_\_}? Apa risikonya jika attribute ditambahkan dari luar class?
+  \item Seorang mahasiswa menulis \texttt{def hitung\_luas():} di dalam sebuah class lalu memanggilnya dengan \texttt{objek.hitung\_luas()}. Program gagal berjalan. Jelaskan penyebabnya dan cara memperbaikinya.
+  \item Dengan teknik kata benda dan kata kerja, identifikasi class, attribute, dan method dari deskripsi berikut: ``Perpustakaan menyimpan data buku berupa judul, penulis, dan status ketersediaan. Buku dapat dipinjam dan dikembalikan.''
+\end{enumerate}
+
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Kerjakan praktik berikut secara berurutan. Simpan setiap praktik dalam file \texttt{.py} terpisah, jalankan, dan pastikan keluarannya sesuai dengan contoh.
+
+\subsection{Praktik 1: Class Buku}
+
+Buat class \texttt{Buku} dengan ketentuan:
+
+\begin{itemize}
+  \item Instance attribute: \texttt{judul}, \texttt{penulis}, \texttt{tahun}, dan \texttt{tersedia} (nilai awal \texttt{True}).
+  \item Method \texttt{pinjam()}: jika buku tersedia, ubah \texttt{tersedia} menjadi \texttt{False} dan cetak pesan berhasil; jika tidak, cetak bahwa buku sedang dipinjam.
+  \item Method \texttt{kembalikan()}: ubah \texttt{tersedia} menjadi \texttt{True}.
+  \item Method \texttt{info()}: mengembalikan string berisi judul, penulis, tahun, dan status.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 1]
+Buku "Laskar Pelangi" berhasil dipinjam.
+Buku "Laskar Pelangi" sedang dipinjam.
+Laskar Pelangi - Andrea Hirata (2005) [dipinjam]
+Laskar Pelangi - Andrea Hirata (2005) [tersedia]
+\end{keluaran}
+
+\subsection{Praktik 2: Nilai Mahasiswa}
+
+Buat class \texttt{Mahasiswa} dengan ketentuan:
+
+\begin{itemize}
+  \item Class attribute \texttt{jumlah\_mahasiswa} yang bertambah satu setiap object baru dibuat.
+  \item Instance attribute \texttt{nama}, \texttt{nim}, dan \texttt{daftar\_nilai} (list kosong).
+  \item Method \texttt{tambah\_nilai(nilai)}: menambahkan nilai ke list hanya jika nilainya di antara 0 dan 100.
+  \item Method \texttt{rata\_rata()}: mengembalikan rata-rata nilai, atau 0 jika belum ada nilai.
+  \item Method \texttt{predikat()}: mengembalikan \texttt{"A"} jika rata-rata $\geq 85$, \texttt{"B"} jika $\geq 70$, \texttt{"C"} jika $\geq 55$, selain itu \texttt{"D"}. Gunakan \texttt{rata\_rata()} di dalamnya.
+\end{itemize}
+
+Buat minimal tiga object, isi nilainya, lalu tampilkan rata-rata, predikat, dan jumlah mahasiswa. Pastikan list nilai antarmahasiswa tidak tercampur.
+
+\begin{keluaran}[Contoh keluaran Praktik 2]
+Ani   (001) rata-rata 88.33 predikat A
+Budi  (002) rata-rata 72.50 predikat B
+Citra (003) rata-rata 0.00 predikat D
+Jumlah mahasiswa: 3
+\end{keluaran}
+
+\subsection{Praktik 3: Pemodelan Mandiri}
+
+Pilih \textbf{salah satu} studi kasus berikut.
+
+\begin{enumerate}
+  \item \textbf{Parkir Kampus.} Area parkir memiliki nama dan kapasitas. Kendaraan dapat masuk selama area belum penuh dan dapat keluar. Petugas dapat melihat jumlah slot yang masih kosong.
+  \item \textbf{Kantin.} Sebuah menu memiliki nama, harga, dan stok. Menu dapat dipesan dalam jumlah tertentu selama stok mencukupi, stok dapat ditambah, dan harga total pesanan dapat dihitung.
+  \item \textbf{Daftar Tugas.} Sebuah tugas memiliki judul, mata kuliah, tenggat, dan status selesai. Tugas dapat ditandai selesai dan informasinya dapat ditampilkan.
+\end{enumerate}
+
+Untuk studi kasus yang dipilih, kerjakan langkah berikut:
+
+\begin{langkah}{Langkah Pengerjaan}
+  \item Buat tabel analisis kata benda dan kata kerja seperti pada Subbab Pemodelan Objek.
+  \item Gambarkan class diagram sederhana (boleh di kertas) berisi nama class, attribute, dan method.
+  \item Implementasikan class tersebut di Python, termasuk validasi aturan yang disebutkan.
+  \item Buat minimal dua object dan uji semua method, termasuk kondisi gagal (misalnya parkir penuh atau stok habis).
+\end{langkah}
+
+\begin{penting}[Kriteria Penilaian]
+\begin{itemize}
+  \item Ketepatan identifikasi class, attribute, dan method.
+  \item Semua attribute didefinisikan di \texttt{\_\_init\_\_} dan penamaan sesuai konvensi.
+  \item Validasi aturan berada di dalam method.
+  \item Program berjalan tanpa error dan keluaran mudah dibaca.
+</invoke>
+\end{itemize}
+\end{penting}

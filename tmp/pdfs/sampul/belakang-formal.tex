@@ -1,0 +1,15 @@
+% Sampul belakang, versi formal. Dipanggil dari main.tex lewat \versiSampul.
+\clearpage
+\thispagestyle{empty}
+\begin{tikzpicture}[remember picture,overlay]
+  \fill[marun] (current page.south west) rectangle (current page.north east);
+  \node[text=merah,font=\judul\fontsize{470}{470}\selectfont,inner sep=0pt]
+    at ([xshift=14mm]current page.west) {\{};
+  \draw[emas,line width=0.6pt] ([xshift=10mm,yshift=10mm]current page.south west) rectangle ([xshift=-10mm,yshift=-10mm]current page.north east);
+  \node at ([yshift=50mm]current page.center) {\includegraphics[width=34mm]{\logoFile}};
+  \node[text=white,font=\judul\fontsize{40}{44}\selectfont,align=center] at ([yshift=12mm]current page.center) {Berpikir dalam objek,\\menulis dalam Python.};
+  \fill[emas] ([xshift=-15mm,yshift=-10mm]current page.center) rectangle ++(30mm,-2pt);
+  \node[anchor=north,text=emasmuda,font=\itshape\large,align=center,text width=120mm] at ([yshift=-18mm]current page.center) {Buku ajar ini membimbing mahasiswa memahami pemrograman berorientasi objek dengan Python: dari class dan object, encapsulation, inheritance, dan polymorphism, hingga modular programming, exception handling, file handling, dan antarmuka grafis. Setiap bab dilengkapi contoh kode yang dapat langsung dijalankan, ilustrasi, kuis teoritis, dan praktik mandiri, lalu ditutup dengan proyek aplikasi utuh dari analisis kebutuhan hingga GUI.};
+  \node[text=emasmuda,font=\capsfont\scriptsize] at ([yshift=20mm]current page.south) {\MakeUppercase{\judulBuku} \quad\textbullet\quad \universitas \quad\textbullet\quad \tahun};
+\end{tikzpicture}
+

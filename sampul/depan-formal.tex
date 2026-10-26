@@ -1,0 +1,33 @@
+% Sampul depan, versi formal. Dipanggil dari main.tex lewat \versiSampul.
+\begin{tikzpicture}[remember picture,overlay]
+  \fill[merah] (current page.south west) rectangle (current page.north east);
+  % Pasangannya "{" ada di sampul belakang
+  \node[text=marun!55!merah,font=\judul\fontsize{470}{470}\selectfont,inner sep=0pt]
+    at ([xshift=-14mm,yshift=-100mm]current page.north east) {\}};
+  % Blok bawah
+  \fill[marun] (current page.south west) rectangle ([yshift=104mm]current page.south east);
+  \fill[emas] ([yshift=104mm]current page.south west) rectangle ([yshift=105.2mm]current page.south east);
+  % Logo dan institusi
+  \node[anchor=north west,inner sep=0pt] (logo) at ([xshift=22mm,yshift=-20mm]current page.north west) {\includegraphics[height=20mm]{\logoFile}};
+  \node[anchor=south west,text=white,font=\capsfont\small,inner sep=0pt] at ([xshift=6mm,yshift=1mm]logo.east) {\universitas};
+  \node[anchor=north west,text=emasmuda,font=\capsfont\scriptsize,inner sep=0pt] at ([xshift=6mm,yshift=-2mm]logo.east) {\fakultas};
+  % Judul
+  \fill[emas] ([xshift=22mm,yshift=-70mm]current page.north west) rectangle ++(14mm,-1.2pt);
+  \node[anchor=west,text=emasmuda,font=\capsfont\small,inner sep=0pt] at ([xshift=40mm,yshift=-70.2mm]current page.north west) {\jenisBuku};
+  \node[anchor=north west,text=white,font=\judul\fontsize{60}{58}\selectfont,text width=150mm,align=left,inner sep=0pt]
+    (judul) at ([xshift=22mm,yshift=-80mm]current page.north west) {\judulBuku};
+  \node[anchor=north west,text=emasmuda,font=\itshape\fontsize{20}{25}\selectfont,text width=150mm,align=left,inner sep=0pt]
+    (sub) at ([yshift=-8mm]judul.south west) {\subJudul};
+  % Diagram kelas
+  \node[kelas,anchor=north] (induk) at ([yshift=94mm]current page.south) {\kelas{Civitas}{- nama : str\\- email : str}{+ perkenalan() : str\\+ kontak() : str}};
+  \node[kelas,anchor=north] (anak1) at ([xshift=-32mm,yshift=-18mm]induk.south) {\kelas{Mahasiswa}{- nim : str}{+ isi\_krs(matkul) : str}};
+  \node[kelas,anchor=north] (anak2) at ([xshift=32mm,yshift=-18mm]induk.south) {\kelas{Dosen}{- nip : str}{+ beri\_nilai(mhs) : str}};
+  \coordinate (cabang) at ([yshift=-9mm]induk.south);
+  \draw[emas,line width=0.9pt] (anak1.north) |- (cabang) -| (anak2.north);
+  \draw[turunan,emas] (cabang) -- (induk.south);
+  % Kaki sampul
+  \node[anchor=south west,text=emasmuda,font=\capsfont\scriptsize] at ([xshift=22mm,yshift=10mm]current page.south west)
+    {\prodi\quad\textbullet\quad \tahun};
+\end{tikzpicture}
+\clearpage
+

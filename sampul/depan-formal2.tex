@@ -1,0 +1,80 @@
+% Sampul depan, versi formal1. Dipanggil dari main.tex lewat \versiSampul.
+% Pita atas bermotif kotak kecil (seperti balok kode) + blok merah dengan kurung kurawal penutup "}".
+% Pasangannya "{" ada di sampul belakang. Tanpa logo; pojok kanan bawah dikosongkan untuk ISBN penerbit.
+% Memakai makro dari gaya.tex: marun, merah, emas, emasmuda, \judul, \capsfont, \judulBuku, \subJudul,
+% \jenisBuku, \dosenPengampu, \tahun.
+\clearpage
+\thispagestyle{empty}
+\begin{tikzpicture}[remember picture,overlay]
+  \pgfmathsetmacro{\bandH}{0.30*\paperheight}   % tinggi pita atas (pt)
+  \pgfmathsetmacro{\pageW}{\paperwidth}
+
+  % --- Latar merah penuh ---
+  \fill[merah] (current page.south west) rectangle (current page.north east);
+
+  % --- Kurung kurawal besar di latar (digambar sebelum pita agar bagian atasnya tertutup pita) ---
+  \node[text=marun!55!merah,font=\judul\fontsize{470}{470}\selectfont,inner sep=0pt]
+    at ([xshift=-14mm,yshift=-\bandH pt-72mm]current page.north east) {\}};
+
+  % --- Pita atas: gradasi marun gelap + pola kotak ---
+  \shade[left color=marun!55!black,right color=marun!85!black]
+    (current page.north west) rectangle ([yshift=-\bandH pt]current page.north east);
+
+  \begin{scope}
+    \clip (current page.north west) rectangle ([yshift=-\bandH pt]current page.north east);
+    \pgfmathsetseed{24}
+    \foreach \i in {1,...,170}{
+      \pgfmathsetmacro{\px}{\pageW*(1-rnd*rnd)}
+      \pgfmathsetmacro{\py}{\bandH*rnd}
+      \pgfmathsetmacro{\sz}{0.8+rnd*rnd*9}
+      \pgfmathsetmacro{\op}{0.10+0.55*rnd}
+      \fill[emasmuda,opacity=\op]
+        ([xshift=\px pt,yshift=-\py pt]current page.north west) rectangle ++(\sz mm,-\sz mm);
+    }
+    \foreach \i in {1,...,45}{
+      \pgfmathsetmacro{\px}{\pageW*(0.45+0.55*rnd)}
+      \pgfmathsetmacro{\py}{\bandH*rnd}
+      \pgfmathsetmacro{\sz}{0.6+rnd*3}
+      \fill[white,opacity=0.55]
+        ([xshift=\px pt,yshift=-\py pt]current page.north west) rectangle ++(\sz mm,-\sz mm);
+    }
+  \end{scope}
+
+  % Garis emas di bawah pita
+  \fill[emas] ([yshift=-\bandH pt]current page.north west) rectangle ([yshift=-\bandH pt-1.2mm]current page.north east);
+
+  % --- Jenis buku ---
+  \fill[emas] ([xshift=20mm,yshift=-\bandH pt-16mm]current page.north west) rectangle ++(14mm,-1.2pt);
+  \node[anchor=west,text=emasmuda,font=\capsfont\small,inner sep=0pt]
+    at ([xshift=38mm,yshift=-\bandH pt-16.2mm]current page.north west) {\jenisBuku};
+
+  % --- Judul dan subjudul ---
+  \node[anchor=north west,text=white,font=\judul\fontsize{58}{62}\selectfont,align=left,inner sep=0pt,
+        text width=\dimexpr\paperwidth-42mm\relax]
+    (judul) at ([xshift=20mm,yshift=-\bandH pt-24mm]current page.north west) {\judulBuku};
+  \node[anchor=north west,text=emasmuda,font=\itshape\fontsize{18}{23}\selectfont,align=left,inner sep=0pt,
+        text width=140mm]
+    at ([yshift=-8mm]judul.south west) {\subJudul};
+
+  % --- Pemisah dan daftar nama ---
+  \fill[emasmuda] ([xshift=20mm,yshift=60mm]current page.south west) rectangle ++(26mm,-1.4pt);
+  \node[anchor=south west,text=white,align=left,inner sep=0pt,font=\sffamily\fontsize{12}{16}\selectfont]
+    at ([xshift=20mm,yshift=26mm]current page.south west)
+    {%
+      \dosenPengampu\\[2pt]
+      Muhammad Fariq Faqih\\[2pt]
+      Mohammad Ariffansyah\\[2pt]
+      Abdullah Al-Firdaus Nuzula
+    };
+
+  % --- Kaki sampul: tahun terbit ---
+  \node[anchor=south west,text=emasmuda,font=\capsfont\scriptsize,inner sep=0pt]
+    at ([xshift=20mm,yshift=10mm]current page.south west) {\tahun};
+
+  % Ruang informasi penerbit: kotak putih polos 38 x 12 mm di pojok kanan bawah.
+  % Jarak dari tepi kanan 12 mm dan dari tepi bawah 6 mm (sama dengan sampul santai).
+  \fill[white]
+    ([xshift=-50mm,yshift=6mm]current page.south east)
+    rectangle ([xshift=-12mm,yshift=18mm]current page.south east);
+\end{tikzpicture}
+\clearpage

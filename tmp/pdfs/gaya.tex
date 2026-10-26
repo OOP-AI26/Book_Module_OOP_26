@@ -1,0 +1,264 @@
+\usepackage[a4paper,left=26mm,right=24mm,top=28mm,bottom=26mm,headheight=14pt,headsep=8mm,footskip=12mm]{geometry}
+\usepackage{iftex}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{calc,shapes.multipart,arrows.meta}
+\usepackage[most]{tcolorbox}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage[indentafter]{titlesec}
+\usepackage{tocloft}
+\usepackage{needspace}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{colortbl}
+\usepackage{multicol}
+\usepackage{microtype}
+\usepackage{lipsum}
+\usepackage{listings}
+\usepackage[nottoc,notlof,notlot]{tocbibind}
+\usepackage[hidelinks]{hyperref}
+
+% Huruf. XeLaTeX memakai fonts/, pdfLaTeX memakai paket plex (atau TeX Gyre bila tidak ada).
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \IfFileExists{plex-serif.sty}{%
+    \usepackage[semibold]{plex-serif}
+    \usepackage[condensed,semibold]{plex-sans}
+    \usepackage[scale=0.86,semibold]{plex-mono}
+    \newcommand{\judul}{\fontfamily{plxSans-TLF}\fontseries{bc}\selectfont}
+    \newcommand{\capsfont}{\fontfamily{plxSans-TLF}\fontseries{sbc}\selectfont\lsstyle}
+  }{%
+    \usepackage{lmodern}
+    \usepackage{tgpagella}
+    \usepackage{tgheros}
+    \newcommand{\judul}{\sffamily\bfseries}
+    \newcommand{\capsfont}{\sffamily\bfseries\lsstyle}
+  }
+\else
+  \usepackage{fontspec}
+  \defaultfontfeatures{Ligatures=TeX}
+  \setmainfont{IBMPlexSerif-Regular.ttf}[Path=./fonts/,
+    BoldFont=IBMPlexSerif-SemiBold.ttf,ItalicFont=IBMPlexSerif-Italic.ttf,BoldItalicFont=IBMPlexSerif-SemiBoldItalic.ttf]
+  \setsansfont{IBMPlexSansCondensed-Regular.ttf}[Path=./fonts/,
+    BoldFont=IBMPlexSansCondensed-SemiBold.ttf,ItalicFont=IBMPlexSansCondensed-Italic.ttf]
+  \setmonofont{IBMPlexMono-Regular.ttf}[Path=./fonts/,
+    BoldFont=IBMPlexMono-SemiBold.ttf,ItalicFont=IBMPlexMono-Italic.ttf,Scale=0.86]
+  \newfontfamily\judul{IBMPlexSansCondensed-Bold.ttf}[Path=./fonts/]
+  \newfontfamily\capsfont{IBMPlexSansCondensed-SemiBold.ttf}[Path=./fonts/,LetterSpace=10]
+\fi
+
+% Warna
+\definecolor{merah}{HTML}{A6192E}
+\definecolor{marun}{HTML}{6B0F1A}
+\definecolor{merahmuda}{HTML}{F6DEDF}
+\definecolor{kertas}{HTML}{FBF5F2}
+\definecolor{emas}{HTML}{C9952B}
+\definecolor{emasmuda}{HTML}{F3D9A4}
+\definecolor{gelap}{HTML}{231417}
+\definecolor{abu}{HTML}{6A5A5D}
+\definecolor{garis}{HTML}{E5D5D2}
+\definecolor{hijau}{HTML}{2E7D4F}
+\definecolor{jingga}{HTML}{B45309}
+\definecolor{biru}{HTML}{3A5A7C}
+\definecolor{kodebg}{HTML}{241A1C}
+\definecolor{kodeteks}{HTML}{F1E6E4}
+\definecolor{kodekomen}{HTML}{A0898C}
+\definecolor{kodestring}{HTML}{F4A39A}
+\color{gelap}
+
+% Paragraf. Pemenggalan dibuat jarang karena belum ada pola bahasa Indonesia.
+\setlength{\parindent}{1.4em}
+\setlength{\parskip}{1pt plus 1pt}
+\linespread{1.18}
+\hyphenpenalty=1000
+\emergencystretch=3em
+\urlstyle{same}
+
+% Nama bawaan LaTeX
+\renewcommand{\contentsname}{Daftar Isi}
+\renewcommand{\bibname}{Daftar Pustaka}
+\renewcommand{\chaptername}{Bab}
+\renewcommand{\figurename}{Gambar}
+\renewcommand{\tablename}{Tabel}
+
+\newcommand{\labelcaps}[1]{{\capsfont\footnotesize\MakeUppercase{#1}}}
+% Pita kiri untuk pembuka bab dan halaman judul
+\newcommand{\pitakiri}{\begin{tikzpicture}[remember picture,overlay]
+  \fill[merah] (current page.north west) rectangle ([xshift=12mm]current page.south west);
+  \fill[emas] ([xshift=12mm]current page.north west) rectangle ([xshift=13.2mm]current page.south west);
+\end{tikzpicture}}
+
+% Daftar
+\setlist[itemize]{leftmargin=5mm,itemsep=2pt,topsep=4pt,label={\color{merah}\textbullet}}
+\setlist[enumerate]{leftmargin=6.5mm,itemsep=2pt,topsep=4pt,label={\color{merah}\sffamily\bfseries\arabic*.}}
+
+% Kotak tips, penting, info, contoh
+\tcbset{kotak/.style 2 args={enhanced,breakable,sharp corners,boxrule=0pt,colframe=#1!7!white,colback=#1!7!white,
+  borderline north={2pt}{0pt}{#1},left=4.5mm,right=4.5mm,top=3.5mm,bottom=3.5mm,before skip=12pt,after skip=12pt,
+  fontupper=\sffamily,before upper={{\capsfont\scriptsize\color{#1}\MakeUppercase{#2}}\par\vspace{3pt}}}}
+\newtcolorbox{tips}[1][Tips]{kotak={merah}{#1}}
+\newtcolorbox{penting}[1][Penting]{kotak={jingga}{#1}}
+\newtcolorbox{info}[1][Info]{kotak={biru}{#1}}
+\newtcolorbox{contoh}[1][Contoh]{kotak={hijau}{#1}}
+
+% \begin{langkah}{Judul} \item ... \end{langkah}
+\DeclareRobustCommand{\badge}[1]{\tikz[baseline=(s.base)]{\node[circle,fill=merah,text=white,font=\sffamily\footnotesize\bfseries,
+  minimum size=15pt,inner sep=0pt](s){#1};}}
+\newtcolorbox{langkahbox}[1]{enhanced,breakable,sharp corners,boxrule=0pt,colframe=kertas,colback=kertas,
+  borderline west={3pt}{0pt}{merah},left=5mm,right=5mm,top=4mm,bottom=3.5mm,before skip=12pt,after skip=12pt,
+  fontupper=\sffamily,before upper={{\judul\large\color{marun}#1}\par\vspace{5pt}}}
+\newenvironment{langkah}[1]{\begin{langkahbox}{#1}\begin{enumerate}[label=\badge{\arabic*},leftmargin=8mm,labelsep=2.5mm,itemsep=4pt,topsep=0pt]}
+  {\end{enumerate}\end{langkahbox}}
+
+% Kotak "Di bab ini"
+\newenvironment{dibabini}{\begin{tcolorbox}[enhanced,sharp corners,boxrule=0pt,colframe=white,colback=white,
+  borderline north={0.8pt}{0pt}{emas},borderline south={0.8pt}{0pt}{emas},left=0pt,right=0pt,top=3mm,bottom=2.5mm,
+  before skip=0pt,after skip=16pt,fontupper=\sffamily]
+  {\color{merah}\labelcaps{Di bab ini}}\par\vspace{3pt}\begin{multicols}{2}\begin{itemize}[itemsep=1pt,topsep=0pt]}
+  {\end{itemize}\end{multicols}\end{tcolorbox}}
+
+% \begin{kode}[Judul] ... \end{kode}, bahasa diatur di \lstset
+% Warna teks kode diatur lewat coltext (bukan \color di basicstyle) agar tidak bocor ke paragraf sesudahnya.
+\lstset{language=Python,basicstyle=\ttfamily\small,keywordstyle=\color{emas}\bfseries,
+  commentstyle=\color{kodekomen}\itshape,stringstyle=\color{kodestring},numbers=left,numberstyle=\tiny\color{kodekomen},
+  numbersep=10pt,showstringspaces=false,breaklines=true,tabsize=4,columns=fullflexible,keepspaces=true,upquote=true,
+  aboveskip=0pt,belowskip=0pt}
+\tcbset{kodedasar/.style={enhanced,breakable,listing only,sharp corners,boxrule=0pt,colframe=kodebg,colback=kodebg,
+  coltext=kodeteks,top=7mm,bottom=2.5mm,right=4mm,before skip=10pt,after skip=10pt,
+  extras middle and last={top=2.5mm},
+  overlay unbroken and first={\node[anchor=north west,fill=merah,text=white,font=\ttfamily\scriptsize\bfseries,inner xsep=6pt,inner ysep=3pt]
+    at (frame.north west) {#1};}}}
+% listing options wajib diisi: tanpa itu tcolorbox memakai gaya bawaannya (tcblatex) dan \lstset di atas diabaikan.
+% Tanda ! pada !O wajib: tanpa itu, isi yang baris pertamanya diawali { atau [ salah terbaca sebagai argumen.
+\DeclareTCBListing{kode}{ !O{Kode} }{kodedasar={#1},left=9mm,listing options={}}
+% \begin{keluaran}[Judul] ... \end{keluaran}: keluaran program, tanpa nomor baris dan tanpa pewarnaan sintaks
+\lstdefinelanguage{teksbiasa}{}
+\DeclareTCBListing{keluaran}{ !O{Keluaran} }{kodedasar={#1},left=4mm,listing options={language=teksbiasa,numbers=none}}
+
+% Diagram kelas di sampul
+\tikzset{kelas/.style={rectangle split,rectangle split parts=3,draw=white,line width=0.8pt,fill=marun,text=white,
+    inner xsep=3mm,inner ysep=1.8mm},
+  turunan/.style={-{Triangle[open,length=3.4mm,width=3.4mm]},line width=0.9pt}}
+\newcommand{\kelas}[3]{{\sffamily\bfseries\large\makebox[50mm]{#1}}\nodepart{two}\parbox{50mm}{\ttfamily\small #2}\nodepart{three}\parbox{50mm}{\ttfamily\small #3}}
+
+\captionsetup{font={small,sf,color=abu},labelfont={color=merah,bf},labelsep=period,justification=raggedright,singlelinecheck=false,skip=7pt}
+% \layar[lebar]{file}{keterangan}, file dari img/
+\newcommand{\layar}[3][\linewidth]{\par\needspace{0.3\textheight}\begin{center}%
+  {\setlength{\fboxsep}{0pt}\fcolorbox{garis}{white}{\includegraphics[width=\dimexpr#1-2\fboxrule\relax]{img/#2}}}%
+  \captionof{figure}{#3}\end{center}}
+
+% Judul subbab
+\titleformat{\section}[hang]{\judul\fontsize{17}{21}\selectfont\color{gelap}}{\color{merah}\thesection}{10pt}{}
+  [\vspace{3pt}{\color{garis}\titlerule[0.6pt]}]
+\titlespacing*{\section}{0pt}{20pt plus 4pt}{9pt}
+\titleformat{\subsection}[hang]{\sffamily\bfseries\large\color{marun}}{}{0pt}{}
+\titlespacing*{\subsection}{0pt}{14pt plus 3pt}{5pt}
+\titleformat{\subsubsection}[hang]{\sffamily\bfseries\normalsize\color{abu}}{}{0pt}{}
+\titlespacing*{\subsubsection}{0pt}{10pt}{3pt}
+\setcounter{secnumdepth}{1}
+
+\newcommand{\babsub}{}
+\newcommand{\subjudul}[1]{\renewcommand{\babsub}{#1}}
+\newcommand{\duadigit}[1]{\ifnum#1<10 0\fi\number#1}
+% Pembuka bab
+\newcommand{\pembuka}[3]{%
+  \pitakiri
+  \begin{tikzpicture}[remember picture,overlay]
+    \node[anchor=north east,text=merahmuda,font=\judul\fontsize{190}{190}\selectfont,inner sep=0pt]
+      at ([xshift=-14mm,yshift=-10mm]current page.north east) {#2};
+  \end{tikzpicture}%
+  \vspace*{14mm}%
+  {\color{merah}\labelcaps{#1}}\par\vspace{6pt}%
+  {\raggedright\judul\fontsize{36}{40}\selectfont\color{gelap}#3\par}\vspace{9pt}%
+  {\color{emas}\rule{30mm}{2pt}}\par\vspace{9pt}%
+  {\raggedright\itshape\large\color{abu}\babsub\par}%
+  \vspace{14mm}}
+% Halaman pemisah setiap bab, mengikuti warna halaman pemisah sebelumnya.
+% Entri daftar isi tetap dibuat oleh \chapter, tanpa entri tambahan "Bagian".
+\newcommand{\pemisahbab}[3]{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \fill[marun] (current page.south west) rectangle (current page.north east);
+    \node[anchor=south east,text=merah,font=\judul\fontsize{230}{230}\selectfont,inner sep=0pt]
+      at ([xshift=-18mm,yshift=18mm]current page.south east) {#2};
+    \draw[emas,line width=0.6pt] ([xshift=10mm,yshift=10mm]current page.south west)
+      rectangle ([xshift=-10mm,yshift=-10mm]current page.north east);
+    \node[anchor=north west,text=emas,font=\capsfont\small,inner sep=0pt]
+      at ([xshift=26mm,yshift=-70mm]current page.north west) {#1};
+    \fill[emas] ([xshift=26mm,yshift=-77mm]current page.north west) rectangle ++(30mm,-2pt);
+    \node[anchor=north west,text=white,font=\judul\fontsize{54}{60}\selectfont,
+      text width=158mm,align=left,inner sep=0pt]
+      (judulbab) at ([xshift=26mm,yshift=-85mm]current page.north west) {#3};
+    \node[anchor=north west,text=emasmuda,font=\itshape\large,
+      text width=140mm,align=left,inner sep=0pt]
+      at ([yshift=-9mm]judulbab.south west) {\babsub};
+  \end{tikzpicture}%
+  \mbox{}\par}
+\titleformat{\chapter}[block]{}{}{0pt}{\pemisahbab{\chaptername\ \duadigit{\value{chapter}}}{\duadigit{\value{chapter}}}}
+\titleformat{name=\chapter,numberless}[block]{}{}{0pt}{\pembuka{\judulBuku}{\{\,\}}}
+\titlespacing*{\chapter}{0pt}{0pt}{0pt}
+\titlespacing*{name=\chapter,numberless}{0pt}{0pt}{0pt}
+
+% \bagian{judul}{deskripsi}{daftar bab}
+\newcounter{bagian}
+\newcommand{\bagian}[3]{%
+  \clearpage\stepcounter{bagian}\thispagestyle{empty}%
+  \phantomsection\addcontentsline{toc}{part}{\protect\bagiantoc{\Roman{bagian}}{#1}}%
+  \begin{tikzpicture}[remember picture,overlay]
+    \fill[marun] (current page.south west) rectangle (current page.north east);
+    \node[anchor=south east,text=merah,font=\judul\fontsize{300}{300}\selectfont,inner sep=0pt]
+      at ([xshift=-18mm,yshift=18mm]current page.south east) {\Roman{bagian}};
+    \draw[emas,line width=0.6pt] ([xshift=10mm,yshift=10mm]current page.south west) rectangle ([xshift=-10mm,yshift=-10mm]current page.north east);
+    \node[anchor=north west,text=emas,font=\capsfont\small,inner sep=0pt]
+      at ([xshift=26mm,yshift=-70mm]current page.north west) {BAGIAN \Roman{bagian}};
+    \fill[emas] ([xshift=26mm,yshift=-77mm]current page.north west) rectangle ++(30mm,-2pt);
+    \node[anchor=north west,text=white,font=\judul\fontsize{60}{64}\selectfont,text width=158mm,align=left,inner sep=0pt]
+      (judul) at ([xshift=26mm,yshift=-85mm]current page.north west) {#1};
+    \node[anchor=north west,text=emasmuda,font=\itshape\large,text width=130mm,align=left,inner sep=0pt]
+      (desk) at ([yshift=-9mm]judul.south west) {#2};
+    \node[anchor=north west,text=white,font=\sffamily\linespread{1.6}\selectfont,text width=130mm,align=left,inner sep=0pt]
+      at ([yshift=-12mm]desk.south west) {#3};
+  \end{tikzpicture}\clearpage}
+\newcommand{\bagiantoc}[2]{{\capsfont\footnotesize BAGIAN #1}\hspace{8pt}{\judul\large #2}}
+
+% Kepala dan kaki halaman
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
+\fancyhead[L]{\capsfont\scriptsize\color{abu}\MakeUppercase{\judulBuku}}
+\fancyhead[R]{\sffamily\small\color{merah}\leftmark}
+\fancyfoot[R]{\judul\color{merah}\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\headrule}{{\color{garis}\hrule height\headrulewidth}}
+\renewcommand{\footrulewidth}{0pt}
+\fancypagestyle{plain}{\fancyhf{}\renewcommand{\headrulewidth}{0pt}\fancyfoot[R]{\judul\color{merah}\thepage}}
+
+% Daftar isi
+\renewcommand{\cfttoctitlefont}{\judul\fontsize{32}{36}\selectfont\color{gelap}}
+\renewcommand{\cftaftertoctitle}{\par\vspace{4pt}{\color{emas}\rule{30mm}{2pt}}}
+\setlength{\cftbeforepartskip}{16pt}
+\setlength{\cftbeforechapskip}{5pt}
+\renewcommand{\cftpartfont}{\color{merah}}
+\renewcommand{\cftpartpagefont}{\color{merah}\judul}
+\renewcommand{\cftchapfont}{\judul\large\color{gelap}}
+\renewcommand{\cftchappagefont}{\judul\large\color{merah}}
+\renewcommand{\cftchapleader}{\color{garis}\cftdotfill{3}}
+\renewcommand{\cftsecfont}{\color{gelap}\small}
+\renewcommand{\cftsecpagefont}{\color{abu}\small}
+\renewcommand{\cftsecleader}{\color{garis}\cftdotfill{3}}
+\setlength{\cftchapnumwidth}{9mm}
+\renewcommand{\cftchappresnum}{\color{merah}}
+\setlength{\cftsecindent}{9mm}
+\setlength{\cftsecnumwidth}{10mm}
+\renewcommand{\cftsecpresnum}{\color{abu}}
+\setcounter{tocdepth}{1}
+
+% Tabel: \kepala untuk baris judul, \kp{teks} untuk selnya
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcommand{\kepala}{\rowcolor{marun}}
+% \leavevmode wajib: tanpa itu \color membuat baris kosong di sel p{} dan teks judul turun ke bawah
+\newcommand{\kp}[1]{\leavevmode\color{white}\sffamily\bfseries #1}
+% Kolom lebar tetap rata kiri (agar tidak ada spasi renggang)
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\renewcommand{\arraystretch}{1.4}

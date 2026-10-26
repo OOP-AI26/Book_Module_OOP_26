@@ -1,0 +1,133 @@
+\documentclass[11pt,a4paper,oneside,openany]{book}
+\input{gaya}
+
+% Data buku
+\newcommand{\judulBuku}{Pemrograman Berorientasi Objek dengan Python}
+\newcommand{\subJudul}{Konsep Dasar, Prinsip Desain, dan Implementasi}
+
+\newcommand{\jenisBuku}{BUKU AJAR}
+\newcommand{\logoFile}{logo.png}
+
+\newcommand{\dosenPengampu}{Riskyana Dewi Instan Puspitasari, M.\ Kom}
+
+\newcommand{\penyusun}{%
+Muhammad Fariq Faqih & 24051204084\\[3pt]
+Mohammad Ariffansyah & 24051204099\\[3pt]
+Abdullah Al-Firdaus & 24031554008
+}
+\newcommand{\prodi}{PRODI S1 Kecerdasan Artifisial}
+\newcommand{\fakultas}{FAKULTAS MATEMATIKA DAN ILMU PENGETAHUAN ALAM}
+\newcommand{\universitas}{UNIVERSITAS NEGERI SURABAYA}
+\newcommand{\tahun}{2026}
+
+\hypersetup{pdftitle={\judulBuku},pdfsubject={\subJudul}}
+
+\begin{document}
+\frontmatter
+\pagestyle{empty}
+
+% Sampul depan
+\begin{tikzpicture}[remember picture,overlay]
+  \fill[merah] (current page.south west) rectangle (current page.north east);
+  % Pasangannya "{" ada di sampul belakang
+  \node[text=marun!55!merah,font=\judul\fontsize{470}{470}\selectfont,inner sep=0pt]
+    at ([xshift=-14mm,yshift=-100mm]current page.north east) {\}};
+  % Blok bawah
+  \fill[marun] (current page.south west) rectangle ([yshift=104mm]current page.south east);
+  \fill[emas] ([yshift=104mm]current page.south west) rectangle ([yshift=105.2mm]current page.south east);
+  % Logo dan institusi
+  \node[anchor=north west,inner sep=0pt] (logo) at ([xshift=22mm,yshift=-20mm]current page.north west) {\includegraphics[height=20mm]{\logoFile}};
+  \node[anchor=south west,text=white,font=\capsfont\small,inner sep=0pt] at ([xshift=6mm,yshift=1mm]logo.east) {\universitas};
+  \node[anchor=north west,text=emasmuda,font=\capsfont\scriptsize,inner sep=0pt] at ([xshift=6mm,yshift=-2mm]logo.east) {\fakultas};
+  % Judul
+  \fill[emas] ([xshift=22mm,yshift=-70mm]current page.north west) rectangle ++(14mm,-1.2pt);
+  \node[anchor=west,text=emasmuda,font=\capsfont\small,inner sep=0pt] at ([xshift=40mm,yshift=-70.2mm]current page.north west) {\jenisBuku};
+  \node[anchor=north west,text=white,font=\judul\fontsize{60}{58}\selectfont,text width=150mm,align=left,inner sep=0pt]
+    (judul) at ([xshift=22mm,yshift=-80mm]current page.north west) {\judulBuku};
+  \node[anchor=north west,text=emasmuda,font=\itshape\fontsize{20}{25}\selectfont,text width=150mm,align=left,inner sep=0pt]
+    (sub) at ([yshift=-8mm]judul.south west) {\subJudul};
+  % Diagram kelas
+  \node[kelas,anchor=north] (induk) at ([yshift=94mm]current page.south) {\kelas{Lorem}{- ipsum : int\\- dolor : String}{+ sit() : void\\+ amet() : int}};
+  \node[kelas,anchor=north] (anak1) at ([xshift=-32mm,yshift=-18mm]induk.south) {\kelas{Consectetur}{- adipiscing : boolean}{+ elit() : void}};
+  \node[kelas,anchor=north] (anak2) at ([xshift=32mm,yshift=-18mm]induk.south) {\kelas{Eiusmod}{- tempor : double}{+ incididunt() : void}};
+  \coordinate (cabang) at ([yshift=-9mm]induk.south);
+  \draw[emas,line width=0.9pt] (anak1.north) |- (cabang) -| (anak2.north);
+  \draw[turunan,emas] (cabang) -- (induk.south);
+  % Kaki sampul
+  \node[anchor=south west,text=emasmuda,font=\capsfont\scriptsize] at ([xshift=22mm,yshift=10mm]current page.south west)
+    {\prodi\quad\textbullet\quad \tahun};
+\end{tikzpicture}
+\clearpage
+
+% Halaman judul
+\pitakiri
+\begin{flushleft}
+{\color{merah}\labelcaps{\jenisBuku}}\par\vspace{8pt}
+{\judul\fontsize{34}{38}\selectfont\color{gelap}\judulBuku\par}\vspace{10pt}
+{\color{emas}\rule{30mm}{2pt}}\par\vspace{10pt}
+{\itshape\Large\color{abu}\subJudul\par}
+\vfill
+\includegraphics[width=34mm]{\logoFile}
+\vfill
+{\color{merah}\labelcaps{Dosen Pengampu}}\par\vspace{4pt}
+{\sffamily\large\dosenPengampu\par}
+\vspace{8mm}
+{\color{merah}\labelcaps{Disusun Oleh}}\par\vspace{4pt}
+{\sffamily\large\begin{tabular}{@{}l@{\hspace{2cm}}l}
+\penyusun
+\end{tabular}\par}
+\vfill
+{\capsfont\small\linespread{1.5}\selectfont\prodi\par\fakultas\par\universitas\par}
+\vspace{6pt}
+{\judul\Large\color{merah}\tahun\par}
+\end{flushleft}
+\clearpage
+
+\pagestyle{plain}
+\subjudul{\lipsum[2][1]}
+\chapter{Kata Pengantar}
+
+\lipsum[1-2]
+
+\begin{flushright}
+\tahun\par\vspace{14mm}
+{\sffamily\bfseries Penyusun}
+\end{flushright}
+
+\clearpage
+\tableofcontents
+
+\mainmatter
+\pagestyle{fancy}
+
+\bagian{Pendahuluan}{\lipsum[3][1-2]}{Bab 1 \textbullet\ Pendahuluan}
+\input{bab/01-pendahuluan}
+
+\bagian{Pembahasan}{\lipsum[4][1-2]}{Bab 2 \textbullet\ Lorem Ipsum Dolor\\Bab 3 \textbullet\ Sit Amet Consectetur}
+\input{bab/02-lorem}
+\input{bab/03-ipsum}
+
+\bagian{Penutup}{\lipsum[5][1-2]}{Bab 4 \textbullet\ Penutup\\Daftar Pustaka}
+\input{bab/04-penutup}
+
+\backmatter
+\subjudul{Sumber yang dirujuk di buku ini.}
+\bibliographystyle{apalike}
+\bibliography{pustaka}
+
+% Sampul belakang
+\clearpage
+\thispagestyle{empty}
+\begin{tikzpicture}[remember picture,overlay]
+  \fill[marun] (current page.south west) rectangle (current page.north east);
+  \node[text=merah,font=\judul\fontsize{470}{470}\selectfont,inner sep=0pt]
+    at ([xshift=14mm]current page.west) {\{};
+  \draw[emas,line width=0.6pt] ([xshift=10mm,yshift=10mm]current page.south west) rectangle ([xshift=-10mm,yshift=-10mm]current page.north east);
+  \node at ([yshift=50mm]current page.center) {\includegraphics[width=34mm]{\logoFile}};
+  \node[text=white,font=\judul\fontsize{40}{44}\selectfont,align=center] at ([yshift=4mm]current page.center) {Lorem ipsum dolor.};
+  \fill[emas] ([xshift=-15mm,yshift=-10mm]current page.center) rectangle ++(30mm,-2pt);
+  \node[anchor=north,text=emasmuda,font=\itshape\large,align=center,text width=120mm] at ([yshift=-18mm]current page.center) {\lipsum[1][3-5]};
+  \node[text=emasmuda,font=\capsfont\scriptsize] at ([yshift=20mm]current page.south) {\MakeUppercase{\judulBuku} \quad\textbullet\quad \universitas \quad\textbullet\quad \tahun};
+\end{tikzpicture}
+
+\end{document}

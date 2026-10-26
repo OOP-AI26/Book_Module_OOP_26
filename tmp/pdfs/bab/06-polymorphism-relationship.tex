@@ -1,0 +1,922 @@
+\subjudul{Satu antarmuka dengan banyak bentuk, dan cara class saling terhubung.}
+\chapter{Polymorphism dan Class Relationship}
+
+\begin{dibabini}
+  \item Polymorphism
+  \item Overriding dan overloading
+  \item Association, aggregation, composition
+  \item Memilih relationship
+\end{dibabini}
+
+Kita sudah dua kali bertemu ``benih'' polymorphism. Di Bab 4, satu baris \texttt{w.perkenalan()} menghasilkan kalimat berbeda untuk mahasiswa dan dosen. Di Bab 5, fungsi \texttt{bunyikan()} bisa dipakai untuk bebek, robot, maupun radio. Bab ini merangkum fenomena tersebut menjadi pilar OOP keempat: \emph{polymorphism}.
+
+Paruh kedua bab membahas pertanyaan yang berbeda: selain hubungan \emph{is-a} lewat inheritance, bagaimana class-class lain saling terhubung? Mahasiswa \emph{punya} dosen pembimbing, program studi \emph{memiliki} dosen, dan mobil \emph{tersusun dari} mesin. Ketiga hubungan itu terlihat mirip, tetapi berbeda dalam hal kepemilikan dan umur object. Kita akan mempelajari \emph{association}, \emph{aggregation}, dan \emph{composition}, lalu cara memilih di antara ketiganya.
+
+% =====================================================================
+\section{Konsep Polymorphism}
+% =====================================================================
+
+\emph{Polymorphism} berasal dari bahasa Yunani: \emph{poly} (banyak) dan \emph{morph} (bentuk). Dalam OOP, polymorphism berarti \textbf{satu antarmuka yang sama dapat dipakai untuk object dengan bentuk berbeda}, dan setiap object merespons dengan caranya sendiri. Kode pemanggil cukup tahu ``apa'' yang diminta, tanpa perlu tahu ``siapa'' yang mengerjakannya.
+
+\subsection{Polymorphism di Sekitar Kita}
+
+Tanpa disadari, kita sudah memakai polymorphism sejak awal belajar Python.
+
+\begin{kode}[Polymorphism pada fungsi dan operator bawaan]
+print(len("kampus"), len([1, 2, 3]), len({"a": 1, "b": 2}))
+print(3 + 4)                  # penjumlahan bilangan
+print("Py" + "thon")          # penyambungan teks
+print([1, 2] + [3])           # penggabungan list
+\end{kode}
+
+\begin{keluaran}
+6 3 2
+7
+Python
+[1, 2, 3]
+\end{keluaran}
+
+Fungsi \texttt{len()} dan operator \texttt{+} adalah satu antarmuka, tetapi perilakunya menyesuaikan jenis object yang diberikan. String menghitung huruf, list menghitung elemen; angka dijumlahkan, teks disambung.
+
+\subsection{Bentuk-Bentuk Polymorphism}
+
+\begin{table}[htbp]
+\caption{Bentuk polymorphism di Python.}
+\begin{tabularx}{\linewidth}{P{40mm}LP{36mm}}
+\kepala \kp{Bentuk} & \kp{Cara kerja} & \kp{Dibahas di} \\
+Lewat overriding & class turunan meng-override method parent; pemanggil memakai tipe parent & Subbab Method Overriding \\
+Lewat duck typing & class tanpa hubungan pewarisan memiliki method bernama sama & Bab 5 \\
+Overloading & satu nama fungsi atau operator menerima jenis argumen berbeda & Subbab Method Overloading \\
+\end{tabularx}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    impl/.style={rectangle,fill=marun,text=white,align=left,text width=40mm,inner sep=2.5mm,font=\ttfamily\footnotesize}]
+  \node[rectangle,draw=marun,line width=1pt,fill=merahmuda,font=\ttfamily\small,inner sep=3mm,align=left] (call) at (0,0)
+    {for b in daftar:\\\quad total += b.luas()};
+  \node[impl] (i1) at (7.2,1.9)  {\textbf{Persegi}.luas()\\return s * s};
+  \node[impl] (i2) at (7.2,0)    {\textbf{Lingkaran}.luas()\\return pi * r * r};
+  \node[impl] (i3) at (7.2,-1.9) {\textbf{Segitiga}.luas()\\return a * t / 2};
+  \foreach \i in {i1,i2,i3}
+    \draw[-{Latex},line width=1pt,emas] (call.east) -- (\i.west);
+  \node[font=\sffamily\footnotesize,text=abu,align=center] at (0,-1.6) {satu baris pemanggilan};
+  \node[font=\sffamily\footnotesize,text=abu,anchor=south] at (7.2,2.75) {implementasi dipilih saat program berjalan};
+\end{tikzpicture}
+\caption{Polymorphism: satu pemanggilan \texttt{b.luas()} dijalankan oleh implementasi yang sesuai dengan jenis object \texttt{b}.}
+\end{figure}
+
+\subsection{Mengapa Polymorphism Penting?}
+
+Polymorphism memungkinkan kita menulis kode yang bekerja dengan \emph{jenis umum} (``bangun datar'', ``notifikasi'', ``pembayaran''), bukan dengan setiap jenis khusus. Akibatnya, jenis baru bisa ditambahkan \textbf{tanpa mengubah} kode yang sudah ada. Prinsip ini dikenal sebagai \emph{open/closed principle}: kode terbuka untuk dikembangkan, tetapi tertutup untuk diubah.
+
+% =====================================================================
+\section{Method Overriding}
+% =====================================================================
+
+Bentuk polymorphism yang paling umum dalam OOP diwujudkan lewat overriding. Parent (sering kali abstract class) mendefinisikan antarmuka; setiap child meng-override method dengan implementasinya sendiri; kode pemanggil hanya berbicara dengan antarmuka parent.
+
+\subsection{Tanpa Polymorphism: Rantai \texttt{if-elif}}
+
+Untuk melihat manfaatnya, perhatikan dulu cara yang \emph{tidak} memakai polymorphism. Fungsi berikut memeriksa jenis notifikasi satu per satu.
+
+\begin{kode}[Gaya if-elif berdasarkan jenis]
+def kirim(jenis, tujuan, pesan):
+    if jenis == "email":
+        print(f"[EMAIL ke {tujuan}] {pesan}")
+    elif jenis == "sms":
+        print(f"[SMS ke {tujuan}] {pesan[:20]}...")
+    elif jenis == "wa":
+        print(f"[WA ke {tujuan}] {pesan}")
+    # setiap jenis baru = menambah cabang di sini
+\end{kode}
+
+Setiap kali ada jenis notifikasi baru, fungsi ini harus dibuka dan diubah. Jika logika serupa tersebar di banyak fungsi, semuanya harus diubah, dan satu saja yang terlewat akan menjadi bug.
+
+\subsection{Dengan Polymorphism}
+
+\begin{kode}[notifikasi.py]
+from abc import ABC, abstractmethod
+
+class Notifikasi(ABC):
+    def __init__(self, tujuan):
+        self.tujuan = tujuan
+
+    @abstractmethod
+    def kirim(self, pesan):
+        ...
+
+class Email(Notifikasi):
+    def kirim(self, pesan):
+        print(f"[EMAIL ke {self.tujuan}] {pesan}")
+
+class SMS(Notifikasi):
+    def kirim(self, pesan):
+        print(f"[SMS ke {self.tujuan}] {pesan[:20]}...")   # SMS dipotong
+
+class WhatsApp(Notifikasi):
+    def kirim(self, pesan):
+        print(f"[WA ke {self.tujuan}] {pesan}")
+
+def siarkan(daftar, pesan):              # tidak tahu dan tidak peduli jenisnya
+    for n in daftar:
+        n.kirim(pesan)
+
+penerima = [
+    Email("ani@mail.com"),
+    SMS("081234567890"),
+    WhatsApp("081298765432"),
+]
+siarkan(penerima, "Kuliah PBO hari ini pindah ke ruang C01.04.03")
+\end{kode}
+
+\begin{keluaran}
+[EMAIL ke ani@mail.com] Kuliah PBO hari ini pindah ke ruang C01.04.03
+[SMS ke 081234567890] Kuliah PBO hari ini ...
+[WA ke 081298765432] Kuliah PBO hari ini pindah ke ruang C01.04.03
+\end{keluaran}
+
+Kini, jika kampus ingin menambah notifikasi Telegram, kita cukup menulis class baru. Fungsi \texttt{siarkan()} tidak disentuh sama sekali.
+
+\begin{kode}[Menambah jenis baru tanpa mengubah kode lama]
+class Telegram(Notifikasi):
+    def kirim(self, pesan):
+        print(f"[TELEGRAM @{self.tujuan}] {pesan}")
+
+siarkan([Telegram("ani_unesa")], "UTS dimulai pukul 08.00")
+\end{kode}
+
+\begin{keluaran}
+[TELEGRAM @ani_unesa] UTS dimulai pukul 08.00
+\end{keluaran}
+
+\begin{tips}[Tanda Perlu Polymorphism]
+Jika Anda menemukan rantai \texttt{if-elif} yang memeriksa \emph{jenis} sesuatu (\texttt{if jenis == "\ldots"} atau \texttt{if isinstance(x, \ldots)}) dan setiap cabang melakukan versi berbeda dari tindakan yang sama, itu tanda kuat bahwa setiap cabang sebaiknya menjadi class tersendiri dengan method yang di-override.
+\end{tips}
+
+% =====================================================================
+\section{Method Overloading secara Konseptual}
+% =====================================================================
+
+\emph{Method overloading} adalah kemampuan mendefinisikan beberapa method dengan \textbf{nama sama} tetapi \textbf{parameter berbeda} (jumlah atau tipe), lalu bahasa memilih versi yang tepat berdasarkan argumen yang diberikan. Java dan C++ mendukungnya secara langsung, misalnya \texttt{luas(int sisi)} dan \texttt{luas(int panjang, int lebar)} boleh berdampingan dalam satu class.
+
+\subsection{Python Tidak Mendukung Overloading Langsung}
+
+Di Python, nama method hanyalah label. Mendefinisikan method dengan nama yang sama untuk kedua kalinya akan \emph{menimpa} definisi pertama.
+
+\begin{kode}[Definisi kedua menimpa yang pertama]
+class Kalkulator:
+    def luas(self, sisi):
+        return sisi * sisi
+
+    def luas(self, panjang, lebar):     # menimpa versi di atas
+        return panjang * lebar
+
+k = Kalkulator()
+print(k.luas(4, 5))
+print(k.luas(4))
+\end{kode}
+
+\begin{keluaran}
+20
+Traceback (most recent call last):
+  ...
+TypeError: Kalkulator.luas() missing 1 required positional argument: 'lebar'
+\end{keluaran}
+
+\subsection{Meniru Overloading}
+
+Walaupun tidak didukung langsung, efek overloading dapat dicapai dengan beberapa cara.
+
+\begin{kode}[Parameter default dan *args]
+class Kalkulator:
+    def luas(self, panjang, lebar=None):
+        if lebar is None:                 # satu argumen: persegi
+            return panjang * panjang
+        return panjang * lebar            # dua argumen: persegi panjang
+
+    def jumlah(self, *angka):             # berapa pun banyak argumennya
+        return sum(angka)
+
+k = Kalkulator()
+print(k.luas(4), k.luas(4, 5))
+print(k.jumlah(1, 2), k.jumlah(1, 2, 3, 4))
+\end{kode}
+
+\begin{keluaran}
+16 20
+3 10
+\end{keluaran}
+
+Untuk memilih perilaku berdasarkan \emph{tipe} argumen, pustaka standar menyediakan \texttt{functools.singledispatchmethod}. Decorator ini memilih implementasi berdasarkan tipe argumen pertama setelah \texttt{self}.
+
+\begin{kode}[Overloading berdasarkan tipe]
+from functools import singledispatchmethod
+
+class Pencetak:
+    @singledispatchmethod
+    def cetak(self, data):
+        print("Data:", data)
+
+    @cetak.register
+    def _(self, data: list):
+        print("Daftar:", ", ".join(map(str, data)))
+
+    @cetak.register
+    def _(self, data: dict):
+        for k, v in data.items():
+            print(f"  {k} = {v}")
+
+p = Pencetak()
+p.cetak(42)
+p.cetak(["Ani", "Budi"])
+p.cetak({"nama": "Citra", "ipk": 3.8})
+\end{kode}
+
+\begin{keluaran}
+Data: 42
+Daftar: Ani, Budi
+  nama = Citra
+  ipk = 3.8
+\end{keluaran}
+
+\subsection{Operator Overloading}
+
+Bentuk overloading yang paling berguna di Python adalah \emph{operator overloading}: menentukan arti operator seperti \texttt{+}, \texttt{==}, atau \texttt{<} untuk class buatan sendiri, dengan cara mengimplementasikan \emph{dunder method} yang sesuai.
+
+\begin{kode}[Class Uang dengan operator overloading]
+class Uang:
+    def __init__(self, nominal):
+        self.nominal = nominal
+
+    def __add__(self, lain):              # a + b
+        return Uang(self.nominal + lain.nominal)
+
+    def __mul__(self, faktor):            # a * 3
+        return Uang(self.nominal * faktor)
+
+    def __eq__(self, lain):               # a == b
+        return self.nominal == lain.nominal
+
+    def __lt__(self, lain):               # a < b (juga dipakai sorted)
+        return self.nominal < lain.nominal
+
+    def __str__(self):
+        return f"Rp{self.nominal:,}".replace(",", ".")
+
+kopi = Uang(18000)
+roti = Uang(12500)
+print(kopi + roti)
+print(kopi * 3)
+print(kopi == Uang(18000), roti < kopi)
+print([str(u) for u in sorted([kopi, roti, Uang(5000)])])
+\end{kode}
+
+\begin{keluaran}
+Rp30.500
+Rp54.000
+True True
+['Rp5.000', 'Rp12.500', 'Rp18.000']
+\end{keluaran}
+
+\begin{table}[htbp]
+\caption{Beberapa operator dan dunder method pasangannya.}
+\begin{tabularx}{\linewidth}{P{30mm}P{36mm}L}
+\kepala \kp{Operator} & \kp{Dunder method} & \kp{Contoh pemakaian} \\
+\texttt{a + b} & \texttt{\_\_add\_\_} & menjumlahkan uang, vektor, durasi \\
+\texttt{a - b} & \texttt{\_\_sub\_\_} & selisih tanggal atau koordinat \\
+\texttt{a * b} & \texttt{\_\_mul\_\_} & mengalikan uang dengan jumlah barang \\
+\texttt{a == b} & \texttt{\_\_eq\_\_} & membandingkan isi dua object \\
+\texttt{a < b} & \texttt{\_\_lt\_\_} & mengurutkan dengan \texttt{sorted()} \\
+\texttt{len(a)} & \texttt{\_\_len\_\_} & jumlah isi koleksi (Bab 5) \\
+\texttt{str(a)} & \texttt{\_\_str\_\_} & teks untuk \texttt{print()} \\
+\end{tabularx}
+\end{table}
+
+\begin{penting}[Jaga Makna Operator]
+Overload operator hanya jika artinya \emph{jelas dan wajar}. \texttt{Uang + Uang} masuk akal; \texttt{Mahasiswa + Mahasiswa} tidak. Operator dengan arti yang mengejutkan membuat kode sulit dibaca dan rawan disalahpahami.
+\end{penting}
+
+% =====================================================================
+\section{Association}
+% =====================================================================
+
+Selain hubungan \emph{is-a} yang diwujudkan dengan inheritance, class dapat saling terhubung karena object-nya \emph{mengenal} atau \emph{memakai} object lain. Hubungan seperti ini diwujudkan dengan menyimpan rujukan ke object lain sebagai attribute. Ada tiga tingkat kekuatan hubungan: association, aggregation, dan composition.
+
+\emph{Association} adalah hubungan paling longgar: dua object saling mengenal dan berinteraksi, tetapi \textbf{tidak ada yang memiliki} yang lain. Keduanya dibuat secara terpisah dan memiliki umur sendiri-sendiri. Contohnya mahasiswa dan dosen pembimbing: mahasiswa \emph{mengenal} pembimbingnya, tetapi dosen bukan bagian dari mahasiswa, dan keduanya tetap ada walaupun hubungan bimbingan berakhir.
+
+\begin{kode}[Association dua arah]
+class Dosen:
+    def __init__(self, nama):
+        self.nama = nama
+        self.bimbingan = []               # daftar mahasiswa yang dikenal
+
+class Mahasiswa:
+    def __init__(self, nama):
+        self.nama = nama
+        self.pembimbing = None            # belum punya pembimbing
+
+    def tetapkan_pembimbing(self, dosen):
+        if self.pembimbing is not None:   # lepas dari pembimbing lama
+            self.pembimbing.bimbingan.remove(self)
+        self.pembimbing = dosen
+        dosen.bimbingan.append(self)
+
+pak_budi = Dosen("Budi")
+bu_rina = Dosen("Rina")
+ani = Mahasiswa("Ani")
+dodi = Mahasiswa("Dodi")
+
+ani.tetapkan_pembimbing(pak_budi)
+dodi.tetapkan_pembimbing(pak_budi)
+dodi.tetapkan_pembimbing(bu_rina)        # ganti pembimbing
+
+print(ani.pembimbing.nama, dodi.pembimbing.nama)
+print([m.nama for m in pak_budi.bimbingan])
+print([m.nama for m in bu_rina.bimbingan])
+\end{kode}
+
+\begin{keluaran}
+Budi Rina
+['Ani']
+['Dodi']
+\end{keluaran}
+
+Ciri association terlihat jelas: object \texttt{Dosen} dan \texttt{Mahasiswa} dibuat terpisah, dihubungkan belakangan, dan hubungannya bisa diganti kapan saja. Karena hubungannya dua arah, method \texttt{tetapkan\_pembimbing()} menjaga agar kedua sisi selalu konsisten.
+
+\begin{info}[Dependency: Hubungan Sesaat]
+Ada pula hubungan yang lebih longgar lagi, yaitu \emph{dependency}: sebuah object hanya \emph{memakai} object lain sesaat, misalnya sebagai parameter method, tanpa menyimpannya sebagai attribute. Contohnya \texttt{beri\_nilai(self, mhs, nilai)} pada class \texttt{Dosen} di Bab 4.
+\end{info}
+
+% =====================================================================
+\section{Aggregation}
+% =====================================================================
+
+\emph{Aggregation} adalah hubungan \emph{keseluruhan--bagian} (\emph{whole--part}, ``memiliki'') yang \textbf{lemah}: object keseluruhan mengumpulkan object-object bagian, tetapi bagian-bagian itu \textbf{dibuat di luar} dan \textbf{tetap bisa hidup} tanpa keseluruhannya. Satu bagian bahkan boleh menjadi milik beberapa keseluruhan sekaligus.
+
+Contohnya program studi dan dosen. Program studi \emph{memiliki} dosen-dosen, tetapi dosen sudah ada sebelum bergabung, bisa pindah ke prodi lain, dan tidak ikut lenyap jika prodinya ditutup.
+
+\begin{kode}[Aggregation]
+class Dosen:
+    def __init__(self, nama):
+        self.nama = nama
+
+class ProgramStudi:
+    def __init__(self, nama):
+        self.nama = nama
+        self._dosen = []                      # kumpulan bagian
+
+    def tambah_dosen(self, dosen):            # bagian dibuat di luar
+        self._dosen.append(dosen)
+
+    def keluarkan_dosen(self, dosen):
+        self._dosen.remove(dosen)
+
+    def daftar_dosen(self):
+        return [d.nama for d in self._dosen]
+
+rina = Dosen("Rina")                          # dosen ada lebih dulu
+budi = Dosen("Budi")
+
+ka = ProgramStudi("Kecerdasan Artifisial")
+ti = ProgramStudi("Teknik Informatika")
+ka.tambah_dosen(rina)
+ka.tambah_dosen(budi)
+ti.tambah_dosen(budi)                         # satu dosen di dua prodi
+
+print(ka.daftar_dosen(), ti.daftar_dosen())
+del ka                                        # prodi dihapus...
+print(rina.nama, "masih ada")                 # ...dosennya tetap ada
+\end{kode}
+
+\begin{keluaran}
+['Rina', 'Budi'] ['Budi']
+Rina masih ada
+\end{keluaran}
+
+% =====================================================================
+\section{Composition}
+% =====================================================================
+
+\emph{Composition} adalah hubungan keseluruhan--bagian yang \textbf{kuat}: bagian \textbf{dibuat oleh} keseluruhan, \textbf{dimiliki secara eksklusif}, dan \textbf{ikut berakhir} bersama keseluruhannya. Bagian tidak punya arti jika berdiri sendiri dan tidak dipakai bersama object lain.
+
+Contohnya mobil dan mesinnya. Dalam model kita, mesin dibuat ketika mobil dibuat, terpasang hanya di mobil itu, dan tidak pernah diserahkan ke object lain.
+
+\begin{kode}[Composition]
+class Mesin:
+    def __init__(self, cc):
+        self.cc = cc
+        self.menyala = False
+
+    def hidupkan(self):
+        self.menyala = True
+        return f"Mesin {self.cc} cc menyala"
+
+class Roda:
+    def __init__(self, posisi):
+        self.posisi = posisi
+
+class Mobil:
+    def __init__(self, merek, cc):
+        self.merek = merek
+        self._mesin = Mesin(cc)                           # dibuat di dalam
+        self._roda = [Roda(p) for p in ("KD", "KB", "KiD", "KiB")]
+
+    def nyalakan(self):                                   # delegasi ke bagian
+        return f"{self.merek}: {self._mesin.hidupkan()}"
+
+    def jumlah_roda(self):
+        return len(self._roda)
+
+avanza = Mobil("Avanza", 1300)
+print(avanza.nyalakan())
+print(avanza.jumlah_roda(), "roda")
+\end{kode}
+
+\begin{keluaran}
+Avanza: Mesin 1300 cc menyala
+4 roda
+\end{keluaran}
+
+Perhatikan perbedaannya dengan aggregation. Pemakai class \texttt{Mobil} tidak pernah membuat \texttt{Mesin} maupun \texttt{Roda} sendiri; mereka cukup membuat mobil. Bagian-bagian disimpan sebagai attribute protected, dan pekerjaan diteruskan kepada bagian yang tepat. Teknik meneruskan pekerjaan ini disebut \emph{delegasi}. Ketika object \texttt{avanza} tidak lagi dipakai, mesin dan rodanya ikut tidak terpakai, karena tidak ada object lain yang merujuk kepadanya.
+
+\subsection{Composition over Inheritance}
+
+Pedoman desain yang terkenal berbunyi: \emph{``utamakan composition daripada inheritance''}. Inheritance mewariskan \emph{seluruh} antarmuka parent, termasuk bagian yang tidak diinginkan. Composition hanya membuka apa yang memang kita sediakan.
+
+Misalkan kita ingin membuat struktur data \emph{stack} (tumpukan), yang hanya boleh menambah dan mengambil elemen dari atas.
+
+\begin{kode}[Stack dengan inheritance: terlalu banyak yang diwarisi]
+class StackWaris(list):
+    def push(self, x):
+        self.append(x)
+
+s = StackWaris()
+s.push(1)
+s.push(2)
+s.insert(0, 99)          # ikut diwarisi dari list: aturan stack dilanggar!
+print(s)
+\end{kode}
+
+\begin{keluaran}
+[99, 1, 2]
+\end{keluaran}
+
+\begin{kode}[Stack dengan composition: hanya membuka yang perlu]
+class Stack:
+    def __init__(self):
+        self._data = []                # list sebagai bagian internal
+
+    def push(self, x):
+        self._data.append(x)
+
+    def pop(self):
+        return self._data.pop()
+
+    def __len__(self):
+        return len(self._data)
+
+s = Stack()
+s.push(1)
+s.push(2)
+print(s.pop(), len(s))
+print(hasattr(s, "insert"))           # tidak ada jalan pintas
+\end{kode}
+
+\begin{keluaran}
+2 1
+False
+\end{keluaran}
+
+Stack bukanlah list (uji \emph{is-a} gagal); stack \emph{menggunakan} list untuk menyimpan datanya. Composition mencerminkan hubungan itu dengan tepat.
+
+% =====================================================================
+\section{Class Relationship}
+% =====================================================================
+
+Kita kini mengenal lima jenis hubungan antar-class. Tabel dan gambar berikut merangkumnya, termasuk cara menggambarkannya dalam \emph{class diagram} UML yang akan kita pakai lagi di Bab 11.
+
+\begin{table}[htbp]
+\caption{Ringkasan jenis hubungan antar-class.}
+\begin{tabularx}{\linewidth}{P{24mm}P{24mm}LP{30mm}}
+\kepala \kp{Hubungan} & \kp{Dibaca} & \kp{Ciri utama} & \kp{Contoh} \\
+Inheritance & \emph{adalah} & child mewarisi antarmuka dan kode parent & Mahasiswa--Civitas \\
+Dependency & \emph{memakai sesaat} & object lain hanya lewat parameter, tidak disimpan & Dosen--Mahasiswa pada \texttt{beri\_nilai()} \\
+Association & \emph{mengenal} & disimpan sebagai attribute; umur masing-masing; tanpa kepemilikan & Mahasiswa--Dosen pembimbing \\
+Aggregation & \emph{memiliki (lemah)} & bagian dibuat di luar, bisa dipakai bersama, tetap hidup tanpa keseluruhan & ProgramStudi--Dosen \\
+Composition & \emph{tersusun dari} & bagian dibuat di dalam, eksklusif, berakhir bersama keseluruhan & Mobil--Mesin \\
+\end{tabularx}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    kls/.style={rectangle,fill=marun,text=white,font=\sffamily\small\bfseries,minimum width=26mm,minimum height=8mm},
+    ket/.style={anchor=west,font=\sffamily\small,text=gelap,text width=46mm}]
+  \foreach \i/\a/\b in {1/Mahasiswa/Civitas, 2/Dosen/Mahasiswa, 3/Mahasiswa/Dosen, 4/ProgramStudi/Dosen, 5/Mobil/Mesin} {
+    \node[kls] (A\i) at (0,{-1.5*(\i-1)}) {\a};
+    \node[kls] (B\i) at (6,{-1.5*(\i-1)}) {\b};
+  }
+  \draw[-{Triangle[open,length=3.4mm,width=3.4mm]},line width=0.9pt,marun] (A1.east) -- (B1.west);
+  \draw[-{Latex[open]},line width=0.9pt,marun,dashed] (A2.east) -- (B2.west);
+  \draw[-{Latex},line width=0.9pt,marun] (A3.east) -- node[above,font=\sffamily\scriptsize,pos=0.85]{0..1} (B3.west);
+  \draw[{Diamond[open,length=4mm,width=3mm]}-,line width=0.9pt,marun] (A4.east) -- node[above,font=\sffamily\scriptsize,pos=0.85]{*} (B4.west);
+  \draw[{Diamond[length=4mm,width=3mm]}-,line width=0.9pt,marun] (A5.east) -- node[above,font=\sffamily\scriptsize,pos=0.85]{1} (B5.west);
+  \node[ket] at (7.6,0)    {\textbf{Inheritance}: segitiga terbuka menunjuk parent};
+  \node[ket] at (7.6,-1.5) {\textbf{Dependency}: panah putus-putus};
+  \node[ket] at (7.6,-3)   {\textbf{Association}: garis atau panah biasa};
+  \node[ket] at (7.6,-4.5) {\textbf{Aggregation}: belah ketupat \emph{kosong} di sisi keseluruhan};
+  \node[ket] at (7.6,-6)   {\textbf{Composition}: belah ketupat \emph{penuh} di sisi keseluruhan};
+\end{tikzpicture}
+\caption{Notasi UML untuk lima jenis hubungan. Angka di ujung garis adalah \emph{multiplicity}.}
+\end{figure}
+
+\subsection{Multiplicity}
+
+Angka kecil di ujung garis hubungan disebut \emph{multiplicity}, yaitu berapa banyak object di ujung tersebut yang terhubung dengan satu object di ujung lainnya.
+
+\begin{table}[htbp]
+\caption{Notasi multiplicity.}
+\begin{tabularx}{\linewidth}{P{24mm}LL}
+\kepala \kp{Notasi} & \kp{Arti} & \kp{Contoh} \\
+\texttt{1} & tepat satu & mobil memiliki tepat satu mesin \\
+\texttt{0..1} & nol atau satu & mahasiswa memiliki nol atau satu pembimbing \\
+\texttt{*} atau \texttt{0..*} & nol atau lebih & prodi memiliki nol atau lebih dosen \\
+\texttt{1..*} & minimal satu & pesanan berisi minimal satu item \\
+\end{tabularx}
+\end{table}
+
+Dalam kode Python, multiplicity tercermin dari bentuk attribute: \texttt{1} atau \texttt{0..1} biasanya berupa satu rujukan (atau \texttt{None}), sedangkan \texttt{*} dan \texttt{1..*} berupa list atau koleksi lain.
+
+% =====================================================================
+\section{Pemilihan Relationship Berdasarkan Kebutuhan Sistem}
+% =====================================================================
+
+Satu pasang konsep yang sama bisa dimodelkan dengan hubungan berbeda, \emph{tergantung kebutuhan sistem}. Mesin, misalnya, adalah bagian mobil yang dibuat bersama mobil (composition) dalam aplikasi rental. Namun di aplikasi bengkel, mesin bisa dilepas, diperbaiki, lalu dipasang di mobil lain (aggregation). Karena itu, pilihan relationship harus berangkat dari pertanyaan tentang \emph{perilaku sistem}, bukan sekadar dari benda di dunia nyata.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    tanya/.style={rectangle,rounded corners=2mm,draw=marun,line width=0.9pt,fill=merahmuda,align=center,text width=44mm,inner sep=2.2mm},
+    hasil/.style={rectangle,fill=marun,text=white,font=\sffamily\small\bfseries,minimum width=30mm,minimum height=8mm},
+    ya/.style={-{Latex},line width=1pt,hijau},
+    tidak/.style={-{Latex},line width=1pt,jingga},
+    lbl/.style={font=\sffamily\footnotesize}]
+  \node[tanya] (q1) at (0,0)     {Apakah A \emph{adalah} jenis B?};
+  \node[tanya] (q2) at (0,-2.1)  {Apakah B \emph{bagian} dari A?};
+  \node[tanya] (q3) at (0,-4.2)  {Apakah B dibuat oleh A, eksklusif, dan berakhir bersama A?};
+  \node[tanya] (q4) at (0,-6.5)  {Apakah A menyimpan B sebagai attribute?};
+  \node[hasil] (r1) at (6,0)     {Inheritance};
+  \node[hasil] (r3) at (6,-4.2)  {Composition};
+  \node[hasil] (r3b) at (6,-5.4) {Aggregation};
+  \node[hasil] (r4) at (6,-6.5)  {Association};
+  \node[hasil] (r5) at (6,-7.7)  {Dependency};
+  \draw[ya] (q1) -- node[above,lbl]{ya} (r1);
+  \draw[tidak] (q1) -- node[right,lbl]{tidak} (q2);
+  \draw[ya] (q2) -- node[right,lbl]{ya} (q3);
+  \draw[ya] (q3) -- node[above,lbl]{ya} (r3);
+  \draw[tidak] (q3.east) ++(0,-0.3) -- ++(0.7,0) |- node[pos=0.75,above,lbl]{tidak} (r3b.west);
+  \draw[tidak] (q2.west) -- ++(-0.8,0) |- node[pos=0.25,left,lbl]{tidak} (q4.west);
+  \draw[ya] (q4) -- node[above,lbl]{ya} (r4);
+  \draw[tidak] (q4.east) ++(0,-0.3) -- ++(0.7,0) |- node[pos=0.75,above,lbl]{tidak} (r5.west);
+\end{tikzpicture}
+\caption{Pertanyaan penuntun untuk memilih jenis hubungan antara class A dan class B.}
+\end{figure}
+
+\begin{table}[htbp]
+\caption{Contoh pemilihan relationship pada beberapa sistem.}
+\begin{tabularx}{\linewidth}{P{34mm}P{28mm}L}
+\kepala \kp{Pasangan} & \kp{Hubungan} & \kp{Alasan berdasarkan kebutuhan} \\
+Pesanan--ItemPesanan & composition & item hanya bermakna di dalam pesanannya dan dihapus bersama pesanan \\
+Keranjang--Produk & aggregation & produk ada di katalog sebelum dan sesudah dimasukkan ke keranjang \\
+Pelanggan--Pesanan & association & pelanggan mengenal riwayat pesanannya; keduanya punya umur sendiri \\
+Kasir--Struk & dependency & kasir hanya mencetak struk saat transaksi, tidak menyimpannya \\
+AdminToko--Pengguna & inheritance & admin \emph{adalah} pengguna dengan hak tambahan \\
+\end{tabularx}
+\end{table}
+
+\subsection{Studi Kasus: Perpustakaan Kampus}
+
+Kita rancang sistem peminjaman perpustakaan kampus dengan kebutuhan berikut:
+
+\begin{itemize}
+  \item Perpustakaan menyimpan banyak buku dan banyak anggota. Buku dan anggota didata terlebih dahulu, lalu didaftarkan ke perpustakaan $\rightarrow$ \textbf{aggregation}.
+  \item Setiap peminjaman mencatat siapa meminjam buku apa $\rightarrow$ \texttt{Peminjaman} \textbf{berasosiasi} dengan \texttt{Anggota} dan \texttt{Buku}.
+  \item Catatan peminjaman dibuat oleh perpustakaan dan hanya bermakna di dalamnya $\rightarrow$ \textbf{composition}.
+  \item Ada buku cetak dan e-book dengan lama pinjam berbeda $\rightarrow$ \textbf{inheritance} dan \textbf{polymorphism}.
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    kls/.style={rectangle,fill=marun,text=white,font=\sffamily\small\bfseries,minimum width=27mm,minimum height=8mm},
+    lbl/.style={font=\sffamily\scriptsize,text=gelap}]
+  \node[kls] (p)  at (0,0)      {Perpustakaan};
+  \node[kls] (a)  at (-4.6,-2.6) {Anggota};
+  \node[kls] (pm) at (0,-2.6)    {Peminjaman};
+  \node[kls] (b)  at (4.6,-2.6)  {Buku};
+  \node[kls] (bc) at (2.9,-4.9)  {BukuCetak};
+  \node[kls] (eb) at (6.3,-4.9)  {EBook};
+  \draw[{Diamond[open,length=4mm,width=3mm]}-,line width=0.9pt,marun] (p.west) -| node[pos=0.75,left,lbl]{*} (a.north);
+  \draw[{Diamond[open,length=4mm,width=3mm]}-,line width=0.9pt,marun] (p.east) -| node[pos=0.75,right,lbl]{*} (b.north);
+  \draw[{Diamond[length=4mm,width=3mm]}-,line width=0.9pt,marun] (p.south) -- node[right,lbl]{*} (pm.north);
+  \draw[-{Latex},line width=0.9pt,marun] (pm.west) -- node[above,lbl]{1} (a.east);
+  \draw[-{Latex},line width=0.9pt,marun] (pm.east) -- node[above,lbl]{1} (b.west);
+  \coordinate (cab) at (4.6,-3.85);
+  \draw[marun,line width=0.9pt] (bc.north) |- (cab) -| (eb.north);
+  \draw[-{Triangle[open,length=3.4mm,width=3.4mm]},line width=0.9pt,marun] (cab) -- (b.south);
+\end{tikzpicture}
+\caption{Class diagram studi kasus perpustakaan: aggregation (belah ketupat kosong), composition (belah ketupat penuh), association (panah), dan inheritance (segitiga).}
+\end{figure}
+
+\begin{kode}[perpustakaan.py]
+from abc import ABC, abstractmethod
+
+class Buku(ABC):
+    def __init__(self, judul):
+        self.judul = judul
+        self.dipinjam = False
+
+    @abstractmethod
+    def lama_pinjam(self):
+        ...
+
+class BukuCetak(Buku):
+    def lama_pinjam(self):
+        return 14
+
+class EBook(Buku):
+    def lama_pinjam(self):
+        return 7
+
+class Anggota:
+    def __init__(self, nama):
+        self.nama = nama
+
+class Peminjaman:                                  # association
+    def __init__(self, anggota, buku):
+        self.anggota = anggota
+        self.buku = buku
+
+    def __str__(self):
+        return (f"{self.anggota.nama} meminjam '{self.buku.judul}' "
+                f"selama {self.buku.lama_pinjam()} hari")
+
+class Perpustakaan:
+    def __init__(self, nama):
+        self.nama = nama
+        self._buku = []                            # aggregation
+        self._anggota = []                         # aggregation
+        self._catatan = []                         # composition
+
+    def tambah_buku(self, *buku):                 # bagian dari luar
+        self._buku.extend(buku)
+
+    def tambah_anggota(self, *anggota):
+        self._anggota.extend(anggota)
+
+    def pinjamkan(self, anggota, buku):
+        if buku.dipinjam:
+            return f"'{buku.judul}' sedang dipinjam"
+        buku.dipinjam = True
+        catatan = Peminjaman(anggota, buku)        # dibuat di dalam
+        self._catatan.append(catatan)
+        return str(catatan)
+
+    def jumlah_peminjaman(self):
+        return len(self._catatan)
+
+ani, budi = Anggota("Ani"), Anggota("Budi")
+laskar = BukuCetak("Laskar Pelangi")
+pbo = EBook("Dasar PBO dengan Python")
+
+perpus = Perpustakaan("Perpustakaan UNESA")
+perpus.tambah_anggota(ani, budi)
+perpus.tambah_buku(laskar, pbo)
+print(perpus.pinjamkan(ani, laskar))
+print(perpus.pinjamkan(budi, pbo))
+print(perpus.pinjamkan(budi, laskar))
+print("Total peminjaman:", perpus.jumlah_peminjaman())
+\end{kode}
+
+\begin{keluaran}
+Ani meminjam 'Laskar Pelangi' selama 14 hari
+Budi meminjam 'Dasar PBO dengan Python' selama 7 hari
+'Laskar Pelangi' sedang dipinjam
+Total peminjaman: 2
+\end{keluaran}
+
+Studi kasus ini memadukan semua yang telah dipelajari: inheritance dan polymorphism pada \texttt{Buku}, aggregation pada daftar buku dan anggota, composition pada catatan peminjaman, serta association antara peminjaman, anggota, dan buku.
+
+\begin{tips}[Saat Ragu]
+Jika ragu antara aggregation dan composition, tanyakan: \emph{``Jika object keseluruhan dihapus, apakah bagian ini masih dibutuhkan sistem?''} Jika masih dibutuhkan, pilih aggregation. Jika ragu antara inheritance dan composition, pilih composition. Composition lebih mudah diubah di kemudian hari.
+\end{tips}
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item \textbf{Polymorphism}: satu antarmuka dipakai untuk object berbentuk berbeda, dan setiap object merespons dengan caranya sendiri. Polymorphism memungkinkan jenis baru ditambahkan tanpa mengubah kode pemanggil.
+  \item Polymorphism lewat \textbf{overriding}: parent mendefinisikan antarmuka, child mengimplementasikannya, dan pemanggil hanya mengenal parent. Rantai \texttt{if-elif} berdasarkan jenis adalah tanda polymorphism dibutuhkan.
+  \item \textbf{Method overloading} tidak didukung langsung di Python (definisi kedua menimpa yang pertama), tetapi dapat ditiru dengan parameter default, \texttt{*args}, dan \texttt{singledispatchmethod}. \textbf{Operator overloading} dilakukan dengan dunder method seperti \texttt{\_\_add\_\_} dan \texttt{\_\_eq\_\_}.
+  \item \textbf{Association}: object saling mengenal tanpa kepemilikan, dengan umur masing-masing. \textbf{Dependency}: hanya dipakai sesaat lewat parameter.
+  \item \textbf{Aggregation}: keseluruhan--bagian yang lemah; bagian dibuat di luar, bisa dipakai bersama, dan tetap hidup tanpa keseluruhan.
+  \item \textbf{Composition}: keseluruhan--bagian yang kuat; bagian dibuat di dalam, eksklusif, dan berakhir bersama keseluruhan. Utamakan composition daripada inheritance bila uji \emph{is-a} meragukan.
+  \item Pilihan relationship bergantung pada \textbf{kebutuhan sistem}, bukan hanya pada benda di dunia nyata.
+\end{itemize}
+
+% =====================================================================
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat.
+
+\begin{enumerate}
+  \item Pengertian polymorphism yang paling tepat adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item satu class memiliki banyak attribute
+    \item satu antarmuka dapat dipakai untuk object berbeda yang merespons dengan caranya masing-masing
+    \item satu object dapat dibuat dari banyak class
+    \item satu method dapat dipanggil berkali-kali
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 2]
+class Hewan:
+    def suara(self):
+        return "..."
+
+class Kucing(Hewan):
+    def suara(self):
+        return "Meong"
+
+class Sapi(Hewan):
+    def suara(self):
+        return "Mooo"
+
+print("-".join(h.suara() for h in [Sapi(), Hewan(), Kucing()]))
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{Mooo-Meong-...}
+    \item \texttt{...-...-...}
+    \item \texttt{Mooo-...-Meong}
+    \item \texttt{Meong-Mooo-...}
+  \end{enumerate}
+
+  \item Apa yang terjadi jika sebuah class Python mendefinisikan dua method bernama \texttt{hitung} dengan jumlah parameter berbeda?
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item Python memilih method yang sesuai jumlah argumen
+    \item Terjadi \texttt{SyntaxError}
+    \item Definisi kedua menimpa definisi pertama
+    \item Kedua method digabung otomatis
+  \end{enumerate}
+
+  \item Agar ekspresi \texttt{a + b} bekerja untuk object dari class buatan sendiri, class tersebut perlu mengimplementasikan \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{\_\_plus\_\_}
+    \item \texttt{\_\_add\_\_}
+    \item \texttt{\_\_sum\_\_}
+    \item \texttt{\_\_concat\_\_}
+  \end{enumerate}
+
+  \item Hubungan antara \emph{Pesanan} dan \emph{ItemPesanan}, di mana item dibuat oleh pesanan dan dihapus bersama pesanan, paling tepat dimodelkan sebagai \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item inheritance
+    \item association
+    \item aggregation
+    \item composition
+  \end{enumerate}
+
+  \item Ciri yang membedakan aggregation dari composition adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item pada aggregation, bagian tetap dapat hidup tanpa keseluruhan
+    \item pada aggregation, bagian selalu dibuat di dalam constructor keseluruhan
+    \item aggregation hanya berlaku untuk satu object bagian
+    \item aggregation memakai inheritance
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 7]
+class Baterai:
+    def __init__(self, mah):
+        self.mah = mah
+
+class Ponsel:
+    def __init__(self, merek, baterai):
+        self.merek = merek
+        self.baterai = baterai
+
+b = Baterai(5000)
+p1 = Ponsel("A", b)
+p2 = Ponsel("B", b)
+\end{kode}
+  Hubungan \texttt{Ponsel}--\texttt{Baterai} pada kode di atas paling tepat disebut \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item composition, karena baterai adalah bagian ponsel
+    \item aggregation, karena baterai dibuat di luar dan dipakai bersama
+    \item inheritance, karena ponsel memiliki baterai
+    \item dependency, karena baterai hanya parameter
+  \end{enumerate}
+
+  \item Notasi UML belah ketupat \emph{penuh} di sisi class keseluruhan menyatakan hubungan \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item association
+    \item aggregation
+    \item composition
+    \item dependency
+  \end{enumerate}
+
+  \item Multiplicity \texttt{0..1} pada ujung class \texttt{Dosen} dalam hubungan Mahasiswa--Dosen pembimbing berarti \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item setiap dosen membimbing tepat satu mahasiswa
+    \item setiap mahasiswa memiliki nol atau satu dosen pembimbing
+    \item setiap mahasiswa wajib memiliki banyak pembimbing
+    \item dosen tidak boleh membimbing mahasiswa
+  \end{enumerate}
+
+  \item Alasan class \texttt{Stack} sebaiknya memakai composition terhadap \texttt{list} daripada mewarisi \texttt{list} adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item composition membuat program lebih cepat
+    \item inheritance dari \texttt{list} tidak diizinkan Python
+    \item inheritance ikut mewariskan method seperti \texttt{insert} yang melanggar aturan stack
+    \item composition otomatis membuat stack immutable
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Jelaskan bagaimana polymorphism membantu menerapkan prinsip \emph{open/closed}. Gunakan contoh selain notifikasi.
+  \item Python tidak mendukung method overloading secara langsung. Jelaskan alasannya dan tiga cara untuk meniru efek overloading.
+  \item Jelaskan perbedaan association, aggregation, dan composition dari segi kepemilikan dan umur object, masing-masing dengan satu contoh dari lingkungan kampus.
+  \item Berikan satu pasang class yang dapat dimodelkan sebagai composition pada satu sistem, tetapi sebagai aggregation pada sistem lain. Jelaskan kebutuhan sistem yang membedakannya.
+  \item Jelaskan maksud pedoman ``utamakan composition daripada inheritance''. Kapan inheritance tetap merupakan pilihan yang lebih tepat?
+\end{enumerate}
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Kerjakan praktik berikut secara berurutan. Simpan setiap praktik dalam file \texttt{.py} terpisah, jalankan, dan pastikan keluarannya sesuai dengan contoh.
+
+\subsection{Praktik 1: Arena Pertarungan}
+
+\begin{itemize}
+  \item Buat abstract class \texttt{Karakter} dengan attribute \texttt{nama} dan \texttt{hp}, abstract method \texttt{serang(lawan)}, serta method konkret \texttt{terima\_serangan(damage)} dan \texttt{masih\_hidup()}.
+  \item Buat tiga turunan: \texttt{Prajurit} (damage tetap 15), \texttt{Penyihir} (damage 25, tetapi hanya bisa menyerang jika mana masih ada; setiap serangan mengurangi mana 10), dan \texttt{Pemanah} (damage 10, menyerang dua kali).
+  \item Implementasikan \texttt{\_\_lt\_\_} agar karakter bisa diurutkan berdasarkan HP, dan \texttt{\_\_str\_\_} untuk menampilkan status.
+  \item Tulis fungsi \texttt{ronde(tim\_a, tim\_b)} yang membuat setiap karakter hidup di tim A menyerang karakter hidup pertama di tim B. Fungsi ini \textbf{tidak boleh} memeriksa jenis karakter.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 1]
+Arka (Prajurit) menyerang Zed: -15
+Luna (Penyihir) menyerang Zed: -25
+Zed (Pemanah) menyerang Arka: -10 -10
+Urutan HP: Zed 60 | Arka 80 | Luna 70 -> Zed, Luna, Arka
+\end{keluaran}
+
+\subsection{Praktik 2: Pecahan}
+
+Buat class \texttt{Pecahan} yang mendukung operator overloading:
+
+\begin{itemize}
+  \item Constructor menerima pembilang dan penyebut, menolak penyebut nol, dan otomatis menyederhanakan pecahan (gunakan \texttt{math.gcd}).
+  \item Operator \texttt{+}, \texttt{-}, \texttt{*}, \texttt{==}, dan \texttt{<}.
+  \item \texttt{\_\_str\_\_} menampilkan \texttt{a/b}, atau hanya \texttt{a} jika penyebutnya 1.
+  \item Method \texttt{tambah()} yang meniru overloading: dapat menerima satu \texttt{Pecahan}, satu bilangan bulat, atau beberapa argumen sekaligus.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 2]
+1/2 + 1/3 = 5/6
+3/4 - 1/4 = 1/2
+2/3 * 3/4 = 1/2
+2/4 == 1/2: True
+sorted: 1/4, 1/3, 1/2
+1/2 + 2 + 1/4 + 1/4 = 3
+\end{keluaran}
+
+\subsection{Praktik 3: Sistem Akademik Mini}
+
+Rancang dan implementasikan sistem akademik dengan class \texttt{Universitas}, \texttt{Fakultas}, \texttt{ProgramStudi}, \texttt{Dosen}, \texttt{Mahasiswa}, \texttt{MataKuliah}, dan \texttt{KRS}.
+
+\begin{langkah}{Langkah Pengerjaan}
+  \item Tentukan jenis hubungan untuk setiap pasangan class yang saling terkait, lengkap dengan multiplicity dan alasan berdasarkan kebutuhan sistem. Tuliskan dalam bentuk tabel di komentar program.
+  \item Gambar class diagram sederhana (boleh di kertas atau aplikasi diagram) dengan notasi UML yang benar.
+  \item Implementasikan hubungan tersebut: composition dibuat di dalam constructor, aggregation menerima object dari luar, dan association disimpan sebagai rujukan.
+  \item Tunjukkan bukti perilaku setiap hubungan, misalnya dosen tetap ada setelah sebuah prodi dihapus (aggregation), atau KRS ikut tidak terpakai saat mahasiswa dihapus (composition).
+  \item Tambahkan polymorphism: dua jenis mata kuliah (misalnya \texttt{MataKuliahTeori} dan \texttt{MataKuliahPraktikum}) dengan cara hitung bobot nilai berbeda, lalu hitung IPK mahasiswa tanpa memeriksa jenis mata kuliah.
+\end{langkah}
+
+\begin{penting}[Kriteria Penilaian]
+\begin{itemize}
+  \item Polymorphism diterapkan tanpa pemeriksaan jenis (\texttt{if-elif}) di kode pemanggil.
+  \item Operator overloading memiliki makna yang wajar dan konsisten.
+  \item Setiap relationship dipilih dengan alasan yang jelas dan diimplementasikan sesuai cirinya.
+  \item Class diagram sesuai dengan kode yang ditulis.
+\end{itemize}
+\end{penting}

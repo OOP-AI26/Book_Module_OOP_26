@@ -1,0 +1,934 @@
+\subjudul{Kontrak, class pembawa data, dan cara Python menilai sebuah tipe.}
+\chapter{Abstract Method, Data Class, dan Typing}
+
+\begin{dibabini}
+  \item Abstract method
+  \item Data class
+  \item Attribute mutability
+  \item Duck typing
+  \item Structural typing
+\end{dibabini}
+
+Di Praktik Mandiri Bab 4, method \texttt{luas()} pada class \texttt{BangunDatar} mengembalikan \texttt{0}. Cara itu menyimpan masalah: jika seseorang membuat class \texttt{Segitiga} lalu lupa meng-override \texttt{luas()}, program tidak error, tetapi diam-diam menghasilkan luas nol. Kita butuh cara untuk \emph{mewajibkan} child menyediakan method tertentu.
+
+Bab ini membahas lima topik yang saling berkaitan. \emph{Abstract method} dipakai untuk membuat kontrak yang wajib dipenuhi child class. \emph{Data class} menghemat penulisan class yang tugas utamanya membawa data. \emph{Mutability} menjelaskan mengapa sebagian data bisa berubah ``dari jauh''. Terakhir, \emph{duck typing} dan \emph{structural typing} menjelaskan cara Python menilai apakah sebuah object cocok dipakai di suatu tempat.
+
+% =====================================================================
+\section{Abstract Method}
+% =====================================================================
+
+\emph{Abstract method} adalah method yang hanya dideklarasikan namanya di parent, tanpa implementasi yang berarti, dan \textbf{wajib} diimplementasikan oleh setiap child class. Class yang memiliki setidaknya satu abstract method disebut \emph{abstract class}. Abstract class tidak bisa dibuat object-nya secara langsung; ia hanya berfungsi sebagai \emph{kontrak} atau cetakan bagi turunannya.
+
+\subsection{Masalah: Lupa Meng-override}
+
+\begin{kode}[Parent dengan nilai default yang menyesatkan]
+class BangunDatar:
+    def luas(self):
+        return 0                      # nilai "darurat"
+
+class Segitiga(BangunDatar):
+    def __init__(self, alas, tinggi):
+        self.alas = alas
+        self.tinggi = tinggi
+    # lupa menulis luas()
+
+print(Segitiga(10, 6).luas())
+\end{kode}
+
+\begin{keluaran}
+0
+\end{keluaran}
+
+Tidak ada pesan kesalahan sama sekali, padahal hasilnya jelas salah. Kesalahan seperti ini bisa lolos hingga ke tangan pengguna.
+
+\subsection{Modul \texttt{abc}: \texttt{ABC} dan \texttt{@abstractmethod}}
+
+Python menyediakan modul \texttt{abc} (\emph{Abstract Base Classes}). Sebuah class menjadi abstract class bila mewarisi \texttt{ABC}, dan method-nya ditandai sebagai abstract dengan decorator \texttt{@abstractmethod}.
+
+\begin{kode}[Abstract class BangunDatar]
+from abc import ABC, abstractmethod
+import math
+
+class BangunDatar(ABC):
+    def __init__(self, nama):
+        self.nama = nama
+
+    @abstractmethod
+    def luas(self):
+        """Wajib diimplementasikan child."""
+
+    @abstractmethod
+    def keliling(self):
+        """Wajib diimplementasikan child."""
+
+    def info(self):                       # method biasa (konkret)
+        return f"{self.nama}: luas {self.luas():.2f}, keliling {self.keliling():.2f}"
+
+class Persegi(BangunDatar):
+    def __init__(self, sisi):
+        super().__init__("Persegi")
+        self.sisi = sisi
+
+    def luas(self):
+        return self.sisi ** 2
+
+    def keliling(self):
+        return 4 * self.sisi
+
+class Lingkaran(BangunDatar):
+    def __init__(self, r):
+        super().__init__("Lingkaran")
+        self.r = r
+
+    def luas(self):
+        return math.pi * self.r ** 2
+
+    def keliling(self):
+        return 2 * math.pi * self.r
+
+for b in [Persegi(5), Lingkaran(7)]:
+    print(b.info())
+\end{kode}
+
+\begin{keluaran}
+Persegi: luas 25.00, keliling 20.00
+Lingkaran: luas 153.94, keliling 43.98
+\end{keluaran}
+
+Kini Python menjaga kontrak tersebut. Abstract class tidak bisa dibuat object-nya, dan child yang belum mengimplementasikan \emph{semua} abstract method juga ditolak.
+
+\begin{kode}[Kontrak yang dilanggar]
+class Segitiga(BangunDatar):
+    def __init__(self, alas, tinggi):
+        super().__init__("Segitiga")
+        self.alas = alas
+        self.tinggi = tinggi
+
+    def luas(self):
+        return 0.5 * self.alas * self.tinggi
+    # keliling() belum ditulis
+
+BangunDatar("Bebas")     # gagal: abstract class
+Segitiga(10, 6)          # gagal: kontrak belum lengkap
+\end{kode}
+
+\begin{keluaran}
+TypeError: Can't instantiate abstract class BangunDatar without an implementation for abstract methods 'keliling', 'luas'
+TypeError: Can't instantiate abstract class Segitiga without an implementation for abstract method 'keliling'
+\end{keluaran}
+
+Setiap baris di atas sebenarnya menghentikan program; keduanya ditampilkan bersamaan agar mudah dibandingkan. Yang penting, kesalahan kini muncul \emph{saat object dibuat}, jauh sebelum nilai yang salah sempat dipakai.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    abs/.style={rectangle,draw=marun,line width=1pt,dashed,fill=merahmuda!50,align=left,text width=46mm,inner sep=2.5mm},
+    kon/.style={rectangle,fill=marun,text=white,align=left,text width=30mm,inner sep=2.5mm},
+    gagal/.style={rectangle,draw=jingga,line width=1pt,fill=jingga!12,align=left,text width=30mm,inner sep=2.5mm}]
+  \node[abs] (p) at (0,0)
+    {\textit{\textbf{BangunDatar}} {\footnotesize\textcolor{abu}{(abstract)}}\\[3pt]
+     \ttfamily\footnotesize \textit{+ luas()}\\\textit{+ keliling()}\\+ info()};
+  \node[kon,anchor=north] (a) at (-4.4,-2.6) {\textbf{Persegi}\\[2pt]\ttfamily\footnotesize + luas()\\+ keliling()};
+  \node[kon,anchor=north] (b) at (0,-2.6)    {\textbf{Lingkaran}\\[2pt]\ttfamily\footnotesize + luas()\\+ keliling()};
+  \node[gagal,anchor=north] (c) at (4.4,-2.6) {\textbf{Segitiga}\\[2pt]\ttfamily\footnotesize + luas()\\\textcolor{jingga}{keliling()?}};
+  \coordinate (cab) at (0,-1.9);
+  \draw[marun,line width=0.9pt] (a.north) |- (cab) -| (c.north);
+  \draw[marun,line width=0.9pt] (b.north) -- (cab);
+  \draw[turunan,marun] (cab) -- (p.south);
+  \node[anchor=north,text=hijau,font=\sffamily\footnotesize] at (a.south) {kontrak lengkap};
+  \node[anchor=north,text=hijau,font=\sffamily\footnotesize] at (b.south) {kontrak lengkap};
+  \node[anchor=north,text=jingga,font=\sffamily\footnotesize,align=center] at (c.south) {belum lengkap:\\object tidak bisa dibuat};
+\end{tikzpicture}
+\caption{Abstract class sebagai kontrak. Method bercetak miring wajib diimplementasikan setiap child; \texttt{info()} adalah method konkret yang langsung diwarisi.}
+\end{figure}
+
+Perhatikan bahwa abstract class boleh memiliki method biasa seperti \texttt{info()} dan constructor. Method konkret tersebut bahkan boleh memanggil abstract method (\texttt{self.luas()}), karena dijamin setiap object yang berhasil dibuat sudah mengimplementasikannya.
+
+\subsection{Abstract Property}
+
+Decorator \texttt{@property} dan \texttt{@abstractmethod} dapat digabung untuk mewajibkan child menyediakan sebuah property. Urutannya: \texttt{@property} di atas, \texttt{@abstractmethod} di bawah.
+
+\begin{kode}[Abstract property]
+from abc import ABC, abstractmethod
+
+class Kendaraan(ABC):
+    @property
+    @abstractmethod
+    def jumlah_roda(self):
+        ...
+
+class Motor(Kendaraan):
+    @property
+    def jumlah_roda(self):
+        return 2
+
+print(Motor().jumlah_roda)
+\end{kode}
+
+\begin{keluaran}
+2
+\end{keluaran}
+
+\begin{info}[Abstract Class dan Interface]
+Bahasa seperti Java memiliki konsep \emph{interface}, yaitu kontrak berisi daftar method tanpa implementasi. Di Python, abstract class yang seluruh method-nya abstract memainkan peran yang sama. Badan abstract method cukup diisi docstring atau \texttt{...} (\emph{ellipsis}).
+\end{info}
+
+% =====================================================================
+\section{Data Class}
+% =====================================================================
+
+Banyak class yang tugas utamanya hanya \emph{membawa data}: koordinat titik, data mahasiswa, item keranjang belanja, dan sebagainya. Untuk class seperti itu, kita hampir selalu menulis tiga method yang sama polanya: \texttt{\_\_init\_\_} untuk menyimpan data, \texttt{\_\_repr\_\_} agar object mudah dicetak, dan \texttt{\_\_eq\_\_} agar dua object berisi data sama dianggap sama.
+
+\begin{kode}[Class pembawa data yang ditulis manual]
+class Titik:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __repr__(self):
+        return f"Titik(x={self.x}, y={self.y})"
+
+    def __eq__(self, lain):
+        if not isinstance(lain, Titik):
+            return NotImplemented
+        return (self.x, self.y) == (lain.x, lain.y)
+\end{kode}
+
+Lima belas baris hanya untuk menyimpan dua angka. Modul \texttt{dataclasses} menyediakan decorator \texttt{@dataclass} yang menuliskan method-method tersebut secara otomatis berdasarkan daftar \emph{field} yang kita deklarasikan.
+
+\subsection{Decorator \texttt{@dataclass}}
+
+Field ditulis sebagai class attribute yang diberi \emph{type hint} (anotasi tipe, dibahas lebih lanjut di Subbab Structural Typing). Dari daftar field itulah \texttt{@dataclass} membangkitkan \texttt{\_\_init\_\_}, \texttt{\_\_repr\_\_}, dan \texttt{\_\_eq\_\_}.
+
+\begin{kode}[Titik sebagai data class]
+from dataclasses import dataclass
+
+@dataclass
+class Titik:
+    x: float
+    y: float
+
+    def jarak_ke_pusat(self):              # method biasa tetap boleh
+        return (self.x ** 2 + self.y ** 2) ** 0.5
+
+a = Titik(3, 4)
+b = Titik(3, 4)
+print(a)
+print(a == b)
+print(a.jarak_ke_pusat())
+\end{kode}
+
+\begin{keluaran}
+Titik(x=3, y=4)
+True
+5.0
+\end{keluaran}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    gen/.style={rectangle,draw=marun,line width=0.8pt,fill=merahmuda,font=\ttfamily\small,
+      text width=62mm,align=left,inner sep=2.2mm}]
+  \node[rectangle,fill=kodebg,text=kodeteks,font=\ttfamily\small,align=left,inner sep=3mm] (src) at (0,0)
+    {\textcolor{emas}{@dataclass}\\\textcolor{emas}{class} Titik:\\\quad x: float\\\quad y: float};
+  \node[gen,anchor=west] (g1) at (4.3,1.3)  {def \_\_init\_\_(self, x, y)};
+  \node[gen,anchor=west] (g2) at (4.3,0)    {def \_\_repr\_\_(self)};
+  \node[gen,anchor=west] (g3) at (4.3,-1.3) {def \_\_eq\_\_(self, lain)};
+  \foreach \g in {g1,g2,g3}
+    \draw[-{Latex},line width=1pt,emas] (src.east) -- (\g.west);
+  \node[anchor=south,font=\sffamily\footnotesize,text=abu] at (6.6,1.9) {dibuatkan otomatis};
+\end{tikzpicture}
+\caption{Dari daftar field, \texttt{@dataclass} membangkitkan method-method pembawa data secara otomatis.}
+\end{figure}
+
+\subsection{Nilai Default dan \texttt{field()}}
+
+Field boleh diberi nilai default. Seperti parameter fungsi, field ber-default harus ditulis setelah field tanpa default. Untuk default berupa object \emph{mutable} seperti list atau dictionary, Python melarang penulisan langsung; gunakan \texttt{field(default\_factory=\ldots)} agar setiap object mendapat salinan baru. Alasannya dibahas di subbab Attribute Mutability.
+
+\begin{kode}[Nilai default]
+from dataclasses import dataclass, field
+
+@dataclass
+class Mahasiswa:
+    nama: str
+    nim: str
+    semester: int = 1
+    nilai: list = field(default_factory=list)   # list baru untuk tiap object
+
+ani = Mahasiswa("Ani", "001")
+budi = Mahasiswa("Budi", "002", semester=3)
+ani.nilai.append(90)
+print(ani)
+print(budi)
+\end{kode}
+
+\begin{keluaran}
+Mahasiswa(nama='Ani', nim='001', semester=1, nilai=[90])
+Mahasiswa(nama='Budi', nim='002', semester=3, nilai=[])
+\end{keluaran}
+
+Jika kita menulis \texttt{nilai: list = []}, Python langsung menolak saat class didefinisikan dengan pesan \texttt{ValueError: mutable default <class 'list'> for field nilai is not allowed: use default\_factory}.
+
+\subsection{Opsi \texttt{order} dan \texttt{frozen}}
+
+Decorator \texttt{@dataclass} menerima beberapa opsi. Dua yang paling sering dipakai:
+
+\begin{itemize}
+  \item \texttt{order=True}: membangkitkan \texttt{<}, \texttt{<=}, \texttt{>}, \texttt{>=}, sehingga object bisa diurutkan. Perbandingan dilakukan field demi field sesuai urutan deklarasi.
+  \item \texttt{frozen=True}: membuat object \emph{tidak bisa diubah} setelah dibuat. Setiap upaya mengubah field menghasilkan \texttt{FrozenInstanceError}.
+\end{itemize}
+
+\begin{kode}[order dan frozen]
+from dataclasses import dataclass, field
+
+@dataclass(order=True)
+class Peserta:
+    skor: int
+    nama: str = field(compare=False)      # tidak ikut dibandingkan
+
+@dataclass(frozen=True)
+class Koordinat:
+    lintang: float
+    bujur: float
+
+hasil = [Peserta(78, "Ani"), Peserta(92, "Budi"), Peserta(85, "Citra")]
+for p in sorted(hasil, reverse=True):
+    print(p.skor, p.nama)
+
+unesa = Koordinat(-7.30, 112.67)
+unesa.lintang = 0
+\end{kode}
+
+\begin{keluaran}
+92 Budi
+85 Citra
+78 Ani
+Traceback (most recent call last):
+  ...
+dataclasses.FrozenInstanceError: cannot assign to field 'lintang'
+\end{keluaran}
+
+\subsection{Validasi dengan \texttt{\_\_post\_init\_\_}}
+
+Karena \texttt{\_\_init\_\_} dibuat otomatis, validasi dan field turunan ditulis di method khusus \texttt{\_\_post\_init\_\_}, yang dijalankan tepat setelah \texttt{\_\_init\_\_} selesai. Field yang nilainya dihitung (bukan diberikan pengguna) ditandai \texttt{field(init=False)}.
+
+\begin{kode}[Validasi dan field turunan]
+from dataclasses import dataclass, field
+
+@dataclass
+class ItemBelanja:
+    nama: str
+    harga: int
+    jumlah: int = 1
+    subtotal: int = field(init=False)
+
+    def __post_init__(self):
+        if self.harga <= 0 or self.jumlah <= 0:
+            raise ValueError("Harga dan jumlah harus lebih dari nol.")
+        self.subtotal = self.harga * self.jumlah
+
+print(ItemBelanja("Pulpen", 3500, 4))
+ItemBelanja("Buku", -1)
+\end{kode}
+
+\begin{keluaran}
+ItemBelanja(nama='Pulpen', harga=3500, jumlah=4, subtotal=14000)
+Traceback (most recent call last):
+  ...
+ValueError: Harga dan jumlah harus lebih dari nol.
+\end{keluaran}
+
+\begin{table}[htbp]
+\caption{Ringkasan fitur data class.}
+\begin{tabularx}{\linewidth}{P{58mm}L}
+\kepala \kp{Penulisan} & \kp{Hasilnya} \\
+\texttt{@dataclass} & \texttt{\_\_init\_\_}, \texttt{\_\_repr\_\_}, \texttt{\_\_eq\_\_} dibuat otomatis \\
+\texttt{@dataclass(order=True)} & ditambah operator perbandingan sehingga bisa diurutkan \\
+\texttt{@dataclass(frozen=True)} & object tidak bisa diubah setelah dibuat \\
+\texttt{field(default\_factory=list)} & default mutable yang aman, baru untuk tiap object \\
+\texttt{field(compare=False)} & field tidak ikut perbandingan \texttt{==} dan pengurutan \\
+\texttt{field(init=False)} & field tidak menjadi parameter constructor \\
+\texttt{\_\_post\_init\_\_} & tempat validasi dan menghitung field turunan \\
+\end{tabularx}
+\end{table}
+
+\begin{tips}[Kapan Memakai Data Class?]
+Gunakan data class untuk class yang \emph{intinya adalah data}, dengan sedikit perilaku. Untuk class yang kaya aturan dan perlu encapsulation ketat, misalnya \texttt{Rekening} dengan saldo yang hanya boleh berubah lewat \texttt{setor()} dan \texttt{tarik()}, class biasa dengan property sering kali lebih tepat.
+\end{tips}
+
+% =====================================================================
+\section{Attribute Mutability}
+% =====================================================================
+
+\emph{Mutability} adalah sifat apakah isi sebuah object dapat diubah setelah object itu dibuat. Object \emph{mutable} dapat diubah isinya; object \emph{immutable} tidak dapat diubah, sehingga setiap ``perubahan'' sebenarnya menghasilkan object baru.
+
+\begin{table}[htbp]
+\caption{Tipe bawaan berdasarkan mutability.}
+\begin{tabularx}{\linewidth}{P{30mm}L}
+\kepala \kp{Sifat} & \kp{Tipe} \\
+Immutable & \texttt{int}, \texttt{float}, \texttt{bool}, \texttt{str}, \texttt{tuple}, \texttt{frozenset}, data class dengan \texttt{frozen=True} \\
+Mutable & \texttt{list}, \texttt{dict}, \texttt{set}, sebagian besar object dari class buatan sendiri \\
+\end{tabularx}
+\end{table}
+
+\subsection{Variabel Adalah Label, Bukan Kotak}
+
+Untuk memahami mutability, kita perlu meluruskan satu anggapan. Variabel di Python bukan ``kotak'' yang berisi nilai, melainkan \emph{label} yang ditempelkan pada sebuah object. Pernyataan \texttt{b = a} tidak menyalin object; ia hanya menempelkan label kedua pada object yang sama. Kondisi ini disebut \emph{aliasing}.
+
+\begin{kode}[Dua label, satu object]
+a = [1, 2, 3]
+b = a              # b menunjuk object yang sama
+b.append(4)
+print(a)
+print(a is b)
+
+c = a.copy()       # object baru dengan isi sama
+c.append(5)
+print(a, c)
+print(a is c)
+\end{kode}
+
+\begin{keluaran}
+[1, 2, 3, 4]
+True
+[1, 2, 3, 4] [1, 2, 3, 4, 5]
+False
+\end{keluaran}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    label/.style={rectangle,fill=merah,text=white,font=\ttfamily\small\bfseries,minimum width=9mm,minimum height=7mm},
+    sel/.style={rectangle,draw=marun,fill=merahmuda,font=\ttfamily\small,minimum width=8mm,minimum height=8mm,inner sep=0pt},
+    tunjuk/.style={-{Latex},line width=1pt,emas}]
+  % Panel kiri: b = a
+  \node[font=\sffamily\small\bfseries,text=merah] at (1.6,2.4) {\texttt{b = a}};
+  \node[label] (a1) at (0,1.2) {a};
+  \node[label] (b1) at (0,-0.2) {b};
+  \foreach \i/\v in {0/1,1/2,2/3,3/4} \node[sel] (s\i) at (2.0+0.8*\i,0.5) {\v};
+  \draw[tunjuk] (a1.east) -- (s0.north west);
+  \draw[tunjuk] (b1.east) -- (s0.south west);
+  % Panel kanan: c = a.copy()
+  \node[font=\sffamily\small\bfseries,text=merah] at (8.6,2.4) {\texttt{c = a.copy()}};
+  \node[label] (a2) at (7,1.2) {a};
+  \node[label] (c2) at (7,-0.6) {c};
+  \foreach \i/\v in {0/1,1/2,2/3,3/4} \node[sel] (t\i) at (9.0+0.8*\i,1.2) {\v};
+  \foreach \i/\v in {0/1,1/2,2/3,3/4,4/5} \node[sel] (u\i) at (9.0+0.8*\i,-0.6) {\v};
+  \draw[tunjuk] (a2.east) -- (t0.west);
+  \draw[tunjuk] (c2.east) -- (u0.west);
+  \draw[garis,line width=0.6pt] (5.6,-1.2) -- (5.6,2.7);
+\end{tikzpicture}
+\caption{Kiri: \texttt{a} dan \texttt{b} adalah dua label pada satu list, sehingga perubahan lewat \texttt{b} terlihat lewat \texttt{a}. Kanan: \texttt{copy()} membuat list baru yang terpisah.}
+\end{figure}
+
+Untuk object immutable, aliasing tidak berbahaya. Operasi seperti \texttt{y += 1} pada sebuah \texttt{int} tidak mengubah object lama, melainkan membuat object baru dan memindahkan label \texttt{y} ke sana, sehingga variabel lain yang menunjuk object lama tidak terpengaruh.
+
+\subsection{Jebakan: Default Argument Mutable}
+
+Nilai default parameter fungsi dibuat \textbf{satu kali}, saat fungsi didefinisikan, bukan setiap kali fungsi dipanggil. Jika nilai default itu mutable, semua pemanggilan memakai object yang sama. Di dalam class, akibatnya semua object diam-diam berbagi satu list.
+
+\begin{kode}[Bug default mutable]
+class Keranjang:
+    def __init__(self, pemilik, isi=[]):     # BAHAYA
+        self.pemilik = pemilik
+        self.isi = isi
+
+    def tambah(self, barang):
+        self.isi.append(barang)
+
+k1 = Keranjang("Ani")
+k2 = Keranjang("Budi")
+k1.tambah("Buku")
+print(k2.isi)            # keranjang Budi ikut berisi buku!
+\end{kode}
+
+\begin{keluaran}
+['Buku']
+\end{keluaran}
+
+Perbaikan yang lazim adalah memakai \texttt{None} sebagai default, lalu membuat list baru di dalam fungsi.
+
+\begin{kode}[Perbaikan]
+class Keranjang:
+    def __init__(self, pemilik, isi=None):
+        self.pemilik = pemilik
+        self.isi = [] if isi is None else list(isi)
+\end{kode}
+
+Perhatikan pemakaian \texttt{list(isi)}: walaupun pemanggil memberikan list miliknya sendiri, keranjang menyimpan \emph{salinannya}. Dengan begitu, perubahan pada list milik pemanggil tidak ikut mengubah isi keranjang, dan sebaliknya. Ini prinsip yang sama dengan getter yang mengembalikan salinan di Bab 2.
+
+\subsection{Salinan Dangkal dan Salinan Dalam}
+
+Method \texttt{copy()} dan fungsi \texttt{copy.copy()} membuat \emph{salinan dangkal} (\emph{shallow copy}): wadah luarnya baru, tetapi isinya masih object yang sama. Untuk struktur bersarang, seperti list berisi list, gunakan \texttt{copy.deepcopy()} yang menyalin seluruh isi hingga ke dalam.
+
+\begin{kode}[shallow copy vs deep copy]
+import copy
+
+kelas = [["Ani", 90], ["Budi", 85]]
+dangkal = copy.copy(kelas)
+dalam = copy.deepcopy(kelas)
+
+kelas[0][1] = 0          # ubah nilai Ani di data asli
+print(dangkal[0])        # ikut berubah: isi masih dipakai bersama
+print(dalam[0])          # aman: seluruh isi ikut disalin
+\end{kode}
+
+\begin{keluaran}
+['Ani', 0]
+['Ani', 90]
+\end{keluaran}
+
+\begin{penting}[Frozen Tidak Berarti Membeku Seluruhnya]
+Data class dengan \texttt{frozen=True} hanya mencegah field \emph{diganti}. Jika sebuah field berisi list, isi list itu tetap bisa diubah dengan \texttt{append()}. Untuk data yang benar-benar tidak boleh berubah, gunakan tipe immutable di dalamnya, misalnya \texttt{tuple} sebagai pengganti \texttt{list}.
+\end{penting}
+
+% =====================================================================
+\section{Duck Typing}
+% =====================================================================
+
+\begin{quote}
+\itshape ``Jika ia berjalan seperti bebek dan bersuara seperti bebek, maka ia adalah bebek.''
+\end{quote}
+
+\emph{Duck typing} adalah gaya Python dalam menilai object: yang penting bukan \emph{class apa} object itu, melainkan \emph{apa yang bisa dilakukannya}. Selama object memiliki method atau attribute yang dibutuhkan, ia boleh dipakai, walaupun tidak ada hubungan pewarisan sama sekali.
+
+\begin{kode}[Tiga class tanpa hubungan pewarisan]
+class Bebek:
+    def suara(self):
+        return "Kwek kwek"
+
+class Robot:
+    def suara(self):
+        return "Bip bup"
+
+class Radio:
+    def suara(self):
+        return "Siaran berita pukul tujuh"
+
+def bunyikan(benda):
+    print(benda.suara())        # tidak peduli class-nya
+
+for x in [Bebek(), Robot(), Radio()]:
+    bunyikan(x)
+\end{kode}
+
+\begin{keluaran}
+Kwek kwek
+Bip bup
+Siaran berita pukul tujuh
+\end{keluaran}
+
+Fungsi \texttt{bunyikan()} tidak memeriksa tipe dan tidak mensyaratkan parent tertentu. Ia hanya ``mempercayai'' bahwa benda yang diberikan bisa bersuara.
+
+\subsection{Duck Typing di Pustaka Bawaan}
+
+Banyak fitur Python bekerja berdasarkan duck typing. Fungsi \texttt{len()} bekerja pada object apa pun yang memiliki method \texttt{\_\_len\_\_}, dan perulangan \texttt{for} bekerja pada object apa pun yang memiliki \texttt{\_\_iter\_\_}. Dengan menambahkan dua method tersebut, class buatan kita langsung bisa dipakai seperti list.
+
+\begin{kode}[Class sendiri yang berperilaku seperti koleksi]
+class Playlist:
+    def __init__(self, nama, lagu):
+        self.nama = nama
+        self._lagu = list(lagu)
+
+    def __len__(self):
+        return len(self._lagu)
+
+    def __iter__(self):
+        return iter(self._lagu)
+
+pagi = Playlist("Pagi", ["Lagu A", "Lagu B", "Lagu C"])
+print(len(pagi))
+for judul in pagi:
+    print("-", judul)
+print("Lagu B" in pagi)
+\end{kode}
+
+\begin{keluaran}
+3
+- Lagu A
+- Lagu B
+- Lagu C
+True
+\end{keluaran}
+
+\subsection{EAFP vs LBYL}
+
+Ada dua gaya menghadapi object yang mungkin tidak punya kemampuan yang dibutuhkan:
+
+\begin{itemize}
+  \item \textbf{LBYL} (\emph{Look Before You Leap}): periksa dulu, baru pakai, misalnya dengan \texttt{hasattr()}.
+  \item \textbf{EAFP} (\emph{Easier to Ask Forgiveness than Permission}): langsung pakai, lalu tangani kesalahannya jika gagal. Gaya ini dianggap lebih \emph{Pythonic}.
+\end{itemize}
+
+\begin{kode}[Dua gaya]
+class Batu:
+    pass
+
+def bunyikan_lbyl(benda):
+    if hasattr(benda, "suara"):
+        print(benda.suara())
+    else:
+        print("(diam)")
+
+def bunyikan_eafp(benda):
+    try:
+        print(benda.suara())
+    except AttributeError:
+        print("(diam)")
+
+bunyikan_lbyl(Batu())
+bunyikan_eafp(Batu())
+\end{kode}
+
+\begin{keluaran}
+(diam)
+(diam)
+\end{keluaran}
+
+Blok \texttt{try}--\texttt{except} dibahas lengkap di Bab 8. Untuk saat ini, cukup pahami bahwa duck typing memberi keleluasaan besar, dengan satu kelemahan: kesalahan baru ketahuan saat program \emph{berjalan}. Subbab berikutnya membahas cara mendeteksinya lebih awal.
+
+% =====================================================================
+\section{Structural Typing}
+% =====================================================================
+
+Ada dua cara sebuah bahasa menilai kecocokan tipe:
+
+\begin{itemize}
+  \item \textbf{Nominal typing}: object cocok bila class-nya \emph{dinyatakan} sebagai turunan tipe yang diminta. Contohnya \texttt{Persegi} cocok sebagai \texttt{BangunDatar} karena ditulis \texttt{class Persegi(BangunDatar)}. Abstract class dari subbab pertama bekerja dengan cara ini.
+  \item \textbf{Structural typing}: object cocok bila \emph{bentuknya} sesuai, yaitu memiliki method dan attribute yang diminta, tanpa perlu menyatakan hubungan pewarisan.
+\end{itemize}
+
+Structural typing adalah versi duck typing yang dapat diperiksa oleh alat bantu sebelum program dijalankan. Untuk itu kita perlu mengenal \emph{type hint} terlebih dahulu.
+
+\subsection{Type Hint Dasar}
+
+\emph{Type hint} adalah anotasi yang menyatakan tipe yang diharapkan untuk parameter, nilai kembalian, dan variabel. Kita sudah memakainya pada field data class.
+
+\begin{kode}[Type hint]
+def luas_persegi_panjang(panjang: float, lebar: float) -> float:
+    return panjang * lebar
+
+def cari_mahasiswa(nim: str, data: dict[str, str]) -> str | None:
+    return data.get(nim)
+
+nilai: list[int] = [90, 85, 78]
+
+print(luas_persegi_panjang(4, 2.5))
+print(cari_mahasiswa("002", {"001": "Ani", "002": "Budi"}))
+print(luas_persegi_panjang("ab", 3))   # tetap jalan: hint tidak dipaksakan
+\end{kode}
+
+\begin{keluaran}
+10.0
+Budi
+ababab
+\end{keluaran}
+
+Baris terakhir menunjukkan hal penting: \textbf{Python tidak memeriksa type hint saat program berjalan}. Type hint adalah dokumentasi yang dapat dibaca manusia, editor (untuk saran otomatis dan peringatan), serta alat pemeriksa statis seperti \texttt{mypy}.
+
+\begin{table}[htbp]
+\caption{Penulisan type hint yang sering dipakai.}
+\begin{tabularx}{\linewidth}{P{44mm}L}
+\kepala \kp{Type hint} & \kp{Artinya} \\
+\texttt{int}, \texttt{str}, \texttt{float}, \texttt{bool} & tipe dasar \\
+\texttt{list[int]} & list berisi bilangan bulat \\
+\texttt{dict[str, float]} & dictionary dengan kunci string dan nilai float \\
+\texttt{tuple[int, str]} & tuple dua elemen: int lalu str \\
+\texttt{str | None} & string atau \texttt{None} (Python 3.10 ke atas) \\
+\texttt{-> None} & fungsi tidak mengembalikan nilai \\
+\texttt{Mahasiswa} & object dari class \texttt{Mahasiswa} atau turunannya \\
+\end{tabularx}
+\end{table}
+
+\subsection{\texttt{typing.Protocol}}
+
+\texttt{Protocol} dari modul \texttt{typing} memungkinkan kita mendefinisikan sebuah ``bentuk'' yang diharapkan. Class lain dianggap memenuhi protocol tersebut \textbf{tanpa perlu mewarisinya}, selama memiliki method dengan nama dan bentuk yang sama.
+
+\begin{kode}[suara.py]
+from typing import Protocol
+
+class BisaBersuara(Protocol):
+    def suara(self) -> str: ...
+
+class Bebek:                       # tidak mewarisi BisaBersuara
+    def suara(self) -> str:
+        return "Kwek kwek"
+
+class Robot:
+    def suara(self) -> str:
+        return "Bip bup"
+
+class Batu:
+    pass
+
+def bunyikan(benda: BisaBersuara) -> None:
+    print(benda.suara())
+
+bunyikan(Bebek())
+bunyikan(Robot())
+bunyikan(Batu())                   # akan ditandai oleh mypy
+\end{kode}
+
+Saat dijalankan biasa, dua baris pertama berhasil dan baris ketiga gagal dengan \texttt{AttributeError}. Namun dengan pemeriksa statis \texttt{mypy}, kesalahan itu sudah terdeteksi \emph{sebelum} program dijalankan.
+
+\begin{keluaran}[Hasil pip install mypy, lalu mypy suara.py]
+suara.py:22: error: Argument 1 to "bunyikan" has incompatible type "Batu"; expected "BisaBersuara"  [arg-type]
+suara.py:22: note: "Batu" is missing following "BisaBersuara" protocol member:
+suara.py:22: note:     suara
+Found 1 error in 1 file (checked 1 source file)
+\end{keluaran}
+
+\begin{info}[Tentang Keluaran mypy]
+\texttt{mypy} adalah alat terpisah yang dipasang dengan \texttt{pip install mypy}. Susunan pesannya dapat sedikit berbeda antarversi, tetapi intinya sama: nama class, protocol yang diharapkan, dan member yang belum ada. Editor seperti VS Code (dengan ekstensi Python/Pylance) menampilkan peringatan serupa langsung di layar sebagai garis bawah berwarna.
+\end{info}
+
+\subsection{Protocol yang Dapat Diperiksa Saat Program Berjalan}
+
+Secara bawaan, protocol hanya berguna bagi pemeriksa statis. Jika ingin memakainya dengan \texttt{isinstance()}, tambahkan decorator \texttt{@runtime\_checkable}. Pemeriksaan ini hanya melihat \emph{keberadaan} method, bukan parameter maupun tipe kembaliannya.
+
+\begin{kode}[runtime\_checkable]
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class BisaBersuara(Protocol):
+    def suara(self) -> str: ...
+
+class Bebek:
+    def suara(self) -> str:
+        return "Kwek kwek"
+
+class Batu:
+    pass
+
+print(isinstance(Bebek(), BisaBersuara))
+print(isinstance(Batu(), BisaBersuara))
+\end{kode}
+
+\begin{keluaran}
+True
+False
+\end{keluaran}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    tipe/.style={rectangle,draw=marun,line width=1pt,fill=merahmuda!50,align=center,minimum width=34mm,minimum height=10mm},
+    kls/.style={rectangle,fill=marun,text=white,align=center,minimum width=26mm,minimum height=10mm}]
+  \node[font=\sffamily\small\bfseries,text=merah] at (0,2.9) {Nominal (ABC)};
+  \node[tipe,dashed] (abc) at (0,1.8) {\textit{BangunDatar}\\{\ttfamily\footnotesize luas(), keliling()}};
+  \node[kls] (p) at (0,-0.4) {Persegi};
+  \draw[turunan,marun] (p.north) -- (abc.south);
+  \node[font=\sffamily\footnotesize,text=abu,align=center] at (0,-1.5) {cocok karena \textbf{dinyatakan}\\mewarisi \texttt{BangunDatar}};
+  \draw[garis,line width=0.6pt] (3.6,-2.0) -- (3.6,3.2);
+  \node[font=\sffamily\small\bfseries,text=merah] at (7.6,2.9) {Struktural (Protocol)};
+  \node[tipe] (pr) at (7.6,1.8) {BisaBersuara\\{\ttfamily\footnotesize suara() -> str}};
+  \node[kls] (be) at (5.7,-0.4) {Bebek\\{\ttfamily\footnotesize suara()}};
+  \node[kls,fill=jingga] (ba) at (9.5,-0.4) {Batu\\{\ttfamily\footnotesize -}};
+  \draw[-{Latex},line width=1pt,hijau,dashed] (be.north) -- node[left,font=\sffamily\footnotesize]{bentuk cocok} (pr.south west);
+  \draw[-{Latex},line width=1pt,jingga,dashed] (ba.north) -- node[right,font=\sffamily\footnotesize]{tidak cocok} (pr.south east);
+  \node[font=\sffamily\footnotesize,text=abu,align=center] at (7.6,-1.5) {tidak ada pewarisan;\\yang dilihat hanya \textbf{bentuknya}};
+\end{tikzpicture}
+\caption{Nominal typing menilai dari pernyataan pewarisan; structural typing menilai dari bentuk object.}
+\end{figure}
+
+\begin{table}[htbp]
+\caption{Abstract class dibandingkan Protocol.}
+\begin{tabularx}{\linewidth}{P{30mm}LL}
+\kepala \kp{Aspek} & \kp{Abstract class (\texttt{ABC})} & \kp{\texttt{Protocol}} \\
+Jenis typing & nominal & struktural \\
+Wajib mewarisi? & ya & tidak \\
+Kapan dicek & saat object dibuat (program berjalan) & oleh pemeriksa statis sebelum program berjalan \\
+Boleh berisi method konkret & ya, dan diwarisi child & boleh, tetapi tidak diwarisi class yang hanya ``cocok bentuk'' \\
+Cocok untuk & hierarki class milik sendiri yang berbagi kode & menerima object dari mana saja, termasuk class pustaka lain yang tidak bisa diubah \\
+\end{tabularx}
+\end{table}
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item \textbf{Abstract class} (mewarisi \texttt{ABC}) berisi \textbf{abstract method} (\texttt{@abstractmethod}) yang wajib diimplementasikan child. Abstract class dan child yang kontraknya belum lengkap tidak bisa dibuat object-nya.
+  \item \textbf{Data class} (\texttt{@dataclass}) membangkitkan \texttt{\_\_init\_\_}, \texttt{\_\_repr\_\_}, dan \texttt{\_\_eq\_\_} dari daftar field. Opsi penting: \texttt{order}, \texttt{frozen}, \texttt{field(default\_factory=\ldots)}, dan \texttt{\_\_post\_init\_\_}.
+  \item \textbf{Mutable} berarti isi object dapat diubah. Variabel adalah label; \texttt{b = a} tidak menyalin object. Hindari default argument mutable dan bedakan salinan dangkal dari salinan dalam.
+  \item \textbf{Duck typing}: object dinilai dari kemampuannya, bukan class-nya. Method seperti \texttt{\_\_len\_\_} dan \texttt{\_\_iter\_\_} membuat class sendiri bekerja dengan \texttt{len()} dan \texttt{for}.
+  \item \textbf{Structural typing} dengan \texttt{typing.Protocol} memformalkan duck typing sehingga bisa diperiksa oleh \texttt{mypy}. Type hint tidak dipaksakan saat program berjalan.
+\end{itemize}
+
+% =====================================================================
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat.
+
+\begin{enumerate}
+  \item Apa yang terjadi bila kita mencoba membuat object dari class yang mewarisi \texttt{ABC} dan masih memiliki abstract method?
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item Object berhasil dibuat, abstract method mengembalikan \texttt{None}
+    \item Terjadi \texttt{TypeError}
+    \item Terjadi \texttt{AttributeError} saat method dipanggil
+    \item Python otomatis mengisi method tersebut
+  \end{enumerate}
+
+  \item Pernyataan yang benar tentang abstract class adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item semua method-nya harus abstract
+    \item tidak boleh memiliki constructor
+    \item boleh memiliki method konkret yang memanggil abstract method
+    \item hanya boleh diwarisi oleh satu child class
+  \end{enumerate}
+
+  \item Method yang \textbf{tidak} dibuat otomatis oleh \texttt{@dataclass} tanpa opsi tambahan adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{\_\_init\_\_}
+    \item \texttt{\_\_repr\_\_}
+    \item \texttt{\_\_eq\_\_}
+    \item \texttt{\_\_lt\_\_}
+  \end{enumerate}
+
+  \item Cara yang benar memberi default list kosong pada field data class adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{nilai: list = []}
+    \item \texttt{nilai: list = list}
+    \item \texttt{nilai: list = field(default\_factory=list)}
+    \item \texttt{nilai: list = None[]}
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 5]
+x = [1, 2]
+y = x
+y += [3]
+z = x.copy()
+z.append(4)
+print(x)
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{[1, 2]}
+    \item \texttt{[1, 2, 3]}
+    \item \texttt{[1, 2, 3, 4]}
+    \item \texttt{[1, 2, 4]}
+  \end{enumerate}
+
+  \item Tipe berikut yang bersifat \emph{immutable} adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{list}
+    \item \texttt{dict}
+    \item \texttt{set}
+    \item \texttt{tuple}
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 7]
+def tambah(item, wadah=[]):
+    wadah.append(item)
+    return wadah
+
+tambah("a")
+print(tambah("b"))
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{['b']}
+    \item \texttt{['a', 'b']}
+    \item \texttt{['a']}
+    \item \texttt{[]}
+  \end{enumerate}
+
+  \item Agar object dari class buatan sendiri dapat dipakai dengan fungsi \texttt{len()}, class tersebut perlu memiliki method \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{\_\_size\_\_}
+    \item \texttt{\_\_len\_\_}
+    \item \texttt{\_\_count\_\_}
+    \item \texttt{length()}
+  \end{enumerate}
+
+  \item Apa yang terjadi saat fungsi \texttt{def f(x: int) -> int} dipanggil dengan \texttt{f("teks")} lalu dijalankan biasa dengan \texttt{python}?
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item Python menolak dengan \texttt{TypeError} sebelum fungsi dijalankan
+    \item Python otomatis mengubah \texttt{"teks"} menjadi bilangan
+    \item Fungsi tetap dijalankan; type hint tidak dipaksakan saat runtime
+    \item Program tidak bisa dijalankan sama sekali
+  \end{enumerate}
+
+  \item Perbedaan utama \texttt{Protocol} dibandingkan abstract class adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item class yang cocok dengan protocol tidak perlu mewarisinya
+    \item protocol tidak boleh memiliki method
+    \item protocol hanya bisa dipakai untuk data class
+    \item protocol memaksa pengecekan saat object dibuat
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Jelaskan mengapa memberi nilai default \texttt{return 0} pada method parent lebih berbahaya daripada menjadikannya abstract method. Berikan contoh kasus selain bangun datar.
+  \item Bandingkan penulisan class pembawa data secara manual dengan \texttt{@dataclass}. Sebutkan dua situasi ketika data class \emph{kurang} tepat digunakan.
+  \item Jelaskan apa yang dimaksud ``variabel adalah label, bukan kotak'' dan kaitkan dengan bug default argument mutable pada class \texttt{Keranjang}.
+  \item Jelaskan perbedaan salinan dangkal dan salinan dalam. Pada kondisi apa keduanya memberikan hasil yang sama?
+  \item Jelaskan hubungan antara duck typing dan structural typing. Mengapa \texttt{Protocol} berguna jika Python sendiri sudah mendukung duck typing?
+\end{enumerate}
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Kerjakan praktik berikut secara berurutan. Simpan setiap praktik dalam file \texttt{.py} terpisah, jalankan, dan pastikan keluarannya sesuai dengan contoh.
+
+\subsection{Praktik 1: Metode Pembayaran}
+
+Buat abstract class \texttt{Pembayaran} dengan ketentuan:
+
+\begin{itemize}
+  \item Abstract property \texttt{nama\_metode} dan abstract method \texttt{biaya\_admin(jumlah)}.
+  \item Method konkret \texttt{struk(jumlah)} yang menampilkan nama metode, jumlah, biaya admin, dan total, dengan memanggil kedua anggota abstract tersebut.
+  \item Tiga child: \texttt{Tunai} (tanpa biaya), \texttt{TransferBank} (biaya tetap Rp2.500), dan \texttt{EWallet} (biaya 1\% dari jumlah, minimal Rp1.000).
+  \item Buat juga class \texttt{QRIS(Pembayaran)} yang sengaja hanya mengimplementasikan \texttt{nama\_metode}, lalu tunjukkan pesan kesalahan yang muncul saat membuat object-nya.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 1]
+Tunai         Rp50.000 + admin Rp0     = Rp50.000
+Transfer Bank Rp50.000 + admin Rp2.500 = Rp52.500
+E-Wallet      Rp50.000 + admin Rp1.000 = Rp51.000
+E-Wallet      Rp250.000 + admin Rp2.500 = Rp252.500
+TypeError: Can't instantiate abstract class QRIS without an implementation for abstract method 'biaya_admin'
+\end{keluaran}
+
+\subsection{Praktik 2: Papan Peringkat dengan Data Class}
+
+\begin{itemize}
+  \item Buat data class \texttt{Peserta} dengan field \texttt{nama}, \texttt{asal}, dan \texttt{skor\_soal} (list berisi skor tiap soal, default list kosong yang aman).
+  \item Tambahkan field \texttt{total} yang dihitung di \texttt{\_\_post\_init\_\_} dan tidak menjadi parameter constructor. Tolak skor di luar rentang 0--100 dengan \texttt{ValueError}.
+  \item Buat data class \texttt{frozen} bernama \texttt{Lomba} berisi \texttt{nama} dan \texttt{tahun}, lalu tunjukkan bahwa field-nya tidak bisa diubah.
+  \item Urutkan peserta berdasarkan \texttt{total} dari terbesar, lalu tampilkan peringkatnya. Gunakan \texttt{sorted(\ldots, key=\ldots)} atau opsi \texttt{order=True} dengan \texttt{field(compare=False)}; jelaskan pilihan Anda dalam komentar.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 2]
+Lomba(nama='Olimpiade Pemrograman', tahun=2026)
+1. Citra  (UNESA)  total 275
+2. Ani    (ITS)    total 260
+3. Budi   (UNAIR)  total 245
+FrozenInstanceError: cannot assign to field 'tahun'
+\end{keluaran}
+
+\subsection{Praktik 3: Ekspor Laporan dengan Protocol}
+
+\begin{langkah}{Langkah Pengerjaan}
+  \item Definisikan \texttt{Protocol} bernama \texttt{BisaDiekspor} dengan method \texttt{ekspor(self) -> str} dan attribute \texttt{judul: str}.
+  \item Buat tiga class yang \textbf{tidak saling mewarisi}: \texttt{LaporanNilai}, \texttt{GrafikKehadiran}, dan \texttt{TabelJadwal}. Masing-masing mengimplementasikan \texttt{ekspor()} dengan format berbeda (misalnya teks, CSV, atau baris tabel).
+  \item Buat class \texttt{Arsip} yang menyimpan banyak object \texttt{BisaDiekspor}, mengimplementasikan \texttt{\_\_len\_\_} dan \texttt{\_\_iter\_\_}, serta memiliki method \texttt{ekspor\_semua()}. Pastikan constructor-nya aman dari jebakan default mutable.
+  \item Tambahkan satu class \texttt{Catatan} yang tidak memiliki \texttt{ekspor()}, lalu masukkan ke arsip. Jalankan \texttt{mypy} pada file Anda dan salin pesan kesalahannya ke dalam komentar. Jika tidak bisa memasang \texttt{mypy}, gunakan \texttt{@runtime\_checkable} dan \texttt{isinstance()} untuk menolak object yang tidak sesuai.
+\end{langkah}
+
+\begin{penting}[Kriteria Penilaian]
+\begin{itemize}
+  \item Kontrak abstract class dan protocol dirancang dengan tepat dan benar-benar ditegakkan.
+  \item Data class memakai default mutable yang aman serta validasi di \texttt{\_\_post\_init\_\_}.
+  \item Tidak ada data yang tanpa sengaja dipakai bersama antar-object.
+  \item Type hint ditulis pada semua parameter dan nilai kembalian di Praktik 3.
+\end{itemize}
+\end{penting}

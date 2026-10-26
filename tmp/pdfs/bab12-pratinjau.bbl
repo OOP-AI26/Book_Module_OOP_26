@@ -1,0 +1,28 @@
+\begin{thebibliography}{}
+
+\bibitem[{Edcorner Learning}, tt]{edcornerOopExercises}
+{Edcorner Learning} (t.t.).
+\newblock {\em Python Object Oriented Programming Exercises: Become a Pro
+  Developer}.
+\newblock Penerbit tidak tercantum.
+\newblock Tahun terbit tidak tercantum pada salinan digital yang digunakan.
+
+\bibitem[Lutz, 2025]{lutz2025learning}
+Lutz, M. (2025).
+\newblock {\em Learning Python: Powerful Object-Oriented Programming}.
+\newblock O'Reilly Media, Sebastopol, CA, 6 edition.
+
+\bibitem[North, 2025]{north2025oop}
+North, M. (2025).
+\newblock {\em Object-Oriented Programming in Python: Design and Build Programs
+  Using Classes, Objects, and the Four Pillars of OOP}, volume~1 of {\em Think,
+  Code, Create -- Advanced Python Programming Series}.
+\newblock Northward House Publishing, Brisbane, Queensland, Australia.
+
+\bibitem[Wilson, 2024]{wilson2024design}
+Wilson, G. (2024).
+\newblock {\em Software Design by Example: A Tool-Based Introduction with
+  Python}.
+\newblock CRC Press.
+
+\end{thebibliography}

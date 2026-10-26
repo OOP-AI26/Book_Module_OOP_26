@@ -1,0 +1,964 @@
+\subjudul{Program yang baik tidak berhenti hanya karena satu kesalahan.}
+\chapter{Exception Handling}
+
+\begin{dibabini}
+  \item Error dan exception
+  \item \texttt{try}--\texttt{except}
+  \item \texttt{else}, \texttt{finally}, \texttt{raise}
+  \item Custom exception
+  \item Exception dalam class
+\end{dibabini}
+
+Di Bab 2, class \texttt{Rekening} menolak penarikan yang melebihi saldo dengan \texttt{raise ValueError}. Penolakan itu benar, tetapi akibatnya terlalu keras: baris \texttt{rek.tarik(999999)} menghentikan seluruh program. Bayangkan mesin ATM yang mati total hanya karena seorang nasabah salah mengetik nominal. Nasabah berikutnya ikut tidak bisa memakai mesin itu, padahal kesalahannya bukan milik mereka. Saat itu kita menunda pembahasan cara menangkap kesalahan semacam ini sampai Bab 8.
+
+Bab ini membahas \emph{exception handling}, yaitu cara program mengenali kesalahan saat berjalan, menanganinya, lalu melanjutkan pekerjaan. Kita akan mempelajari jenis-jenis exception bawaan Python, blok \texttt{try}--\texttt{except} beserta \texttt{else} dan \texttt{finally}, cara membuat exception sendiri, dan cara menempatkan penanganan kesalahan dengan tepat di dalam program berorientasi objek.
+
+% =====================================================================
+\section{Error dan Exception}
+% =====================================================================
+
+Kesalahan dalam program Python terbagi menjadi dua kelompok besar. Kelompok pertama adalah \emph{syntax error}: kode melanggar aturan penulisan Python, misalnya lupa titik dua atau kurung tidak ditutup. Python memeriksa sintaks seluruh file sebelum menjalankan baris pertama, sehingga program dengan syntax error tidak berjalan sama sekali.
+
+\begin{kode}[Syntax error: tidak ada baris yang dijalankan]
+print("mulai")
+if nilai > 80
+    print("lulus")
+\end{kode}
+
+\begin{keluaran}
+  File "nilai.py", line 2
+    if nilai > 80
+                 ^
+SyntaxError: expected ':'
+\end{keluaran}
+
+Perhatikan bahwa kata \texttt{mulai} tidak tercetak, walaupun baris \texttt{print} itu sendiri benar. Syntax error harus diperbaiki dengan mengubah kode. Kesalahan jenis ini tidak bisa ``ditangani'' saat program berjalan.
+
+Kelompok kedua adalah \emph{exception}: kode sudah benar secara sintaks, tetapi saat dijalankan menemui keadaan yang tidak bisa dikerjakan. Pembagian dengan nol, key yang tidak ada di dictionary, dan file yang tidak ditemukan termasuk kelompok ini. Baris-baris sebelum kesalahan tetap berjalan normal, lalu program berhenti tepat di baris yang bermasalah.
+
+\begin{kode}[Exception: program berhenti di tengah jalan]
+print("mulai")
+nilai = {"Ani": 88, "Budi": 75}
+print(nilai["Ani"])
+print(nilai["Citra"])
+print("selesai")
+\end{kode}
+
+\begin{keluaran}
+mulai
+88
+Traceback (most recent call last):
+  ...
+KeyError: 'Citra'
+\end{keluaran}
+
+Kata \texttt{selesai} tidak pernah tercetak. Exception inilah yang bisa ditangkap dan ditangani, dan inilah pokok bahasan bab ini.
+
+\subsection{Membaca Traceback}
+
+Saat exception tidak ditangani, Python mencetak \emph{traceback}: laporan tentang jalur pemanggilan fungsi yang dilalui program sampai kesalahan terjadi. Traceback sering terlihat menakutkan bagi pemula, padahal susunannya selalu sama. Perhatikan program berikut, yang memanggil fungsi di dalam fungsi.
+
+\begin{kode}[laporan.py]
+def rata_rata(daftar):
+    return sum(daftar) / len(daftar)
+
+def laporan(nama, daftar):
+    print(nama, rata_rata(daftar))
+
+laporan("Ani", [80, 90])
+laporan("Budi", [])
+\end{kode}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    b8tb/.style={anchor=west,font=\ttfamily\footnotesize,text=kodeteks,inner sep=0pt},
+    b8ket/.style={anchor=west,font=\sffamily\footnotesize,text=gelap,align=left,text width=54mm,inner sep=0pt},
+    b8kurung/.style={draw=emas,line width=0.8pt}]
+  \fill[kodebg] (-0.3,0.35) rectangle (7.4,-3.95);
+  \foreach \t [count=\i from 0] in {
+      {Ani 85.0},
+      {Traceback (most recent call last):},
+      {\ \ File "laporan.py", line 8, in \textless module\textgreater},
+      {\ \ \ \ laporan("Budi", [])},
+      {\ \ File "laporan.py", line 5, in laporan},
+      {\ \ \ \ print(nama, rata\_rata(daftar))},
+      {\ \ File "laporan.py", line 2, in rata\_rata},
+      {\ \ \ \ return sum(daftar) / len(daftar)}}
+    \node[b8tb] at (0,{-0.45*\i}) {\t};
+  \node[b8tb,text=kodestring,font=\ttfamily\footnotesize\bfseries] at (0,-3.6) {ZeroDivisionError: division by zero};
+  \foreach \a/\b/\t in {-0.72/-1.53/{\textbf{1.} program utama memanggil \texttt{laporan()} di baris 8},
+                        -1.62/-2.43/{\textbf{2.} \texttt{laporan()} memanggil \texttt{rata\_rata()} di baris 5},
+                        -2.52/-3.33/{\textbf{3.} kesalahan terjadi di baris 2, di dalam \texttt{rata\_rata()}}} {
+    \draw[b8kurung] (7.55,\a) -- (7.7,\a) -- (7.7,\b) -- (7.55,\b);
+    \node[b8ket] at (7.9,{(\a+\b)/2}) {\t};
+  }
+  \draw[b8kurung,draw=merah] (7.55,-3.42) -- (7.7,-3.42) -- (7.7,-3.78) -- (7.55,-3.78);
+  \node[b8ket,text=merah] at (7.9,-3.6) {\textbf{jenis exception dan pesannya}};
+\end{tikzpicture}
+\caption{Bagian-bagian traceback. Mulailah membaca dari baris terakhir: jenis dan pesan kesalahan, lalu baris tempat kesalahan terjadi tepat di atasnya.}
+\end{figure}
+
+Traceback disusun dari pemanggilan paling awal di atas sampai tempat kesalahan di bawah. Karena itu cara membacanya justru dari bawah. Baris terakhir menyebut \emph{jenis} exception (\texttt{ZeroDivisionError}) dan pesannya. Dua baris di atasnya menunjukkan file, nomor baris, dan isi baris tempat kesalahan terjadi. Baris-baris di atasnya lagi menjelaskan bagaimana program sampai ke sana. Python 3.11 ke atas juga menambahkan baris berisi tanda \texttt{\textasciitilde} dan \texttt{\textasciicircum} di bawah setiap baris kode untuk menunjuk bagian yang bermasalah.
+
+Di buku ini, traceback pada blok keluaran disingkat dengan \texttt{...} agar fokus pada baris terakhir. Saat menjalankan program sendiri, Anda akan melihat versi lengkapnya.
+
+% =====================================================================
+\section{Jenis Exception}
+% =====================================================================
+
+Python memiliki puluhan jenis exception bawaan. Nama setiap jenis menjelaskan kesalahannya, sehingga dengan mengenali beberapa yang paling sering muncul, sebagian besar traceback bisa dipahami dalam sekali baca.
+
+\begin{table}[htbp]
+\caption{Exception bawaan yang paling sering ditemui.}
+\begin{tabularx}{\linewidth}{P{41mm}LP{45mm}}
+\kepala \kp{Exception} & \kp{Muncul ketika} & \kp{Contoh pemicu} \\
+\texttt{ValueError} & tipe nilainya benar, tetapi isinya tidak masuk akal & \texttt{int("dua")} \\
+\texttt{TypeError} & operasi diberikan tipe data yang salah & \texttt{"5" + 3} \\
+\texttt{ZeroDivisionError} & pembagian dengan nol & \texttt{10 / 0} \\
+\texttt{IndexError} & indeks di luar jangkauan list & \texttt{[1, 2][5]} \\
+\texttt{KeyError} & key tidak ada di dictionary & \texttt{\{"a": 1\}["b"]} \\
+\texttt{AttributeError} & object tidak memiliki attribute atau method tersebut & \texttt{"teks".panjang} \\
+\texttt{NameError} & nama variabel atau fungsi belum dibuat & \texttt{print(nilia)} \\
+\texttt{FileNotFoundError} & file yang dibuka tidak ada & \texttt{open("tidak\_ada.txt")} \\
+\texttt{ModuleNotFoundError} & module yang diimpor tidak ditemukan (Bab 7) & \texttt{import kampus\_utl} \\
+\end{tabularx}
+\end{table}
+
+\subsection{Exception adalah Object}
+
+Sejak Bab 2 kita menulis \texttt{raise ValueError("pesan")}. Bentuk tulisan itu sama persis dengan membuat object: \texttt{ValueError} adalah sebuah class, dan \texttt{ValueError("pesan")} membuat object dari class tersebut. Pesan yang kita berikan disimpan sebagai attribute \texttt{args}.
+
+\begin{kode}[Exception adalah object dari sebuah class]
+e = ValueError("NIM tidak valid")
+print(type(e), e.args)
+print(isinstance(e, Exception))
+print(ZeroDivisionError.__mro__)
+\end{kode}
+
+\begin{keluaran}
+<class 'ValueError'> ('NIM tidak valid',)
+True
+(<class 'ZeroDivisionError'>, <class 'ArithmeticError'>, <class 'Exception'>, <class 'BaseException'>, <class 'object'>)
+\end{keluaran}
+
+Baris terakhir menampilkan MRO yang kita kenal di Bab 4. Class-class exception bawaan tersusun dalam hierarki pewarisan: \texttt{ZeroDivisionError} adalah turunan \texttt{ArithmeticError}, yang merupakan turunan \texttt{Exception}, dan seterusnya. Hierarki ini akan sangat berguna ketika kita menangkap beberapa jenis exception sekaligus.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    b8kls/.style={rectangle,fill=marun,text=white,font=\sffamily\small\bfseries,inner xsep=2.2mm,minimum height=7mm},
+    b8lain/.style={rectangle,fill=abu!25,text=gelap,font=\sffamily\small,inner xsep=2.2mm,minimum height=7mm},
+    b8waris/.style={-{Triangle[open,length=3mm,width=3mm]},line width=0.8pt,marun},
+    b8garis/.style={line width=0.8pt,marun}]
+  \node[b8kls]  (base) at (0,0)      {BaseException};
+  \node[b8lain] (ki)   at (-4.4,-1.5) {KeyboardInterrupt};
+  \node[b8kls]  (exc)  at (0,-1.5)   {Exception};
+  \node[b8kls]  (ar)   at (-6.2,-3.2) {ArithmeticError};
+  \node[b8kls]  (lo)   at (-2.55,-3.2) {LookupError};
+  \node[b8kls]  (va)   at (0,-3.2)    {ValueError};
+  \node[b8kls]  (ty)   at (2.3,-3.2)  {TypeError};
+  \node[b8kls]  (os)   at (4.8,-3.2)  {OSError};
+  \node[b8kls]  (zd)   at (-6.2,-4.8) {ZeroDivisionError};
+  \node[b8kls]  (ix)   at (-3.55,-4.8) {IndexError};
+  \node[b8kls]  (ke)   at (-1.55,-4.8) {KeyError};
+  \node[b8kls]  (fn)   at (4.8,-4.8)  {FileNotFoundError};
+  \draw[b8waris] (exc) -- (base);
+  \draw[b8waris] (ki.north) |- (base.west);
+  \coordinate (bus1) at (0,-2.35);
+  \draw[b8garis] (ar.north) |- (bus1) -| (os.north);
+  \draw[b8garis] (lo.north) |- (bus1);
+  \draw[b8garis] (ty.north) |- (bus1);
+  \draw[b8waris] (va.north) -- (exc.south);
+  \draw[b8waris] (zd) -- (ar);
+  \coordinate (bus2) at (-2.55,-4.0);
+  \draw[b8garis] (ix.north) |- (bus2) -| (ke.north);
+  \draw[b8waris] (bus2) -- (lo.south);
+  \draw[b8waris] (fn) -- (os);
+  \node[font=\sffamily\footnotesize,text=abu,anchor=north] at (ki.south) {menekan Ctrl+C};
+\end{tikzpicture}
+\caption{Sebagian hierarki class exception bawaan. Segitiga terbuka menunjuk parent, sama seperti notasi inheritance di Bab 6. \texttt{KeyboardInterrupt} sengaja tidak diturunkan dari \texttt{Exception} karena ia bukan kesalahan program.}
+\end{figure}
+
+% =====================================================================
+\section{\texttt{try}--\texttt{except}}
+% =====================================================================
+
+Untuk menangkap exception, kode yang mungkin gagal ditempatkan di dalam blok \texttt{try}, dan cara menanganinya ditulis di blok \texttt{except}.
+
+\begin{kode}[Bentuk dasar]
+try:
+    ...                     # kode yang mungkin gagal
+except JenisException:
+    ...                     # dijalankan jika JenisException terjadi
+\end{kode}
+
+Contoh paling umum adalah mengubah teks menjadi angka. Teks yang datang dari pengguna atau dari file tidak selalu berisi angka, dan \texttt{int()} akan melempar \texttt{ValueError} jika teksnya tidak bisa diubah.
+
+\begin{kode}[Menangkap ValueError]
+def ke_angka(teks):
+    try:
+        return int(teks)
+    except ValueError:
+        print(f"'{teks}' bukan bilangan bulat, dianggap 0")
+        return 0
+
+for teks in ["85", "tujuh", "90", ""]:
+    print("hasil:", ke_angka(teks))
+\end{kode}
+
+\begin{keluaran}
+hasil: 85
+'tujuh' bukan bilangan bulat, dianggap 0
+hasil: 0
+hasil: 90
+'' bukan bilangan bulat, dianggap 0
+hasil: 0
+\end{keluaran}
+
+Program tidak berhenti. Setiap teks yang gagal diubah ditangani di blok \texttt{except}, lalu perulangan berlanjut ke teks berikutnya. Gambar berikut merangkum alur eksekusinya.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    b8langkah/.style={rectangle,draw=marun,line width=0.8pt,fill=white,align=center,text width=40mm,inner sep=2mm},
+    b8tanya/.style={rectangle,rounded corners=2mm,draw=marun,line width=0.9pt,fill=merahmuda,align=center,text width=34mm,inner sep=2mm},
+    b8akhir/.style={rectangle,fill=marun,text=white,align=center,text width=40mm,inner sep=2mm},
+    ya/.style={-{Latex},line width=1pt,hijau},
+    tidak/.style={-{Latex},line width=1pt,jingga},
+    alur/.style={-{Latex},line width=1pt,gelap},
+    lbl/.style={font=\sffamily\footnotesize}]
+  \node[b8langkah] (a) at (0,0)      {jalankan baris-baris di blok \texttt{try}};
+  \node[b8tanya]   (b) at (0,-1.5)   {terjadi exception?};
+  \node[b8langkah,text width=34mm] (c) at (-4.2,-3.0) {lewati semua blok \texttt{except}};
+  \node[b8langkah,text width=46mm] (d) at (3.2,-3.0)  {sisa blok \texttt{try} dilewati, cari blok \texttt{except} yang cocok};
+  \node[b8langkah,text width=32mm] (e) at (1.0,-5.7)  {jalankan blok \texttt{except} tersebut};
+  \node[b8akhir,text width=40mm]   (f) at (5.6,-5.7)  {exception diteruskan ke pemanggil; program berhenti jika tidak ada yang menangkap};
+  \node[b8langkah,text width=36mm] (g) at (-1.6,-7.5) {lanjut ke kode setelah \texttt{try}};
+  \draw[alur] (a) -- (b);
+  \draw[tidak] (b.west) -| node[pos=0.25,above,lbl]{tidak} (c.north);
+  \draw[ya] (b.east) -| node[pos=0.25,above,lbl]{ya} (d.north);
+  \coordinate (cab) at ([yshift=-5mm]d.south);
+  \draw[line width=1pt,gelap] (d.south) -- (cab);
+  \draw[ya] (cab) -| node[pos=0.25,above,lbl]{cocok} (e.north);
+  \draw[tidak] (cab) -| node[pos=0.25,above,lbl]{tidak ada} (f.north);
+  \draw[alur] (c.south) |- (g.west);
+  \draw[alur] (e.south) |- (g.east);
+\end{tikzpicture}
+\caption{Alur eksekusi blok \texttt{try}--\texttt{except}.}
+\end{figure}
+
+\subsection{Membaca Pesan Exception dengan \texttt{as}}
+
+Kata kunci \texttt{as} menyimpan object exception ke sebuah variabel. Dari variabel itu kita bisa membaca pesan dan jenis kesalahannya.
+
+\begin{kode}[Menyimpan exception ke variabel]
+try:
+    nilai = int("delapan puluh")
+except ValueError as e:
+    print("Gagal:", e)
+    print("Jenis:", type(e).__name__)
+\end{kode}
+
+\begin{keluaran}
+Gagal: invalid literal for int() with base 10: 'delapan puluh'
+Jenis: ValueError
+\end{keluaran}
+
+\subsection{Meminta Masukan sampai Benar}
+
+Pola yang sangat sering dipakai adalah meminta masukan berulang kali sampai pengguna memberikan nilai yang valid. Agar keluarannya bisa ditampilkan di buku, masukan pengguna pada contoh berikut ditiru dengan sebuah list. Di program sungguhan, baris \texttt{next(masukan)} diganti dengan \texttt{input("Semester: ")}.
+
+\begin{kode}[Validasi masukan berulang]
+masukan = iter(["", "abc", "-5", "3"])     # pengganti input() untuk contoh
+
+def baca_semester():
+    while True:
+        teks = next(masukan)
+        try:
+            semester = int(teks)
+        except ValueError:
+            print(f"  '{teks}' bukan angka, ulangi.")
+            continue
+        if 1 <= semester <= 14:
+            return semester
+        print(f"  {semester} di luar rentang 1-14, ulangi.")
+
+print("Semester:", baca_semester())
+\end{kode}
+
+\begin{keluaran}
+  '' bukan angka, ulangi.
+  'abc' bukan angka, ulangi.
+  -5 di luar rentang 1-14, ulangi.
+Semester: 3
+\end{keluaran}
+
+Perhatikan bahwa pemeriksaan rentang ditulis dengan \texttt{if} biasa, bukan dengan exception. Teks \texttt{"-5"} berhasil diubah menjadi angka sehingga tidak ada exception yang terjadi. Nilainya saja yang tidak memenuhi aturan. Exception dipakai untuk keadaan yang membuat sebuah operasi \emph{tidak bisa} dikerjakan. Aturan biasa cukup diperiksa dengan \texttt{if}.
+
+\subsection{Jangan Menelan Semua Kesalahan}
+
+Blok \texttt{except} tanpa nama exception akan menangkap \emph{semua} jenis kesalahan. Bentuk ini terlihat praktis, tetapi menyembunyikan bug.
+
+\begin{kode}[Kesalahan yang tersembunyi]
+def hitung_rata(daftar):
+    try:
+        return sum(daftar) / len(daftr)      # salah ketik: daftr
+    except:
+        return 0
+
+print(hitung_rata([80, 90, 100]))
+\end{kode}
+
+\begin{keluaran}
+0
+\end{keluaran}
+
+Rata-rata nilai 80, 90, dan 100 jelas bukan 0. Salah ketik \texttt{daftr} memicu \texttt{NameError}, dan blok \texttt{except} menelannya tanpa jejak. Program terlihat berjalan dengan baik, padahal hasilnya salah. Seandainya blok itu ditulis \texttt{except ZeroDivisionError:}, salah ketik tersebut langsung muncul sebagai traceback dan bisa diperbaiki dalam hitungan detik.
+
+\begin{penting}[Sebutkan Jenis Exception]
+Selalu tuliskan jenis exception yang memang Anda harapkan, dan lakukan sesuatu yang berarti di dalam blok \texttt{except}. Bentuk \texttt{except:} tanpa nama, apalagi \texttt{except: pass}, juga ikut menangkap \texttt{KeyboardInterrupt}, sehingga program bahkan tidak bisa dihentikan dengan Ctrl+C.
+\end{penting}
+
+% =====================================================================
+\section{Multiple Exception}
+% =====================================================================
+
+Satu blok kode bisa gagal dengan beberapa cara. Setiap cara kegagalan biasanya membutuhkan penanganan yang berbeda, sehingga kita menulis beberapa blok \texttt{except} berurutan.
+
+\begin{kode}[Beberapa blok except]
+nilai = {"Ani": [80, 90], "Budi": [], "Citra": [70, "85"]}
+
+def rata_rata(nama):
+    try:
+        daftar = nilai[nama]
+        return sum(daftar) / len(daftar)
+    except KeyError:
+        return f"{nama} tidak terdaftar"
+    except ZeroDivisionError:
+        return f"{nama} belum punya nilai"
+    except TypeError:
+        return f"data nilai {nama} rusak"
+
+for nama in ["Ani", "Budi", "Citra", "Dodi"]:
+    print(rata_rata(nama))
+\end{kode}
+
+\begin{keluaran}
+85.0
+Budi belum punya nilai
+data nilai Citra rusak
+Dodi tidak terdaftar
+\end{keluaran}
+
+Data milik Citra berisi teks \texttt{"85"} di antara angka, sehingga \texttt{sum()} gagal dengan \texttt{TypeError}. Setiap jenis kegagalan mendapat pesan yang tepat, dan pemanggil tidak perlu tahu detail apa yang salah di dalam fungsi.
+
+Jika beberapa jenis exception ditangani dengan cara yang sama, jenis-jenis itu bisa dikumpulkan dalam sebuah tuple pada satu blok \texttt{except}.
+
+\begin{kode}[Satu blok except untuk beberapa jenis]
+jadwal = {"PBO": ["Senin", "Rabu"]}
+
+def hari_ke(matkul, indeks):
+    try:
+        return jadwal[matkul][indeks]
+    except (KeyError, IndexError) as e:
+        return f"tidak ditemukan ({type(e).__name__})"
+
+print(hari_ke("PBO", 1))
+print(hari_ke("PBO", 5))
+print(hari_ke("Kalkulus", 0))
+\end{kode}
+
+\begin{keluaran}
+Rabu
+tidak ditemukan (IndexError)
+tidak ditemukan (KeyError)
+\end{keluaran}
+
+\subsection{Urutan Blok \texttt{except}}
+
+Python memeriksa blok \texttt{except} dari atas ke bawah dan menjalankan blok \emph{pertama} yang cocok. Sebuah blok dianggap cocok jika exception yang terjadi adalah object dari class tersebut \emph{atau turunannya}, sama seperti cara kerja \texttt{isinstance()} di Bab 4. Akibatnya, blok untuk class parent yang diletakkan lebih dulu akan ``mencuri'' semua exception turunannya.
+
+\begin{kode}[Blok umum menutupi blok khusus]
+def bagi(a, b):
+    try:
+        return a / b
+    except ArithmeticError:
+        return "kesalahan aritmetika"
+    except ZeroDivisionError:            # tidak akan pernah tercapai
+        return "pembagi tidak boleh nol"
+
+print(bagi(10, 0))
+\end{kode}
+
+\begin{keluaran}
+kesalahan aritmetika
+\end{keluaran}
+
+\texttt{ZeroDivisionError} adalah turunan \texttt{ArithmeticError}, sehingga blok pertama sudah cocok dan blok kedua tidak pernah dijalankan. Menukar urutan kedua blok membuat pesan yang lebih tepat muncul.
+
+\begin{tips}[Dari Khusus ke Umum]
+Susun blok \texttt{except} dari jenis yang paling khusus ke yang paling umum, seperti menyusun syarat \texttt{if}--\texttt{elif} dari yang paling sempit. Jika ragu, lihat kembali gambar hierarki exception di subbab sebelumnya.
+\end{tips}
+
+% =====================================================================
+\section{\texttt{else}, \texttt{finally}, dan \texttt{raise}}
+% =====================================================================
+
+Blok \texttt{try} dapat dilengkapi dua blok lain: \texttt{else} dan \texttt{finally}. Bersama perintah \texttt{raise}, keduanya melengkapi alat yang kita butuhkan untuk menangani kesalahan.
+
+\subsection{Blok \texttt{else}}
+
+Blok \texttt{else} dijalankan hanya jika blok \texttt{try} selesai \emph{tanpa} exception. Kode di dalamnya sebenarnya bisa saja ditaruh di akhir blok \texttt{try}, tetapi memisahkannya punya keuntungan: blok \texttt{try} tetap pendek dan hanya berisi baris yang memang kita duga bisa gagal. Dengan begitu, blok \texttt{except} tidak ikut menangkap kesalahan dari baris lain yang tidak kita duga.
+
+\begin{kode}[Blok else]
+def terima_nilai(teks):
+    try:
+        angka = int(teks)
+    except ValueError:
+        print(f"'{teks}' ditolak")
+    else:                                    # hanya jika tidak ada exception
+        huruf = "A" if angka >= 85 else "B"
+        print(f"{angka} diterima, nilai huruf {huruf}")
+
+terima_nilai("90")
+terima_nilai("sembilan")
+\end{kode}
+
+\begin{keluaran}
+90 diterima, nilai huruf A
+'sembilan' ditolak
+\end{keluaran}
+
+\subsection{Blok \texttt{finally}}
+
+Blok \texttt{finally} \emph{selalu} dijalankan, baik ada exception maupun tidak, bahkan ketika blok \texttt{try} keluar lebih awal dengan \texttt{return} atau ketika exception tidak tertangkap. Karena itu \texttt{finally} dipakai untuk pekerjaan beres-beres, misalnya menutup file yang sudah dibuka. Pekerjaan inilah yang akan kita temui lagi di Bab 9.
+
+\begin{kode}[Blok finally selalu dijalankan]
+def proses(teks):
+    print(f"Memproses '{teks}'")
+    try:
+        return 100 / int(teks)
+    except ValueError:
+        return "bukan angka"
+    finally:
+        print("  finally: beres-beres selesai")
+
+print(proses("4"))
+print(proses("x"))
+print(proses("0"))
+\end{kode}
+
+\begin{keluaran}
+Memproses '4'
+  finally: beres-beres selesai
+25.0
+Memproses 'x'
+  finally: beres-beres selesai
+bukan angka
+Memproses '0'
+  finally: beres-beres selesai
+Traceback (most recent call last):
+  ...
+ZeroDivisionError: division by zero
+\end{keluaran}
+
+Ada tiga hal menarik pada keluaran di atas. Pertama, baris \texttt{finally} tercetak \emph{sebelum} nilai kembaliannya, karena \texttt{finally} dijalankan tepat sebelum fungsi benar-benar keluar. Kedua, pada teks \texttt{"x"} exception ditangkap, dan \texttt{finally} tetap berjalan. Ketiga, pada teks \texttt{"0"} terjadi \texttt{ZeroDivisionError} yang tidak ditangkap oleh blok mana pun. Blok \texttt{finally} tetap dijalankan lebih dulu, baru kemudian program berhenti.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    b8blok/.style={rectangle,fill=marun,text=white,font=\ttfamily\small\bfseries,minimum width=22mm,minimum height=8mm},
+    b8lanjut/.style={rectangle,draw=marun,line width=0.8pt,fill=white,text=gelap,font=\sffamily\small,minimum width=22mm,minimum height=8mm,align=center},
+    jalur/.style={-{Latex},line width=1.1pt}]
+  \node[b8blok]   (t) at (0,0)    {try};
+  \node[b8blok]   (x) at (3,0)    {except};
+  \node[b8blok]   (l) at (6,0)    {else};
+  \node[b8blok]   (f) at (9,0)    {finally};
+  \node[b8lanjut] (n) at (12.2,0) {kode\\berikutnya};
+  \draw[jalur,hijau] (t.north) to[out=45,in=135] node[above,font=\sffamily\footnotesize]{tanpa exception} (l.north);
+  \draw[jalur,hijau] (l.north east) to[out=45,in=135] (f.north west);
+  \draw[jalur,jingga] (t.south east) to[out=-45,in=-135] (x.south west);
+  \draw[jalur,jingga] (x.south) to[out=-45,in=-135] node[below,font=\sffamily\footnotesize]{terjadi exception yang tertangkap} (f.south);
+  \draw[jalur,gelap] (f) -- (n);
+\end{tikzpicture}
+\caption{Dua jalur melalui \texttt{try}, \texttt{except}, \texttt{else}, dan \texttt{finally}. Jalur atas (hijau) dilalui jika tidak ada exception; jalur bawah (jingga) dilalui jika exception tertangkap. Kedua jalur selalu melewati \texttt{finally}.}
+\end{figure}
+
+\subsection{Perintah \texttt{raise}}
+
+Perintah \texttt{raise} sudah kita pakai sejak Bab 2 untuk melempar exception baru. Di dalam blok \texttt{except}, \texttt{raise} tanpa argumen punya arti khusus: lempar ulang exception yang sedang ditangani. Bentuk ini berguna ketika sebuah fungsi perlu mencatat kesalahan, tetapi keputusan untuk menanganinya tetap diserahkan kepada pemanggil.
+
+\begin{kode}[Mencatat lalu melempar ulang]
+def muat_nilai(teks):
+    try:
+        return int(teks)
+    except ValueError:
+        print(f"[log] data rusak: {teks!r}")
+        raise                                # teruskan ke pemanggil
+
+print(muat_nilai("85"))
+print(muat_nilai("8S"))
+\end{kode}
+
+\begin{keluaran}
+85
+[log] data rusak: '8S'
+Traceback (most recent call last):
+  ...
+ValueError: invalid literal for int() with base 10: '8S'
+\end{keluaran}
+
+\begin{table}[htbp]
+\caption{Ringkasan blok penanganan exception.}
+\begin{tabularx}{\linewidth}{P{24mm}P{56mm}L}
+\kepala \kp{Blok} & \kp{Kapan dijalankan} & \kp{Kegunaan} \\
+\texttt{try} & selalu, sampai selesai atau sampai terjadi exception & berisi baris yang mungkin gagal \\
+\texttt{except} & jika terjadi exception yang jenisnya cocok & menangani kesalahan \\
+\texttt{else} & jika blok \texttt{try} selesai tanpa exception & lanjutan pekerjaan yang hanya boleh terjadi jika berhasil \\
+\texttt{finally} & selalu, dalam keadaan apa pun & beres-beres: menutup file, melepas sumber daya \\
+\texttt{raise} & saat perintah itu dijalankan & melempar exception baru, atau melempar ulang di dalam \texttt{except} \\
+\end{tabularx}
+\end{table}
+
+% =====================================================================
+\section{Custom Exception}
+% =====================================================================
+
+Class \texttt{Rekening} di Bab 2 melempar \texttt{ValueError} untuk dua kesalahan yang sangat berbeda: jumlah setoran yang tidak positif dan saldo yang tidak mencukupi. Bagi pemanggil, keduanya tampak sama. Satu-satunya cara membedakannya adalah membandingkan teks pesan, misalnya \texttt{if str(e) == "Saldo tidak mencukupi."}. Cara ini rapuh: begitu pesannya diubah sedikit, pemeriksaan itu diam-diam berhenti bekerja.
+
+Solusinya adalah membuat class exception sendiri, atau \emph{custom exception}. Caranya sama dengan membuat class turunan biasa: wariskan dari \texttt{Exception} atau dari turunannya.
+
+\begin{kode}[Hierarki exception untuk rekening]
+def rupiah(angka):
+    return f"Rp{angka:,}".replace(",", ".")
+
+class RekeningError(Exception):
+    """Induk semua kesalahan yang berkaitan dengan rekening."""
+
+class JumlahTidakValidError(RekeningError):
+    def __init__(self, jumlah):
+        super().__init__(f"Jumlah harus lebih dari nol, bukan {jumlah}.")
+        self.jumlah = jumlah
+
+class SaldoTidakCukupError(RekeningError):
+    def __init__(self, saldo, diminta):
+        super().__init__(f"Saldo {rupiah(saldo)} tidak cukup "
+                         f"untuk menarik {rupiah(diminta)}.")
+        self.saldo = saldo
+        self.diminta = diminta
+
+    @property
+    def kekurangan(self):
+        return self.diminta - self.saldo
+\end{kode}
+
+Ada beberapa keputusan desain pada kode di atas:
+
+\begin{itemize}
+  \item \texttt{RekeningError} tidak berisi apa pun selain docstring. Class ini ada untuk menjadi induk bersama, sehingga pemanggil bisa menangkap \emph{semua} kesalahan rekening dengan satu blok \texttt{except RekeningError}.
+  \item Setiap turunan memanggil \texttt{super().\_\_init\_\_(pesan)} agar pesan tetap tampil saat exception dicetak atau muncul di traceback.
+  \item \texttt{SaldoTidakCukupError} membawa data: saldo, jumlah yang diminta, dan property \texttt{kekurangan}. Pemanggil bisa memakai data ini tanpa mengurai teks pesan.
+\end{itemize}
+
+\begin{kode}[Memakai custom exception]
+try:
+    raise SaldoTidakCukupError(100000, 250000)
+except SaldoTidakCukupError as e:
+    print(e)
+    print("Kurang:", rupiah(e.kekurangan))
+    print(isinstance(e, RekeningError), isinstance(e, Exception))
+\end{kode}
+
+\begin{keluaran}
+Saldo Rp100.000 tidak cukup untuk menarik Rp250.000.
+Kurang: Rp150.000
+True True
+\end{keluaran}
+
+\begin{info}[Akhiran \texttt{Error}]
+Pedoman gaya PEP 8 menyarankan nama exception diakhiri kata \texttt{Error} jika exception itu menyatakan kesalahan, seperti \texttt{ValueError} dan \texttt{KeyError}. Akhiran ini membuat pembaca langsung tahu bahwa sebuah class adalah exception, bukan class biasa.
+\end{info}
+
+\subsection{Menerjemahkan Exception dengan \texttt{raise \ldots\ from}}
+
+Kadang sebuah fungsi menangkap exception tingkat rendah, misalnya \texttt{ValueError} dari \texttt{int()}, lalu melempar exception yang lebih bermakna bagi pemanggilnya. Bentuk \texttt{raise ExceptionBaru(\ldots) from e} melakukannya sambil tetap menyimpan exception asli sebagai penyebab. Jika exception baru itu tidak tertangkap, traceback akan menampilkan keduanya dengan keterangan \emph{The above exception was the direct cause of the following exception}, sehingga sumber masalah tetap mudah dilacak.
+
+\begin{kode}[Menerjemahkan ValueError menjadi exception sendiri]
+class NilaiTidakValidError(Exception):
+    pass
+
+def parse_nilai(teks):
+    try:
+        angka = int(teks)
+    except ValueError as e:
+        pesan = f"Nilai '{teks}' bukan bilangan bulat."
+        raise NilaiTidakValidError(pesan) from e
+    if not 0 <= angka <= 100:
+        raise NilaiTidakValidError(f"Nilai {angka} di luar rentang 0-100.")
+    return angka
+
+for teks in ["88", "110", "A+"]:
+    try:
+        print("diterima:", parse_nilai(teks))
+    except NilaiTidakValidError as e:
+        print("ditolak :", e)
+\end{kode}
+
+\begin{keluaran}
+diterima: 88
+ditolak : Nilai 110 di luar rentang 0-100.
+ditolak : Nilai 'A+' bukan bilangan bulat.
+\end{keluaran}
+
+Pemanggil \texttt{parse\_nilai()} cukup mengenal satu jenis exception, apa pun penyebab kegagalannya. Bagaimana nilai itu diurai di dalam fungsi tetap menjadi urusan fungsi itu sendiri, persis seperti semangat encapsulation di Bab 2.
+
+% =====================================================================
+\section{Exception Handling dalam Class}
+% =====================================================================
+
+Sekarang kita perbaiki class \texttt{Rekening} versi property dari Bab 2 agar memakai custom exception, lalu membangun sebuah ATM sederhana yang tetap berjalan walaupun ada transaksi yang gagal.
+
+\begin{kode}[Rekening yang melempar custom exception]
+class Rekening:
+    # validasi pemilik dan saldo awal seperti di Bab 2 tidak ditulis ulang
+    def __init__(self, nomor, pemilik, saldo_awal=0):
+        self.__nomor = nomor
+        self.__pemilik = pemilik
+        self.__saldo = saldo_awal
+
+    @property
+    def nomor(self):
+        return self.__nomor
+
+    @property
+    def saldo(self):
+        return self.__saldo
+
+    def setor(self, jumlah):
+        if jumlah <= 0:
+            raise JumlahTidakValidError(jumlah)
+        self.__saldo += jumlah
+
+    def tarik(self, jumlah):
+        if jumlah <= 0:
+            raise JumlahTidakValidError(jumlah)
+        if jumlah > self.__saldo:
+            raise SaldoTidakCukupError(self.__saldo, jumlah)
+        self.__saldo -= jumlah
+\end{kode}
+
+Class \texttt{Rekening} tidak mencetak apa pun dan tidak menangkap exception apa pun. Tugasnya hanya menjaga aturan, lalu melempar exception yang tepat ketika aturan dilanggar. Menampilkan pesan kepada pengguna adalah tugas bagian lain, yaitu ATM.
+
+\begin{kode}[ATM yang tetap berjalan]
+class ATM:
+    def __init__(self, rekening):
+        self._rek = rekening
+
+    def _jalankan(self, jenis, jumlah):
+        if jenis == "setor":
+            self._rek.setor(jumlah)
+        else:
+            self._rek.tarik(jumlah)
+
+    def proses(self, daftar_transaksi):
+        for jenis, jumlah in daftar_transaksi:
+            baris = f"{jenis:<5} {rupiah(jumlah):>11}"
+            try:
+                self._jalankan(jenis, jumlah)
+            except SaldoTidakCukupError as e:
+                print(f"GAGAL {baris}  kurang {rupiah(e.kekurangan)}")
+            except RekeningError as e:
+                print(f"GAGAL {baris}  {e}")
+            else:
+                print(f"OK    {baris}  saldo {rupiah(self._rek.saldo)}")
+
+atm = ATM(Rekening("KM-001", "Ani Lestari", 100000))
+atm.proses([
+    ("setor", 50000),
+    ("tarik", 30000),
+    ("tarik", 500000),
+    ("setor", -10000),
+    ("tarik", 120000),
+])
+\end{kode}
+
+\begin{keluaran}
+OK    setor    Rp50.000  saldo Rp150.000
+OK    tarik    Rp30.000  saldo Rp120.000
+GAGAL tarik   Rp500.000  kurang Rp380.000
+GAGAL setor   Rp-10.000  Jumlah harus lebih dari nol, bukan -10000.
+OK    tarik   Rp120.000  saldo Rp0
+\end{keluaran}
+
+Kelima transaksi diproses sampai selesai. Dua transaksi yang gagal mendapat pesan yang sesuai, dan transaksi terakhir tetap dijalankan. Bandingkan dengan Bab 2, ketika satu penarikan yang gagal menghentikan seluruh program.
+
+Kode ATM juga memanfaatkan hierarki exception. Exception \texttt{SaldoTidakCukupError} ditangkap secara khusus di blok pertama karena ATM ingin memakai attribute \texttt{kekurangan}. Blok kedua menangkap sisa kesalahan rekening lewat class induknya. Jika kelak ditambahkan exception baru, misalnya \texttt{RekeningDiblokirError} yang mewarisi \texttt{RekeningError}, ATM sudah bisa menanganinya tanpa diubah sedikit pun.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    b8lapis/.style={rectangle,draw=marun,line width=0.9pt,fill=merahmuda,align=left,text width=66mm,inner sep=3mm},
+    b8ket/.style={font=\sffamily\footnotesize,text=abu,align=left,text width=36mm,anchor=west}]
+  \node[b8lapis] (atm) at (0,3.2) {\textbf{ATM} (antarmuka)\\menangkap exception dan menampilkan pesan};
+  \node[b8lapis] (rek) at (0,0)   {\textbf{Rekening} (logika)\\menjaga aturan dan melempar exception};
+  \draw[-{Latex},line width=1pt,gelap] ([xshift=-14mm]atm.south) -- node[left,font=\ttfamily\footnotesize]{tarik(500000)} ([xshift=-14mm]rek.north);
+  \draw[-{Latex},line width=1pt,jingga,dashed] ([xshift=14mm]rek.north) -- node[right,font=\ttfamily\footnotesize,align=left]{SaldoTidakCukupError} ([xshift=14mm]atm.south);
+  \node[b8ket] at ([xshift=4mm]atm.east) {\texttt{except}: ditangkap di sini, lalu ditampilkan};
+  \node[b8ket] at ([xshift=4mm]rek.east) {\texttt{raise}: dilempar di sini, sedini mungkin};
+\end{tikzpicture}
+\caption{Pembagian tugas: class logika melempar exception, lapisan antarmuka menangkap dan menampilkannya.}
+\end{figure}
+
+\subsection{Di Mana Exception Ditangkap?}
+
+Pembagian tugas pada gambar di atas dapat dirumuskan menjadi dua pedoman:
+
+\begin{itemize}
+  \item \textbf{Lempar sedini mungkin.} Exception dilempar di tempat yang paling tahu aturannya, yaitu method di dalam class, tepat saat data yang salah masuk. Semakin lama data salah dibiarkan beredar, semakin jauh jarak antara tempat kesalahan muncul dan sumber aslinya.
+  \item \textbf{Tangkap di tempat yang bisa bertindak.} Exception ditangkap di tempat yang bisa melakukan sesuatu yang berarti, seperti menampilkan pesan, meminta masukan ulang, atau memakai nilai cadangan. Biasanya tempat itu adalah lapisan antarmuka: menu terminal, ATM, atau jendela GUI di Bab 10.
+\end{itemize}
+
+Pedoman ini juga menjelaskan mengapa class \texttt{Rekening} tidak boleh mencetak pesan sendiri. Jika \texttt{tarik()} berisi \texttt{print("Saldo kurang")}, class itu hanya cocok untuk program terminal. Dengan melempar exception, class yang sama bisa dipakai oleh program terminal, oleh GUI, maupun oleh program yang mencatat transaksi ke file. Ini adalah prinsip reusability dari Bab 7 dalam bentuk lain.
+
+\subsection{EAFP dalam Class}
+
+Di Bab 5 kita mengenal dua gaya: LBYL (\emph{periksa dulu, baru pakai}) dan EAFP (\emph{coba dulu, tangani jika gagal}). Kode ATM di atas memakai gaya EAFP. Untuk melihat alasannya, bandingkan kedua gaya dari sisi pemanggil.
+
+\begin{kode}[LBYL dan EAFP pada rekening]
+rek = Rekening("KM-002", "Budi Santoso", 60000)
+
+# LBYL: aturan saldo ikut ditulis di sisi pemanggil
+if rek.saldo >= 50000:
+    rek.tarik(50000)
+
+# EAFP: aturan hanya ada di dalam Rekening.tarik()
+try:
+    rek.tarik(50000)
+except SaldoTidakCukupError as e:
+    print("Ditolak:", e)
+\end{kode}
+
+\begin{keluaran}
+Ditolak: Saldo Rp10.000 tidak cukup untuk menarik Rp50.000.
+\end{keluaran}
+
+Misalkan bank menambahkan aturan baru: saldo minimal Rp50.000 harus selalu tersisa di rekening. Dengan gaya EAFP, cukup method \texttt{tarik()} yang diubah, dan semua pemanggil langsung mengikuti aturan baru. Dengan gaya LBYL, setiap pemanggil yang menulis \texttt{if rek.saldo >= jumlah} kini memeriksa aturan yang sudah usang, dan semuanya harus dicari lalu diubah satu per satu.
+
+\begin{tips}[Satu Aturan, Satu Tempat]
+Jika sebuah aturan sudah dijaga oleh method di dalam class, jangan menyalinnya ke kode pemanggil dalam bentuk \texttt{if}. Panggil method-nya, lalu tangani exception yang mungkin dilempar.
+\end{tips}
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item \textbf{Syntax error} terdeteksi sebelum program berjalan dan harus diperbaiki dengan mengubah kode. \textbf{Exception} terjadi saat program berjalan dan dapat ditangkap.
+  \item \textbf{Traceback} dibaca dari bawah: jenis dan pesan exception, lalu baris tempat kesalahan terjadi, lalu jalur pemanggilan yang menuju ke sana.
+  \item Exception adalah \textbf{object} dari class yang tersusun dalam hierarki pewarisan, dengan \texttt{Exception} sebagai induk dari hampir semua kesalahan program.
+  \item Blok \textbf{\texttt{try}--\texttt{except}} menangkap exception agar program tetap berjalan. Sebutkan jenis exception secara spesifik; \texttt{except:} tanpa nama menyembunyikan bug.
+  \item Beberapa blok \texttt{except} diperiksa dari atas ke bawah, dan yang pertama cocok yang dijalankan. Susun dari jenis paling khusus ke paling umum.
+  \item \textbf{\texttt{else}} dijalankan jika \texttt{try} berhasil tanpa exception. \textbf{\texttt{finally}} selalu dijalankan dan dipakai untuk beres-beres. \textbf{\texttt{raise}} tanpa argumen melempar ulang exception yang sedang ditangani, dan \texttt{raise \ldots\ from e} menerjemahkan exception sambil menyimpan penyebab aslinya.
+  \item \textbf{Custom exception} dibuat dengan mewarisi \texttt{Exception}. Induk bersama seperti \texttt{RekeningError} memudahkan penangkapan sekelompok kesalahan, dan attribute tambahan membawa data tentang kesalahan itu.
+  \item Di dalam program OOP, class logika \textbf{melempar} exception sedini mungkin, sedangkan lapisan antarmuka \textbf{menangkap} dan menampilkannya.
+\end{itemize}
+
+% =====================================================================
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat.
+
+\begin{enumerate}
+  \item Perbedaan utama syntax error dan exception adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item syntax error hanya terjadi di dalam class, exception terjadi di luar class
+    \item syntax error terdeteksi sebelum program berjalan, exception terjadi saat program berjalan
+    \item syntax error dapat ditangkap dengan \texttt{try}, exception tidak dapat ditangkap
+    \item keduanya sama, hanya berbeda nama
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 2]
+try:
+    print("A")
+    x = 1 / 0
+    print("B")
+except ZeroDivisionError:
+    print("C")
+else:
+    print("D")
+finally:
+    print("E")
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{A B C E}
+    \item \texttt{A C E}
+    \item \texttt{A C D E}
+    \item \texttt{A E}
+  \end{enumerate}
+
+  \item Pemanggilan \texttt{int("tiga")} akan melempar exception berjenis \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{TypeError}
+    \item \texttt{NameError}
+    \item \texttt{ValueError}
+    \item \texttt{KeyError}
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 4]
+try:
+    [1, 2, 3][10]
+except LookupError:
+    print("lookup")
+except IndexError:
+    print("index")
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{index}
+    \item \texttt{lookup}
+    \item \texttt{lookup} lalu \texttt{index}
+    \item traceback \texttt{IndexError}
+  \end{enumerate}
+
+  \item Bentuk \texttt{except: pass} dianggap berbahaya karena \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item membuat program berjalan lebih lambat
+    \item menangkap dan menyembunyikan semua kesalahan, termasuk bug seperti salah ketik
+    \item hanya bisa dipakai di dalam fungsi
+    \item menyebabkan \texttt{SyntaxError}
+  \end{enumerate}
+
+  \item Sebuah custom exception dibuat dengan cara \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item mendefinisikan fungsi bernama \texttt{exception()}
+    \item membuat class yang mewarisi \texttt{Exception} atau turunannya
+    \item memberi decorator \texttt{@exception} pada sebuah class
+    \item menulis \texttt{raise} di dalam constructor
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 7]
+class AppError(Exception):
+    pass
+
+class DataError(AppError):
+    pass
+
+try:
+    raise DataError("rusak")
+except AppError as e:
+    print(type(e).__name__, e)
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{AppError rusak}
+    \item \texttt{DataError rusak}
+    \item traceback \texttt{DataError}, karena yang ditangkap \texttt{AppError}
+    \item \texttt{Exception rusak}
+  \end{enumerate}
+
+  \item Pernyataan yang benar tentang blok \texttt{finally} adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item hanya dijalankan jika terjadi exception
+    \item hanya dijalankan jika tidak terjadi exception
+    \item selalu dijalankan, termasuk ketika \texttt{try} keluar dengan \texttt{return}
+    \item tidak dijalankan jika exception tidak tertangkap
+  \end{enumerate}
+
+  \item Perintah \texttt{raise} tanpa argumen yang ditulis di dalam blok \texttt{except} berfungsi untuk \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item menghentikan program tanpa pesan
+    \item melempar ulang exception yang sedang ditangani
+    \item membuat exception baru berjenis \texttt{Exception}
+    \item mengabaikan exception yang sedang ditangani
+  \end{enumerate}
+
+  \item Pada program ATM, pembagian tugas yang paling tepat antara class \texttt{Rekening} dan class \texttt{ATM} adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{Rekening} mencetak pesan kesalahan, \texttt{ATM} tidak perlu tahu ada kesalahan
+    \item \texttt{Rekening} melempar exception, \texttt{ATM} menangkap dan menampilkan pesannya
+    \item keduanya sama-sama menangkap semua exception dengan \texttt{except:}
+    \item \texttt{ATM} memeriksa saldo sendiri sehingga \texttt{Rekening} tidak perlu melempar exception
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Jelaskan perbedaan syntax error dan exception, masing-masing dengan satu contoh. Bagaimana cara membaca sebuah traceback?
+  \item Jelaskan urutan eksekusi blok \texttt{try}, \texttt{except}, \texttt{else}, dan \texttt{finally} pada dua keadaan: ketika terjadi exception yang tertangkap dan ketika tidak terjadi exception.
+  \item Mengapa urutan blok \texttt{except} penting? Kaitkan jawaban Anda dengan hierarki pewarisan class exception.
+  \item Kapan sebaiknya kita membuat custom exception? Jelaskan keuntungannya dibandingkan selalu memakai \texttt{ValueError} dengan pesan yang berbeda-beda.
+  \item Jelaskan pedoman ``lempar sedini mungkin, tangkap di tempat yang bisa bertindak'' dengan contoh class \texttt{Rekening} dan \texttt{ATM}. Kaitkan dengan gaya EAFP.
+\end{enumerate}
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Kerjakan praktik berikut secara berurutan. Simpan setiap praktik dalam file \texttt{.py} terpisah, jalankan, dan pastikan keluarannya sesuai dengan contoh.
+
+\subsection{Praktik 1: Validator Nilai}
+
+\begin{itemize}
+  \item Buat custom exception \texttt{NilaiTidakValidError}.
+  \item Buat fungsi \texttt{baca\_nilai(teks)} yang mengembalikan bilangan bulat 0--100. Jika teks bukan bilangan bulat, terjemahkan \texttt{ValueError} menjadi \texttt{NilaiTidakValidError} dengan \texttt{raise \ldots\ from}. Jika di luar rentang, lempar \texttt{NilaiTidakValidError} langsung.
+  \item Proses daftar masukan \texttt{["90", " 75 ", "seratus", "-3", "100", "", "88.5"]}. Tampilkan setiap hasil, lalu tampilkan jumlah masukan yang diterima dan rata-ratanya dengan dua angka di belakang koma.
+  \item Fungsi \texttt{baca\_nilai()} tidak boleh mencetak apa pun.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 1]
+diterima: 90
+diterima: 75
+ditolak : 'seratus' bukan bilangan bulat
+ditolak : -3 di luar rentang 0-100
+diterima: 100
+ditolak : '' bukan bilangan bulat
+ditolak : '88.5' bukan bilangan bulat
+Diterima 3 dari 7 masukan, rata-rata 88.33
+\end{keluaran}
+
+\subsection{Praktik 2: Gudang Alat Tulis}
+
+\begin{itemize}
+  \item Buat \texttt{GudangError} sebagai induk dengan tiga turunan: \texttt{BarangTidakAdaError} yang menyimpan \texttt{barang}; \texttt{StokKurangError} yang menyimpan \texttt{barang}, \texttt{sisa}, dan \texttt{diminta}; serta \texttt{JumlahTidakValidError} yang menyimpan \texttt{jumlah}.
+  \item Buat class \texttt{Gudang} yang menyimpan stok dalam dictionary protected, dengan method \texttt{tambah(barang, jumlah)} dan \texttt{ambil(barang, jumlah)} yang melempar exception di atas sesuai keadaan.
+  \item Buat fungsi \texttt{proses\_pesanan(gudang, daftar)} yang memproses daftar pesanan berbentuk \texttt{(aksi, barang, jumlah)}, tetap berjalan ketika ada pesanan yang gagal, dan memakai blok \texttt{else} untuk mencetak sisa stok.
+  \item Gunakan attribute \texttt{sisa} pada \texttt{StokKurangError} untuk menyusun pesan, bukan teks pesan exception.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 2]
+OK    ambil  kertas  x20  sisa 80
+GAGAL ambil  tinta   x5   stok tinta hanya 3
+GAGAL ambil  stapler x1   barang 'stapler' tidak ada di gudang
+GAGAL tambah kertas  x0   jumlah harus lebih dari nol
+OK    tambah tinta   x10  sisa 13
+\end{keluaran}
+
+\subsection{Praktik 3: Perpustakaan Tahan Kesalahan}
+
+Kembangkan package \texttt{perpustakaan} dari Bab 7 agar memakai exception.
+
+\begin{langkah}{Langkah Pengerjaan}
+  \item Tambahkan module \texttt{perpustakaan/kesalahan.py} berisi \texttt{PerpustakaanError} sebagai induk, dengan turunan \texttt{BukuSedangDipinjamError}, \texttt{BukuTidakTerdaftarError}, dan \texttt{AnggotaTidakTerdaftarError}. Setiap exception menyimpan object atau nama yang terkait sebagai attribute.
+  \item Ubah method \texttt{pinjamkan()} agar melempar exception, bukan mengembalikan teks \texttt{"sedang dipinjam"}. Periksa juga bahwa anggota dan buku sudah didaftarkan ke perpustakaan.
+  \item Tambahkan method \texttt{kembalikan(anggota, buku)} yang melempar exception jika buku tersebut tidak sedang dipinjam oleh anggota itu.
+  \item Di \texttt{main.py}, proses daftar permintaan pinjam dan kembali. Tangkap exception di \texttt{main.py}, tampilkan pesan yang jelas, dan lanjutkan ke permintaan berikutnya.
+  \item Akhiri program dengan ringkasan jumlah permintaan yang berhasil dan yang gagal, yang dicetak di blok \texttt{finally} sehingga tetap tampil walaupun terjadi kesalahan tak terduga.
+\end{langkah}
+
+\begin{penting}[Kriteria Penilaian]
+\begin{itemize}
+  \item Class di dalam package tidak mencetak apa pun dan tidak menangkap exception yang seharusnya ditangani pemanggil.
+  \item Tidak ada \texttt{except:} tanpa nama exception, dan urutan blok \texttt{except} dari khusus ke umum.
+  \item Custom exception membawa data yang relevan dan dipakai oleh pemanggil.
+  \item Program tetap berjalan sampai permintaan terakhir walaupun ada permintaan yang gagal.
+\end{itemize}
+\end{penting}

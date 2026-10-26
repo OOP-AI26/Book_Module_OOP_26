@@ -1,0 +1,735 @@
+\subjudul{Memahami apa yang perlu dibangun sebelum menulis kode.}
+\chapter{Analisis dan Perancangan Aplikasi}
+
+% Penyesuaian listing hanya untuk bab ini; tanda kutip kode tetap lurus.
+\begingroup
+\ifPDFTeX\else
+  \lstset{basicstyle=\ttfamily\small\addfontfeatures{Ligatures=TeXOff}}
+\fi
+
+\begin{dibabini}
+  \item Analisis kebutuhan
+  \item Identifikasi object
+  \item Class, attribute, dan method
+  \item Class relationship
+  \item Class diagram sederhana
+\end{dibabini}
+
+Di bab-bab sebelumnya kita sudah menulis class, menjaga data dengan encapsulation, memakai inheritance dan polymorphism, menyimpan data ke file, serta membuat tampilan GUI. Sekarang pertanyaannya berubah: jika mendapat permintaan membuat sebuah aplikasi, bagaimana kita menentukan class apa yang perlu dibuat dan bagaimana class-class itu bekerja sama?
+
+Bab ini membahas langkah dari kebutuhan pengguna menuju rancangan aplikasi. Studi kasusnya adalah \textbf{Sistem Peminjaman Perpustakaan}, yang mengembangkan contoh perpustakaan pada Bab 6, 7, dan 9. Rancangan di bab ini menjadi acuan implementasi pada Bab 12 dan pembuatan GUI pada Bab 13. Hasil akhirnya berupa kebutuhan yang dapat diperiksa, daftar object dan class, pembagian tanggung jawab, serta diagram yang saling sesuai.
+
+Pendekatan dari spesifikasi menuju rancangan class juga digunakan dalam proyek terpadu oleh \cite{north2025oop}. Hubungan antara benda dalam masalah, data, perilaku, inheritance, dan composition dibahas oleh \cite{lutz2025learning}, khususnya pada Bab 31. Contoh dan keputusan rancangan dalam bab ini disusun untuk kebutuhan perpustakaan sederhana pada modul ini.
+
+\begin{info}[Capaian Pembelajaran]
+Setelah mempelajari bab ini, Anda diharapkan mampu:
+\begin{itemize}
+  \item menuliskan kebutuhan aplikasi beserta aturan dan kriteria penerimaannya;
+  \item membedakan pengguna aplikasi, object, class, attribute, dan method;
+  \item menentukan tanggung jawab class serta alasan pemilihan relasinya;
+  \item menggambar class diagram sederhana dengan multiplicity yang tepat;
+  \item memeriksa kesesuaian rancangan melalui skenario berhasil dan gagal.
+\end{itemize}
+Bekal yang digunakan adalah materi class dan object, encapsulation, relationship, exception handling, file JSON, serta pemisahan model dan tampilan dari bab sebelumnya.
+\end{info}
+
+% Gaya diagram khusus Bab 11; tidak mengubah gaya diagram bab lain.
+\tikzset{
+  b11kotak/.style={rectangle,draw=marun,line width=0.8pt,fill=kertas,
+    text=gelap,align=left,inner xsep=2.5mm,inner ysep=2mm,
+    font=\sffamily\small},
+  b11kelas/.style={rectangle split,rectangle split parts=3,
+    rectangle split part align={center,left,left},
+    rectangle split part fill={merahmuda,white,white},
+    draw=marun,line width=0.8pt,text=gelap,
+    font=\ttfamily\footnotesize,inner xsep=2.5mm,inner ysep=2mm},
+  b11garis/.style={draw=gelap,line width=0.8pt},
+  b11panah/.style={-{Latex},draw=marun,line width=0.9pt},
+  b11waris/.style={-{Triangle[open,length=3mm,width=3mm]},draw=gelap,line width=0.8pt},
+  b11agregasi/.style={{Diamond[open,length=3mm,width=2.4mm]}-,draw=gelap,line width=0.8pt},
+  b11komposisi/.style={{Diamond[length=3mm,width=2.4mm]}-,draw=gelap,line width=0.8pt},
+  b11label/.style={font=\sffamily\footnotesize,text=abu,align=center}
+}
+
+% =====================================================================
+\section{Analisis Kebutuhan Aplikasi}
+% =====================================================================
+
+\emph{Analisis kebutuhan} adalah kegiatan memahami masalah, siapa yang menggunakan aplikasi, pekerjaan yang perlu dibantu, dan batas keberhasilan aplikasi. Hasilnya harus cukup jelas untuk dibaca pengguna maupun programmer. Urutan memahami kebutuhan sebelum merancang class juga ditekankan dalam bagian pengembangan framework pada \cite{oopTanpaTahun}.
+
+Permintaan seperti ``buat aplikasi perpustakaan yang lengkap'' belum cukup untuk dijadikan rancangan. Kata ``lengkap'' dapat berarti berbeda bagi petugas, mahasiswa, dan programmer. Permintaan itu perlu diuraikan menjadi pekerjaan yang dapat diamati, misalnya mendaftarkan buku, mencatat peminjaman, dan melihat buku yang belum dikembalikan.
+
+\subsection{Masalah, Pengguna, dan Batas Aplikasi}
+
+Bayangkan sebuah ruang baca kampus mencatat peminjaman di buku tulis. Petugas sulit memastikan apakah sebuah buku sedang dipinjam, siapa peminjamnya, dan kapan harus dikembalikan. Ketika catatan diperbarui di beberapa tempat, status buku kadang berbeda dengan catatan peminjamannya.
+
+Pada proyek ini, \textbf{petugas perpustakaan} menjadi pengguna aplikasi. Anggota menyampaikan permintaan kepada petugas; anggota belum mengoperasikan aplikasi sendiri. Petugas merupakan \emph{aktor}, yaitu pihak yang berinteraksi dengan sistem. Seorang aktor tidak otomatis harus menjadi class di dalam model aplikasi.
+
+\begin{contoh}[Ruang Lingkup Proyek]
+\begin{itemize}
+  \item Aplikasi dipakai oleh satu petugas pada satu komputer dalam satu waktu.
+  \item Data yang dikelola adalah buku, anggota, dan catatan peminjaman.
+  \item Satu kode buku mewakili satu eksemplar buku cetak atau satu lisensi peminjaman e-book. Satu kode hanya dapat dipinjam oleh satu anggota pada waktu yang sama.
+  \item Buku cetak dipinjam selama 14 hari, sedangkan e-book selama 7 hari. Angka ini merupakan aturan studi kasus, bukan ketentuan semua perpustakaan.
+  \item Data disimpan dalam file JSON lokal. Tampilan desktop dibuat pada Bab 13.
+  \item Versi awal belum mencakup login, pembayaran denda, pemesanan buku, penghapusan riwayat, maupun penggunaan bersama melalui jaringan.
+\end{itemize}
+\end{contoh}
+
+Batas tersebut membantu menentukan pekerjaan yang akan diselesaikan pada Bab 12 dan 13. Fitur tambahan dapat dikembangkan setelah alur utama berjalan dan datanya konsisten.
+
+\subsection{Kebutuhan Fungsional}
+
+\emph{Kebutuhan fungsional} menyatakan pekerjaan yang harus dapat dilakukan aplikasi. Berikan kode pada setiap kebutuhan agar mudah ditelusuri ke rancangan dan pemeriksaannya.
+
+\begin{table}[htbp]
+\caption{Kebutuhan fungsional Sistem Peminjaman Perpustakaan.}
+\label{tab:b11-kebutuhan-fungsional}
+\begin{tabularx}{\linewidth}{P{13mm}P{35mm}L}
+\kepala \kp{Kode} & \kp{Kebutuhan} & \kp{Hasil yang diharapkan} \\
+F01 & Mendaftarkan buku & Kode, judul, dan jenis buku tercatat; kode yang sama tidak didaftarkan dua kali. \\
+F02 & Mendaftarkan anggota & ID dan nama anggota tercatat; ID yang sama tidak didaftarkan dua kali. \\
+F03 & Meminjamkan buku & Catatan peminjaman dibuat jika anggota dan buku terdaftar serta buku tersedia. \\
+F04 & Mencatat pengembalian & Catatan peminjaman ditandai selesai tanpa menghapus riwayatnya. \\
+F05 & Melihat data dan status & Petugas dapat melihat daftar buku, ketersediaannya, dan peminjaman yang masih aktif. \\
+F06 & Menyimpan dan memuat & Buku, anggota, serta riwayat peminjaman tersedia kembali setelah aplikasi dibuka ulang. \\
+\end{tabularx}
+\end{table}
+
+Perhatikan bahwa F03 menyebut keadaan yang harus diperiksa. Menyediakan tombol Pinjam saja belum memenuhi kebutuhan jika tombol tersebut masih mengizinkan dua anggota meminjam kode buku yang sama secara bersamaan.
+
+\subsection{Kebutuhan Nonfungsional}
+
+\emph{Kebutuhan nonfungsional} menyatakan kualitas atau batas kerja aplikasi. Rumuskan dengan cara yang dapat diperiksa. Pernyataan ``aplikasi harus mudah digunakan'' perlu dilengkapi perilaku yang menunjukkan kemudahan tersebut.
+
+\begin{table}[htbp]
+\caption{Kebutuhan nonfungsional dan cara memeriksanya.}
+\label{tab:b11-kebutuhan-nonfungsional}
+\begin{tabularx}{\linewidth}{P{13mm}P{34mm}L}
+\kepala \kp{Kode} & \kp{Kualitas} & \kp{Cara pemeriksaan} \\
+NF01 & Konsistensi data & Peminjaman yang ditolak tidak menambah riwayat atau mengubah status buku. \\
+NF02 & Pesan yang membantu & Masukan tidak valid menghasilkan penjelasan penyebab dan data yang perlu diperbaiki. \\
+NF03 & Pemisahan tanggung jawab & Model dapat diperiksa dari terminal tanpa mengimpor atau membuka GUI. \\
+NF04 & Penyimpanan yang dapat diperiksa & JSON memakai UTF-8; file rusak dilaporkan dan tidak diam-diam dianggap sebagai data kosong. \\
+\end{tabularx}
+\end{table}
+
+Pemisahan komponen membantu kita memahami dan menguji aplikasi ketika ukurannya bertambah. Hal ini sejalan dengan penjelasan \cite{wilson2024design} tentang membatasi interaksi antarkomponen agar rancangan tetap dapat dipahami.
+
+\subsection{Aturan Bisnis}
+
+\emph{Aturan bisnis} menentukan keadaan yang sah dalam masalah yang sedang dimodelkan. Aturan ini harus dijaga oleh model atau layanan aplikasi, sehingga tetap berlaku ketika tampilan diganti.
+
+\begin{enumerate}
+  \item Kode buku, ID anggota, dan ID peminjaman harus unik dalam kelompok datanya masing-masing. Kode dan nama wajib terisi.
+  \item Peminjaman hanya boleh dilakukan untuk anggota dan buku yang sudah terdaftar.
+  \item Sebuah kode buku boleh memiliki banyak riwayat peminjaman, tetapi paling banyak satu peminjaman aktif pada suatu waktu.
+  \item Setiap catatan peminjaman menghubungkan tepat satu anggota dan satu buku.
+  \item Tanggal jatuh tempo ditetapkan saat peminjaman dibuat, berdasarkan tanggal pinjam dan lama pinjam jenis buku tersebut.
+  \item Tanggal pengembalian tidak boleh mendahului tanggal pinjam. Peminjaman yang sudah selesai tidak dapat dikembalikan untuk kedua kalinya.
+  \item Pengembalian mempertahankan riwayat. Data yang gagal diproses tidak boleh meninggalkan perubahan sebagian.
+\end{enumerate}
+
+Aturan ketiga dapat diperiksa dengan menghitung peminjaman aktif untuk sebuah kode buku. Kita tidak perlu menyimpan flag \texttt{tersedia} lain yang harus terus diselaraskan dengan riwayat peminjaman.
+
+\subsection{Menulis Skenario Penggunaan}
+
+Skenario menjelaskan satu pekerjaan dari sudut pandang pengguna. Tuliskan kondisi awal, langkah utama, hasil akhir, dan kemungkinan penolakan.
+
+\begin{langkah}{Skenario Meminjamkan Buku}
+  \item \textbf{Kondisi awal:} anggota M001 dan buku B001 sudah terdaftar; B001 belum memiliki peminjaman aktif.
+  \item Petugas memilih anggota M001 dan buku B001, lalu memasukkan tanggal pinjam 27 Oktober 2026.
+  \item Aplikasi memeriksa keberadaan anggota, keberadaan buku, dan ketersediaannya.
+  \item Aplikasi meminta lama pinjam dari object buku. Karena B001 adalah buku cetak, lama pinjamnya 14 hari.
+  \item Aplikasi membuat catatan P001 dengan tanggal jatuh tempo 10 November 2026.
+  \item Petugas melihat peminjaman berhasil dan status B001 menjadi sedang dipinjam.
+  \item \textbf{Alur penolakan:} jika B001 masih dipinjam, aplikasi memberi pesan penolakan dan tidak menambah catatan baru.
+\end{langkah}
+
+Skenario ini belum menentukan warna tombol atau letak tabel GUI. Yang harus disepakati lebih dahulu adalah data, aturan, dan hasil pekerjaannya. Bentuk antarmuka mengikuti alur tersebut pada Bab 13.
+
+\subsection{Kriteria Penerimaan dan Ketertelusuran}
+
+\emph{Kriteria penerimaan} menjelaskan bukti bahwa suatu kebutuhan sudah terpenuhi. Hubungan kebutuhan, method, dan skenario pemeriksaan disebut \emph{ketertelusuran} (\emph{traceability}). Dengan hubungan ini, kita dapat menunjukkan alasan sebuah method diperlukan.
+
+\begin{table}[htbp]
+\caption{Contoh penelusuran kebutuhan ke rancangan dan pemeriksaan.}
+\label{tab:b11-traceability}
+\begin{tabularx}{\linewidth}{P{13mm}P{39mm}L}
+\kepala \kp{Kode} & \kp{Operasi yang dirancang} & \kp{Kriteria penerimaan} \\
+F01 & \texttt{tambah\_buku(buku)} & Pendaftaran ulang B001 ditolak; buku yang sudah tercatat tidak tertimpa. \\
+F03 & \texttt{pinjamkan(...)} & Pinjam pertama berhasil; permintaan kedua untuk B001 yang masih aktif ditolak. \\
+F04 & \texttt{kembalikan(...)} & P001 selesai, B001 tersedia lagi, dan catatan P001 tetap ada. \\
+F05 & \texttt{tersedia(kode)} & Hasilnya sesuai dengan keberadaan peminjaman aktif untuk kode tersebut. \\
+F06 & \texttt{simpan()} dan \texttt{muat()} & Setelah dimuat ulang, identitas, tanggal, dan hubungan peminjaman tetap sama. \\
+\end{tabularx}
+\end{table}
+
+\begin{penting}[Hasil Analisis Kebutuhan]
+Sebelum melanjutkan, pastikan Anda dapat menjawab siapa pengguna aplikasi, data apa yang dikelola, operasi apa yang disediakan, aturan apa yang harus dijaga, dan bagaimana keberhasilannya diperiksa. Kebutuhan yang belum jelas perlu diperjelas sebelum diterjemahkan menjadi class.
+\end{penting}
+
+% =====================================================================
+\section{Identifikasi Object}
+% =====================================================================
+
+\emph{Object} adalah satu entitas tertentu dalam model aplikasi, lengkap dengan identitas, keadaan, dan perilakunya. Mulailah dengan contoh konkret agar rancangan tidak berhenti pada nama-nama class yang masih abstrak.
+
+Dalam sistem perpustakaan, buku berkode B001 adalah satu object, anggota M001 adalah object lain, dan catatan P001 yang menghubungkan keduanya juga dapat dimodelkan sebagai object. Tiga object tersebut mewakili peran yang berbeda walaupun terlibat dalam satu pekerjaan.
+
+\subsection{Menyaring Kata Benda dari Kebutuhan}
+
+Analisis kata benda dan kata kerja dari Bab 1 dapat dipakai kembali. Namun, hasilnya adalah \emph{kandidat}, bukan daftar class yang langsung diterima seluruhnya. Lutz menjelaskan pemetaan benda dan tindakan sebagai langkah awal rancangan, lalu menunjukkan bagaimana object bekerja sama melalui relasi \cite{lutz2025learning}.
+
+\begin{table}[htbp]
+\caption{Penyaringan kandidat dari deskripsi aplikasi.}
+\label{tab:b11-kandidat}
+\begin{tabularx}{\linewidth}{P{30mm}P{28mm}L}
+\kepala \kp{Kandidat} & \kp{Keputusan} & \kp{Alasan} \\
+Buku & Object domain & Memiliki kode, judul, dan aturan lama pinjam. \\
+Anggota & Object domain & Memiliki identitas dan menjadi pihak yang meminjam. \\
+Peminjaman & Object domain & Menyimpan hubungan anggota--buku beserta tanggal dan statusnya. \\
+Judul dan tanggal & Attribute & Menjelaskan keadaan suatu entitas; belum memerlukan tanggung jawab class tersendiri. \\
+Petugas & Aktor & Mengoperasikan aplikasi; versi ini belum mengelola data akun petugas. \\
+JSON dan tombol & Format dan komponen tampilan & JSON adalah bentuk penyimpanan, sedangkan tombol dibahas saat merancang GUI. \\
+\end{tabularx}
+\end{table}
+
+Keputusan tersebut bergantung pada kebutuhan. Jika pada pengembangan berikutnya perpustakaan harus mengelola pergantian petugas dan hak akses, data petugas mungkin memerlukan class. Pada ruang lingkup sekarang, penambahan itu belum dibutuhkan.
+
+\subsection{Identitas dan Keadaan Object}
+
+Identitas membedakan satu entitas dari entitas lain. Dua eksemplar dengan judul sama tetap merupakan buku yang berbeda jika kodenya berbeda. Sebaliknya, buku B001 tetap buku yang sama setelah judulnya diperbaiki atau setelah dipinjam berkali-kali.
+
+\begin{table}[htbp]
+\caption{Contoh object yang digunakan untuk memeriksa rancangan.}
+\label{tab:b11-contoh-object}
+\begin{tabularx}{\linewidth}{P{27mm}P{29mm}L}
+\kepala \kp{Object} & \kp{Calon class} & \kp{Keadaan contoh} \\
+B001 & \texttt{BukuCetak} & Judul ``Dasar OOP'', lama pinjam 14 hari. \\
+B002 & \texttt{BukuCetak} & Judul ``Dasar OOP'', eksemplar lain yang dapat dipinjam secara terpisah. \\
+E001 & \texttt{EBook} & Judul ``Dasar Python'', lama pinjam 7 hari. \\
+M001 & \texttt{Anggota} & Nama Ani; menjadi peminjam pada catatan P001. \\
+P001 & \texttt{Peminjaman} & Menghubungkan M001 dengan B001, dipinjam 27 Oktober 2026, belum dikembalikan. \\
+\end{tabularx}
+\end{table}
+
+ID seperti M001 dan B001 merupakan identitas dalam aplikasi, bukan hasil fungsi \texttt{id()} Python. Nilai \texttt{id()} berkaitan dengan object selama program berjalan dan tidak digunakan sebagai identitas tetap dalam file JSON.
+
+\subsection{Melihat Hubungan antar-Object}
+
+Gambar~\ref{fig:b11-object} memperlihatkan satu kejadian peminjaman. Diagram object menggambarkan contoh keadaan pada suatu saat, sedangkan class diagram nanti menggambarkan struktur yang dapat menghasilkan banyak object seperti itu.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[b11kotak,text width=43mm,anchor=north] (pinjam) at (78,42)
+    {\underline{\texttt{p1: Peminjaman}}\\
+     ID: P001\\Tanggal pinjam: 27-10-2026\\Tanggal kembali: belum ada};
+  \node[b11kotak,text width=40mm,anchor=north] (anggota) at (25,0)
+    {\underline{\texttt{m1: Anggota}}\\ID: M001\\Nama: Ani};
+  \node[b11kotak,text width=40mm,anchor=north] (buku) at (131,0)
+    {\underline{\texttt{b1: BukuCetak}}\\Kode: B001\\Judul: Dasar OOP};
+  \draw[b11panah] (pinjam.south west) -- node[b11label,above,sloped]{peminjam} (anggota.north);
+  \draw[b11panah] (pinjam.south east) -- node[b11label,above,sloped]{buku yang dipinjam} (buku.north);
+\end{tikzpicture}
+\caption{Satu object peminjaman merujuk satu anggota dan satu buku. Nama p1, m1, dan b1 adalah penanda object pada diagram.}
+\label{fig:b11-object}
+\end{figure}
+
+Catatan P001 tidak perlu menyalin seluruh data anggota dan buku. Ia dapat menyimpan rujukan ke object yang sudah terdaftar. Jika ada dua catatan untuk M001, keduanya merujuk anggota yang sama. Hal ini perlu dipertahankan ketika data dimuat kembali dari file.
+
+\begin{tips}[Periksa dengan Dua Contoh]
+Untuk setiap calon class, coba tuliskan dua object yang mungkin dibuat darinya. Jika yang Anda tuliskan sebenarnya hanya dua nilai seperti ``Ani'' dan ``Budi'', periksa apakah keduanya cukup menjadi nilai attribute \texttt{nama}. Object mahasiswa atau anggota mempunyai identitas dan peran yang lebih lengkap daripada nama saja.
+\end{tips}
+
+% =====================================================================
+\section{Identifikasi Class, Attribute, dan Method}
+% =====================================================================
+
+Setelah contoh object ditemukan, kita mengelompokkan object yang memiliki struktur dan perilaku sejenis ke dalam class. Untuk setiap class, tentukan \textbf{tanggung jawab}, \textbf{data yang perlu diketahui}, dan \textbf{operasi yang disediakan}. Pertanyaan ini membantu mencegah satu class mengerjakan semua urusan aplikasi.
+
+\subsection{Membagi Tanggung Jawab Class}
+
+Rancangan inti menggunakan enam class domain: \texttt{Buku}, \texttt{BukuCetak}, \texttt{EBook}, \texttt{Anggota}, \texttt{Peminjaman}, dan \texttt{Perpustakaan}. Dua class pendukung, yaitu kontrak \texttt{Penyimpanan} dan implementasi \texttt{PenyimpananJSON}, menangani batas antara model dan file.
+
+\begin{table}[htbp]
+\caption{Tanggung jawab class domain.}
+\label{tab:b11-tanggung-jawab}
+\begin{tabularx}{\linewidth}{P{35mm}LL}
+\kepala \kp{Class} & \kp{Tanggung jawab} & \kp{Batas tanggung jawab} \\
+\texttt{Buku} & Menyimpan identitas buku dan mendefinisikan operasi \texttt{lama\_pinjam()}. & Tidak memilih peminjam atau membuka file. \\
+\texttt{BukuCetak}, \texttt{EBook} & Menentukan lama pinjam sesuai jenis buku. & Tidak mengelola seluruh riwayat perpustakaan. \\
+\texttt{Anggota} & Menyimpan identitas anggota yang terdaftar. & Tidak mengubah ketersediaan buku secara langsung. \\
+\texttt{Peminjaman} & Menyimpan satu transaksi dan mencatat penyelesaiannya. & Tidak mengatur tombol atau kotak pesan. \\
+\texttt{Perpustakaan} & Mendaftarkan entitas, memeriksa aturan lintas-object, dan mengoordinasikan transaksi. & Tidak mengatur widget atau membaca format JSON sendiri. \\
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\caption{Tanggung jawab komponen penyimpanan.}
+\label{tab:b11-penyimpanan}
+\begin{tabularx}{\linewidth}{P{37mm}L}
+\kepala \kp{Komponen} & \kp{Tanggung jawab} \\
+\texttt{Penyimpanan} & Kontrak dua operasi: \texttt{muat()} mengembalikan dictionary data aplikasi dan \texttt{simpan(data)} menyimpan dictionary tersebut. Kontrak dapat dinyatakan dengan \texttt{Protocol} dari Bab 5. \\
+\texttt{PenyimpananJSON} & Membaca serta menulis JSON pada path yang diberikan, dan melaporkan kesalahan file. Komponen ini tidak memutuskan apakah sebuah buku boleh dipinjam. \\
+\end{tabularx}
+\end{table}
+
+Pemisahan tersebut melanjutkan pola penyimpanan pada Bab 9. Payload proyek ini berupa dictionary yang menampung beberapa kelompok data, sehingga bentuknya lebih lengkap daripada list buku pada contoh sebelumnya. Nama operasi tetap \texttt{muat()} dan \texttt{simpan(data)}.
+
+\subsection{Menentukan Attribute dan Jenis Datanya}
+
+Pilih attribute yang diperlukan untuk menjalankan aturan dan mempertahankan keadaan aplikasi. Tipe data membantu menjelaskan nilai yang diharapkan, meskipun validasinya tetap harus ditulis saat implementasi.
+
+\begin{itemize}
+  \item \textbf{Buku}: \texttt{kode: str} dan \texttt{judul: str}. Kode bersifat tetap setelah pendaftaran. Class turunan menentukan lama pinjam melalui method, sehingga tidak perlu menyalin percabangan jenis buku ke seluruh aplikasi.
+  \item \textbf{Anggota}: \texttt{id\_anggota: str} dan \texttt{nama: str}. ID bersifat tetap; nama harus berisi teks setelah spasi berlebih dihapus.
+  \item \textbf{Peminjaman}: \texttt{id\_pinjam: str}, rujukan \texttt{anggota} dan \texttt{buku}, serta \texttt{tanggal\_pinjam}, \texttt{tanggal\_jatuh\_tempo}, dan \texttt{tanggal\_kembali}. Dalam model, tanggal memakai \texttt{date}; tanggal kembali bernilai \texttt{None} selama peminjaman aktif.
+  \item \textbf{Perpustakaan}: dictionary buku berdasarkan kode, dictionary anggota berdasarkan ID, koleksi catatan peminjaman, object penyimpanan, dan penomoran ID peminjaman berikutnya.
+\end{itemize}
+
+Dictionary memudahkan pencarian buku B001 dan anggota M001 berdasarkan identitasnya. Koleksi peminjaman mempertahankan transaksi yang masih aktif maupun yang sudah selesai. Bentuk koleksi ini dapat dipilih kembali ketika implementasi, selama aturan dan antarmuka yang disepakati tetap terpenuhi.
+
+\subsection{Data Tersimpan, Data Turunan, dan Catatan Historis}
+
+Tidak semua informasi perlu disimpan sebagai attribute yang dapat diubah. Periksa dari mana sebuah nilai berasal dan apakah nilai itu harus mengikuti keadaan terkini atau mempertahankan keputusan pada masa lalu.
+
+\begin{table}[htbp]
+\caption{Pemilihan data tersimpan dan data turunan.}
+\label{tab:b11-data-turunan}
+\begin{tabularx}{\linewidth}{P{32mm}P{30mm}L}
+\kepala \kp{Informasi} & \kp{Keputusan} & \kp{Alasan} \\
+Judul buku & Disimpan & Merupakan data dasar yang tidak dapat dihitung dari catatan peminjaman. \\
+Status aktif peminjaman & Diturunkan & Aktif jika \texttt{tanggal\_kembali} bernilai \texttt{None}; tidak perlu flag kedua. \\
+Ketersediaan buku & Diturunkan & Tersedia jika tidak ada peminjaman aktif yang merujuk kode buku tersebut. \\
+Tanggal jatuh tempo & Disimpan saat transaksi dibuat & Mempertahankan kesepakatan awal meskipun aturan lama pinjam berubah kemudian. \\
+\end{tabularx}
+\end{table}
+
+Untuk P001, tanggal jatuh tempo dihitung sekali saat peminjaman dibuat: 27 Oktober ditambah 14 hari menjadi 10 November 2026. Jika kebijakan buku cetak kelak berubah menjadi 10 hari, transaksi P001 tetap menggunakan tanggal yang sudah disepakati. Ini berbeda dari property terhitung yang selalu mengikuti nilai terbaru.
+
+\subsection{Menentukan Method dan Kontraknya}
+
+Method dipilih dari tindakan yang diperlukan oleh kebutuhan aplikasi. Sebuah \emph{kontrak method} menjelaskan masukan, keadaan yang harus terpenuhi, hasil, dan cara melaporkan kegagalan. Kontrak membantu programmer model dan programmer GUI menggunakan pengertian yang sama.
+
+\begin{table}[htbp]
+\caption{Operasi utama pada class \texttt{Perpustakaan}.}
+\label{tab:b11-kontrak}
+\begin{tabularx}{\linewidth}{P{40mm}P{29mm}L}
+\kepala \kp{Method} & \kp{Hasil} & \kp{Aturan yang dijaga} \\
+\texttt{tambah\_buku(buku)} & \texttt{None} & Kode valid dan belum terdaftar. \\
+\texttt{tambah\_anggota(}\newline\texttt{anggota)} & \texttt{None} & ID valid dan belum terdaftar. \\
+\texttt{pinjamkan(}\newline\texttt{id\_anggota,}\newline\texttt{kode\_buku, tanggal)} & Object \texttt{Peminjaman} & Anggota dan buku terdaftar; tidak ada peminjaman aktif untuk buku yang sama. \\
+\texttt{kembalikan(}\newline\texttt{id\_pinjam, tanggal)} & \texttt{None} & Catatan ditemukan, masih aktif, dan tanggal kembali tidak mendahului tanggal pinjam. \\
+\texttt{tersedia(kode\_buku)} & \texttt{bool} & Kode buku terdaftar; hasil dihitung dari catatan aktif. \\
+\end{tabularx}
+\end{table}
+
+Tiga method pendukung menyediakan daftar untuk tampilan: \texttt{daftar\_buku()}, \texttt{daftar\_anggota()}, dan \texttt{daftar\_peminjaman()}. Method terakhir menerima parameter opsional \texttt{aktif\_saja=False}; jika diberi nilai \texttt{True}, hasilnya hanya memuat catatan aktif. Method \texttt{simpan()} dan \texttt{muat()} mengoordinasikan pemindahan keadaan aplikasi melalui object penyimpanan. Koleksi internal tidak diberikan sebagai jalur untuk mengubah data tanpa pemeriksaan; hasil daftar dapat berupa salinan koleksi.
+
+Untuk \texttt{pinjamkan()}, urutan rancangannya adalah mencari anggota, mencari buku, memeriksa ketersediaan, meminta lama pinjam dari buku, membuat ID dan catatan baru, lalu memasukkannya ke koleksi. Pemeriksaan dilakukan sebelum koleksi diubah. Jika salah satu syarat gagal, keadaan perpustakaan tetap seperti semula.
+
+\begin{penting}[Letakkan Aturan pada Pemiliknya]
+\texttt{Peminjaman} menjaga aturan tentang tanggal dan penyelesaian satu transaksi. \texttt{Perpustakaan} menjaga aturan yang memerlukan beberapa object, seperti keberadaan anggota dan ketersediaan buku. GUI meminta operasi tersebut dan menampilkan hasil atau pesan exception; GUI tidak menjadi satu-satunya tempat pemeriksaan aturan.
+\end{penting}
+
+Kesalahan dapat dilaporkan dengan exception yang sudah dipelajari di Bab 8. Contohnya \texttt{BukuSedangDipinjamError} untuk buku yang belum tersedia dan \texttt{DataRusakError} untuk data simpanan yang tidak dapat dipakai. Nama serta hierarki exception ditetapkan ketika implementasi; penyebab kegagalannya sudah dicatat dalam kontrak ini.
+
+\subsection{Merancang Bentuk Data Simpanan}
+
+Di dalam memori, \texttt{Peminjaman} merujuk object anggota dan buku. Di dalam JSON, hubungan itu disimpan melalui ID. Contoh berikut adalah rancangan isi file, bukan keluaran program yang sudah diimplementasikan.
+
+\begin{keluaran}[Contoh rancangan data/perpustakaan.json]
+{
+  "versi": 1,
+  "nomor_pinjam_berikutnya": 2,
+  "buku": [
+    {"kode": "B001", "judul": "Dasar OOP", "jenis": "cetak"},
+    {"kode": "E001", "judul": "Dasar Python", "jenis": "ebook"}
+  ],
+  "anggota": [
+    {"id_anggota": "M001", "nama": "Ani"}
+  ],
+  "peminjaman": [
+    {
+      "id_pinjam": "P001",
+      "id_anggota": "M001",
+      "kode_buku": "B001",
+      "tanggal_pinjam": "2026-10-27",
+      "tanggal_jatuh_tempo": "2026-11-10",
+      "tanggal_kembali": null
+    }
+  ]
+}
+\end{keluaran}
+
+Field \texttt{jenis} menentukan class buku yang dibuat saat pemuatan. Tanggal disimpan sebagai teks berformat ISO, lalu dikembalikan menjadi object \texttt{date} dalam model. Penomoran berikutnya ikut dipertahankan agar aplikasi tidak menggunakan kembali ID transaksi yang sudah tercatat.
+
+Pemuatan dilakukan dengan membuat seluruh object buku dan anggota terlebih dahulu, kemudian menghubungkan catatan peminjaman melalui kode dan ID. Jika P001 merujuk M001 yang tidak ditemukan, data tidak boleh dianggap valid. Data juga perlu diperiksa terhadap kode ganda, tanggal yang tidak sah, dan dua peminjaman aktif untuk buku yang sama. Pemeriksaan ini menjaga aturan yang sama seperti saat pengguna memasukkan data.
+
+% =====================================================================
+\section{Class Relationship}
+% =====================================================================
+
+\emph{Class relationship} menjelaskan bagaimana object dari suatu class berhubungan dengan object class lain. Pemilihannya didasarkan pada kebutuhan dan tanggung jawab, bukan pada keinginan memakai semua jenis relasi sekaligus. Perbedaan hubungan \emph{is-a} dan \emph{has-a} dibahas oleh \cite{lutz2025learning}; pertimbangan inheritance dan composition juga dibahas oleh \cite{north2025oop} pada Bab 5.
+
+\subsection{Inheritance untuk Jenis Buku}
+
+\texttt{BukuCetak} dan \texttt{EBook} sama-sama merupakan jenis \texttt{Buku}. Keduanya memiliki kode serta judul, tetapi memberikan hasil berbeda untuk \texttt{lama\_pinjam()}. Karena itu, hubungan ini sesuai dimodelkan dengan inheritance.
+
+Class \texttt{Buku} direncanakan sebagai abstract class yang mendefinisikan kontrak \texttt{lama\_pinjam()}. Layanan \texttt{Perpustakaan} cukup memanggil operasi tersebut pada object buku yang dipilih. Layanan tidak perlu menyalin percabangan ``jika cetak maka 14, jika e-book maka 7'' di setiap proses. Pemanggilan dengan antarmuka yang sama dan hasil sesuai jenis object merupakan penerapan polymorphism.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[b11kelas,anchor=north] (buku) at (78,39)
+    {\textbf{\textit{Buku}}\nodepart{two}
+     \parbox{46mm}{- kode: str\\- judul: str}
+     \nodepart{three}\parbox{46mm}{+ \textit{lama\_pinjam(): int}}};
+  \node[b11kelas,anchor=north] (cetak) at (36,-13)
+    {\textbf{BukuCetak}\nodepart{two}\parbox{46mm}{mewarisi kode dan judul}
+     \nodepart{three}\parbox{46mm}{+ lama\_pinjam(): int\\\phantom{+ }hasil: 14}};
+  \node[b11kelas,anchor=north] (ebook) at (120,-13)
+    {\textbf{EBook}\nodepart{two}\parbox{46mm}{mewarisi kode dan judul}
+     \nodepart{three}\parbox{46mm}{+ lama\_pinjam(): int\\\phantom{+ }hasil: 7}};
+  \coordinate (cabang) at (78,-4);
+  \draw[b11garis] (cetak.north) |- (cabang) -| (ebook.north);
+  \draw[b11waris] (cabang) -- (buku.south);
+\end{tikzpicture}
+\caption{Generalisasi jenis buku. Segitiga kosong mengarah ke class yang lebih umum; nama class dan operasi abstract ditulis miring.}
+\label{fig:b11-inheritance}
+\end{figure}
+
+\subsection{Association pada Catatan Peminjaman}
+
+\texttt{Peminjaman} berasosiasi dengan \texttt{Anggota} dan \texttt{Buku}. Catatan itu perlu mengetahui siapa peminjamnya dan buku apa yang dipinjam. Sebuah peminjaman bukan jenis anggota atau jenis buku, sehingga kedua hubungan tersebut tidak dibuat dengan inheritance.
+
+Sebaliknya, anggota dan buku tidak harus menyimpan salinan riwayat masing-masing. Pada rancangan ini, layanan perpustakaan memperoleh riwayat dari koleksi \texttt{Peminjaman} berdasarkan ID atau kode yang diperlukan. Keputusan ini mengurangi tempat yang harus diperbarui saat transaksi berlangsung.
+
+\subsection{Aggregation dan Composition dalam Lingkup Model}
+
+Daftar buku dan anggota pada \texttt{Perpustakaan} dimodelkan sebagai \emph{aggregation}: layanan menerima object yang didaftarkan dan mengelolanya sebagai kumpulan. Buku dan anggota tetap mempunyai identitas sendiri di luar satu transaksi peminjaman.
+
+Koleksi \texttt{Peminjaman} dimodelkan sebagai \emph{composition} dalam rancangan ini: setiap catatan dibuat oleh satu perpustakaan dan menjadi bagian riwayat perpustakaan tersebut. Catatan tidak dipakai sebagai milik bersama oleh dua perpustakaan. Kepemilikan ini adalah keputusan model untuk proyek satu perpustakaan, bukan kesimpulan dari letak baris pembuatan object di dalam constructor.
+
+Menutup aplikasi tidak berarti menghapus riwayat. Object dalam memori dapat berakhir, tetapi keadaan perpustakaan disimpan ke file dan dibangun kembali saat dibuka. Siklus hidup data domain perlu dibedakan dari umur sebuah variabel atau proses Python.
+
+\subsection{Multiplicity dan Batas Peminjaman Aktif}
+
+\emph{Multiplicity} menunjukkan banyaknya object yang dapat terhubung pada ujung suatu relasi. Gunakan \texttt{1} untuk tepat satu, \texttt{0..1} untuk nol atau satu, dan \texttt{0..*} untuk nol atau lebih.
+
+\begin{table}[htbp]
+\caption{Multiplicity pada rancangan perpustakaan.}
+\label{tab:b11-multiplicity}
+\begin{tabularx}{\linewidth}{P{43mm}P{24mm}L}
+\kepala \kp{Dilihat dari} & \kp{Jumlah} & \kp{Makna} \\
+Satu perpustakaan ke buku & \texttt{0..*} & Perpustakaan dapat belum memiliki buku atau mempunyai banyak buku terdaftar. \\
+Satu perpustakaan ke anggota & \texttt{0..*} & Perpustakaan dapat memiliki banyak anggota. \\
+Satu perpustakaan ke peminjaman & \texttt{0..*} & Seluruh catatan peminjaman menjadi bagian riwayatnya. \\
+Satu peminjaman ke anggota & \texttt{1} & Setiap catatan mempunyai tepat satu peminjam. \\
+Satu peminjaman ke buku & \texttt{1} & Setiap catatan mencatat tepat satu kode buku. \\
+Satu buku ke riwayat peminjaman & \texttt{0..*} & Buku dapat dipinjam berkali-kali pada waktu berbeda. \\
+\end{tabularx}
+\end{table}
+
+Relasi buku ke \emph{seluruh riwayat} memakai \texttt{0..*}, bukan \texttt{0..1}. Batas paling banyak satu hanya berlaku pada catatan yang masih \emph{aktif}. Karena itu, tambahkan aturan tertulis: \emph{untuk setiap kode buku, jumlah peminjaman aktif tidak boleh lebih dari satu}. Angka pada garis relasi saja belum menyatakan batas berdasarkan keadaan transaksi.
+
+\subsection{Hubungan Model, Penyimpanan, dan Tampilan}
+
+\texttt{Perpustakaan} memakai kontrak \texttt{Penyimpanan}, sedangkan \texttt{PenyimpananJSON} menyediakan operasinya. Karena object penyimpanan disimpan dan digunakan oleh layanan, hubungan layanan ke kontrak dapat digambar sebagai association. Implementasi yang memenuhi kontrak digambar dengan garis realisasi putus-putus menuju kontrak.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[b11kelas,anchor=north] (perpus) at (24,33)
+    {\textbf{Perpustakaan}\nodepart{two}\parbox{39mm}{- penyimpanan}
+     \nodepart{three}\parbox{39mm}{+ simpan()\\+ muat()}};
+  \node[b11kelas,anchor=north] (kontrak) at (119,33)
+    {\parbox{49mm}{\centering{\sffamily\scriptsize\textless\textless Protocol\textgreater\textgreater}\\\textbf{Penyimpanan}}
+     \nodepart{two}\parbox{49mm}{kontrak operasi}
+     \nodepart{three}\parbox{49mm}{+ muat(): dict\\+ simpan(data): None}};
+  \node[b11kelas,anchor=north] (json) at (119,-25)
+    {\textbf{PenyimpananJSON}\nodepart{two}\parbox{49mm}{- path}
+     \nodepart{three}\parbox{49mm}{+ muat(): dict\\+ simpan(data): None}};
+  \draw[b11panah] (perpus.east) -- node[b11label,above]{memakai kontrak} (kontrak.west);
+  \draw[b11waris,dashed] (json.north) -- node[b11label,right]{memenuhi operasi} (kontrak.south);
+\end{tikzpicture}
+\caption{Kontrak penyimpanan memisahkan layanan dari format file. Pada Python, implementasi dapat memenuhi \texttt{Protocol} secara struktural tanpa mewarisinya secara eksplisit.}
+\label{fig:b11-storage}
+\end{figure}
+
+Tampilan pada Bab 13 memanggil layanan yang sama untuk mendaftarkan, meminjamkan, dan mengembalikan buku. Model tidak perlu mengimpor \texttt{tkinter}. Mengganti tata letak tombol tidak mengubah aturan peminjaman; mengganti penyimpanan pun tidak menuntut pengubahan seluruh event handler.
+
+% =====================================================================
+\section{Class Diagram Sederhana}
+% =====================================================================
+
+\emph{Class diagram} menggambarkan struktur class dan hubungan di antaranya. Diagram pada Gambar~\ref{fig:b11-domain} memakai notasi UML yang disederhanakan untuk menunjukkan keputusan yang akan diimplementasikan. Diagram ini dibaca bersama kebutuhan dan kontrak, bukan sebagai pengganti keduanya.
+
+\subsection{Membaca Kotak dan Garis Relasi}
+
+Kotak class terdiri atas tiga bagian: nama class, attribute, dan operasi. Penulisan \texttt{nama: tipe} menunjukkan data yang disimpan, sedangkan \texttt{method(...)} menunjukkan operasi yang dapat dipanggil. Tanda \texttt{+} menandai antarmuka publik dan \texttt{-} menandai detail internal pada rancangan.
+
+Tanda \texttt{-} pada diagram tidak menambahkan pembatasan akses secara otomatis di Python. Implementasinya tetap memakai konvensi penamaan dan property yang dipelajari pada Bab 2. Misalnya, kode disimpan sebagai data internal dan dibaca melalui property hanya-baca.
+
+\begin{table}[htbp]
+\caption{Notasi hubungan yang digunakan pada diagram.}
+\label{tab:b11-notasi}
+\begin{tabularx}{\linewidth}{P{31mm}LL}
+\kepala \kp{Relasi} & \kp{Notasi} & \kp{Cara membaca} \\
+Association & Garis utuh & Object saling terhubung; angka di ujung menyatakan multiplicity. \\
+Aggregation & Belah ketupat kosong & Ujung belah ketupat berada pada class pengelola kumpulan. \\
+Composition & Belah ketupat terisi & Ujung belah ketupat berada pada pemilik bagian. \\
+Inheritance & Segitiga kosong & Segitiga menunjuk class yang lebih umum. \\
+Realisasi kontrak & Garis putus-putus dan segitiga kosong & Segitiga menunjuk kontrak yang dipenuhi implementasi. \\
+\end{tabularx}
+\end{table}
+
+\subsection{Diagram Class Domain}
+
+Diagram berikut menampilkan empat class utama. Turunan \texttt{BukuCetak} dan \texttt{EBook} sudah dirinci pada Gambar~\ref{fig:b11-inheritance}, sedangkan komponen file berada pada Gambar~\ref{fig:b11-storage}. Pemisahan gambar menjaga agar nama, attribute, dan garis relasi tetap terbaca.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[b11kelas,anchor=north] (perpus) at (78,66)
+    {\textbf{Perpustakaan}\nodepart{two}
+     \parbox{51mm}{- buku: dict\\- anggota: dict\\- peminjaman: dict}
+     \nodepart{three}\parbox{51mm}{+ pinjamkan(...)\\+ kembalikan(...)\\+ tersedia(kode): bool}};
+  \node[b11kelas,anchor=north] (anggota) at (24,8)
+    {\textbf{Anggota}\nodepart{two}
+     \parbox{39mm}{- id\_anggota: str\\- nama: str}
+     \nodepart{three}\parbox{39mm}{+ info(): str}};
+  \node[b11kelas,anchor=north] (buku) at (132,8)
+    {\textbf{\textit{Buku}}\nodepart{two}
+     \parbox{39mm}{- kode: str\\- judul: str}
+     \nodepart{three}\parbox{39mm}{+ \textit{lama\_pinjam(): int}}};
+  \node[b11kelas,anchor=north] (pinjam) at (78,-48)
+    {\textbf{Peminjaman}\nodepart{two}
+     \parbox{53mm}{- id\_pinjam: str\\- tanggal\_pinjam: date\\- tanggal\_jatuh\_tempo: date\\- tanggal\_kembali: date | None}
+     \nodepart{three}\parbox{53mm}{+ aktif: bool \{property\}\\+ kembalikan(tanggal)}};
+  \draw[b11agregasi] (perpus.west) -| (anggota.north);
+  \draw[b11agregasi] (perpus.east) -| (buku.north);
+  \draw[b11komposisi] (perpus.south) -- (pinjam.north);
+  \draw[b11garis] (pinjam.north west) -| (anggota.south);
+  \draw[b11garis] (pinjam.north east) -| (buku.south);
+  \node[b11label] at (44,49) {1};
+  \node[b11label] at (112,49) {1};
+  \node[b11label] at (18,14) {0..*};
+  \node[b11label] at (138,14) {0..*};
+  \node[b11label] at (84,23) {1};
+  \node[b11label] at (87,-41) {0..*};
+  \node[b11label] at (42,-43) {0..*};
+  \node[b11label] at (114,-43) {0..*};
+  \node[b11label] at (19,-27) {1};
+  \node[b11label] at (137,-27) {1};
+\end{tikzpicture}
+\caption{Class diagram inti perpustakaan. Satu catatan peminjaman terhubung dengan satu anggota dan satu buku; satu buku dapat memiliki banyak catatan sepanjang riwayatnya. Operasi tambahan dijelaskan dalam kontrak method.}
+\label{fig:b11-domain}
+\end{figure}
+
+Pada \texttt{Peminjaman}, rujukan \texttt{anggota} dan \texttt{buku} ditampilkan sebagai garis association sehingga tidak diulang sebagai daftar attribute pada kotaknya. Property \texttt{aktif} merupakan informasi turunan yang hanya dibaca. Nama \texttt{info()} pada \texttt{Anggota} mewakili operasi penyajian teks data anggota; operasi tersebut tidak membuka jendela atau menampilkan kotak pesan.
+
+\subsection{Menelusuri Diagram melalui Satu Transaksi}
+
+Gunakan kembali object M001, B001, dan P001 untuk memeriksa apakah diagram mendukung kebutuhan.
+
+\begin{enumerate}
+  \item Layanan mencari M001 pada dictionary anggota dan B001 pada dictionary buku. Jika salah satunya tidak ditemukan, transaksi ditolak.
+  \item Layanan memeriksa catatan peminjaman. Jika ada catatan aktif untuk B001, transaksi ditolak tanpa mengubah koleksi.
+  \item Layanan memanggil \texttt{lama\_pinjam()} pada B001. Object \texttt{BukuCetak} mengembalikan 14 hari.
+  \item Layanan membuat P001, menghubungkannya ke M001 dan B001, lalu menyimpan tanggal pinjam serta jatuh temponya.
+  \item Saat P001 dikembalikan, layanan meminta catatan itu memeriksa tanggal kembali dan menyelesaikan transaksi.
+  \item Ketersediaan B001 dihitung kembali. Karena P001 sudah tidak aktif, B001 dapat dipinjam lagi dan P001 tetap berada dalam riwayat.
+\end{enumerate}
+
+\begin{table}[htbp]
+\caption{Perubahan keadaan yang diharapkan dari skenario rancangan.}
+\label{tab:b11-keadaan}
+\begin{tabularx}{\linewidth}{P{40mm}P{33mm}L}
+\kepala \kp{Keadaan} & \kp{Peminjaman aktif B001} & \kp{Dampak} \\
+Sebelum dipinjam & Tidak ada & B001 tersedia. \\
+P001 dibuat & P001 & B001 tidak tersedia untuk peminjaman lain. \\
+Percobaan pinjam kedua & Tetap P001 & Permintaan ditolak; tidak ada catatan baru. \\
+P001 dikembalikan & Tidak ada & B001 tersedia; riwayat P001 tetap tersimpan. \\
+\end{tabularx}
+\end{table}
+
+Tabel tersebut adalah hasil yang harus dibuktikan saat implementasi, bukan laporan program yang sudah dijalankan. Jika sebuah keadaan tidak dapat dijelaskan melalui class dan method yang dirancang, perbaiki pembagian tanggung jawab sebelum menulis aplikasinya.
+
+\subsection{Memeriksa Rancangan sebelum Implementasi}
+
+Periksa paling tidak enam keadaan: pendaftaran kode ganda, peminjaman sah, peminjaman buku yang masih aktif, peminjaman oleh anggota yang tidak terdaftar, pengembalian sah, dan pengembalian kedua untuk catatan yang sudah selesai. Tambahkan pemeriksaan simpan--muat untuk memastikan relasi tidak berubah setelah aplikasi dibuka ulang.
+
+Pemeriksaan sejak tahap rancangan membantu menemukan kekurangan sebelum banyak kode bergantung pada keputusan tersebut. Wilson mencontohkan pengembangan melalui komponen kecil dan pemeriksaan perilaku yang dapat diulang \cite{wilson2024design}. Bentuk latihan dengan syarat yang jelas dan hasil yang dapat diperiksa juga digunakan dalam kumpulan latihan \cite{edcornerOopExercises}.
+
+\begin{langkah}{Dokumen yang Dibawa ke Bab 12}
+  \item Daftar kebutuhan F01--F06, kebutuhan kualitas, batas aplikasi, dan aturan bisnis.
+  \item Contoh object beserta kode, ID, dan keadaan awal yang dipakai untuk pemeriksaan.
+  \item Daftar class, attribute, method, serta kontrak operasi utamanya.
+  \item Diagram relasi dengan multiplicity dan catatan batas satu peminjaman aktif per buku.
+  \item Rancangan JSON dan aturan membangun kembali hubungan melalui ID.
+  \item Skenario berhasil dan gagal, lengkap dengan perubahan keadaan yang diharapkan.
+\end{langkah}
+
+Bab 12 akan mengubah dokumen tersebut menjadi module model dan penyimpanan yang dapat diperiksa dari terminal. Bab 13 kemudian menambahkan GUI yang memanggil model itu. Jika suatu kontrak perlu diubah saat implementasi, catat alasannya dan perbarui kebutuhan atau diagram yang berkaitan.
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item Analisis kebutuhan menjelaskan pengguna, ruang lingkup, fungsi, kualitas, aturan, dan bukti keberhasilan aplikasi.
+  \item Kebutuhan fungsional menyatakan pekerjaan aplikasi; kebutuhan nonfungsional menyatakan kualitas atau batas kerjanya.
+  \item Identifikasi object dimulai dari contoh konkret. Kata benda dapat menjadi kandidat object, tetapi sebagian cukup menjadi attribute, aktor, atau komponen tampilan.
+  \item Class mengelompokkan object sejenis. Tanggung jawabnya menentukan attribute yang diperlukan dan method yang disediakan.
+  \item Kontrak method menjelaskan masukan, hasil, syarat, serta kegagalan. Aturan lintas-object dijaga oleh layanan aplikasi.
+  \item Data turunan seperti status aktif tidak perlu disimpan sebagai flag kedua. Data historis seperti tanggal jatuh tempo perlu mempertahankan keputusan saat transaksi dibuat.
+  \item Inheritance digunakan untuk hubungan jenis buku; association menghubungkan peminjaman dengan anggota dan buku. Aggregation dan composition dipilih sesuai kepemilikan dalam model.
+  \item Multiplicity pada riwayat buku adalah \texttt{0..*}; batas satu peminjaman aktif dituliskan sebagai aturan tambahan.
+  \item Class diagram, kontrak, skenario, dan rancangan penyimpanan harus menggambarkan keputusan yang sama sebelum aplikasi diimplementasikan.
+\end{itemize}
+
+% =====================================================================
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat berdasarkan ruang lingkup studi kasus dalam bab ini.
+
+\begin{enumerate}
+  \item Pernyataan yang termasuk kebutuhan fungsional adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item model dapat diperiksa tanpa membuka GUI
+    \item aplikasi menolak peminjaman buku yang masih dipinjam
+    \item file menggunakan UTF-8
+    \item pesan kesalahan mudah dipahami
+  \end{enumerate}
+  \item Dalam rancangan awal, ``judul buku'' paling tepat menjadi \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item aktor
+    \item class layanan
+    \item attribute pada buku
+    \item method penyimpanan
+  \end{enumerate}
+  \item B001 dan B002 memiliki judul yang sama tetapi kode berbeda. Keduanya merupakan \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item dua object buku yang berbeda
+    \item dua nama untuk object yang pasti sama
+    \item satu class dan satu method
+    \item data duplikat yang pasti harus dihapus
+  \end{enumerate}
+  \item Multiplicity dari satu catatan peminjaman ke buku dalam studi kasus ini adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{0..*}
+    \item \texttt{0..1}
+    \item \texttt{1..*}
+    \item \texttt{1}
+  \end{enumerate}
+  \item Hubungan antara \texttt{Peminjaman} dan \texttt{Anggota} paling tepat dinyatakan sebagai \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item inheritance karena peminjaman adalah anggota
+    \item association karena peminjaman merujuk peminjamnya
+    \item inheritance karena kedua class memiliki ID
+    \item hubungan yang tidak perlu dicatat
+  \end{enumerate}
+  \item Pemeriksaan bahwa sebuah buku belum mempunyai peminjaman aktif terutama menjadi tanggung jawab \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item layanan \texttt{Perpustakaan} yang melihat koleksi transaksi
+    \item warna tombol Pinjam
+    \item module \texttt{json} tanpa bantuan model
+    \item class \texttt{Anggota} tanpa melihat buku atau transaksi lain
+  \end{enumerate}
+  \item Menghitung ketersediaan dari peminjaman aktif membantu \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item menghapus semua riwayat saat pengembalian
+    \item menghindari kebutuhan identitas buku
+    \item menghindari dua sumber status yang dapat berbeda
+    \item menjamin semua kebutuhan aplikasi otomatis terpenuhi
+  \end{enumerate}
+  \item Bukti bahwa model terpisah dari GUI adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item semua class berada di dalam event handler
+    \item setiap method model membuka kotak pesan
+    \item aturan hanya diperiksa ketika tombol ditekan
+    \item operasi peminjaman dapat diperiksa dari terminal tanpa membuka jendela
+  \end{enumerate}
+  \item Cara menyimpan relasi peminjaman dalam JSON adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item menyimpan hasil \texttt{id(object)} sebagai identitas tetap
+    \item menyimpan ID anggota dan kode buku, lalu menghubungkannya kembali saat dimuat
+    \item menyimpan gambar tampilan GUI saja
+    \item menyimpan object Python langsung dengan \texttt{json.dump()} tanpa konversi
+  \end{enumerate}
+  \item Segitiga kosong pada hubungan \texttt{BukuCetak} dengan \texttt{Buku} menunjuk ke \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item object yang dibuat paling akhir
+    \item class turunan \texttt{BukuCetak}
+    \item class yang lebih umum, yaitu \texttt{Buku}
+    \item file JSON
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Uraikan permintaan ``buat aplikasi perpustakaan yang mudah dipakai'' menjadi dua kebutuhan fungsional dan dua kebutuhan kualitas yang dapat diperiksa.
+  \item Jelaskan mengapa petugas, anggota, dan nama anggota tidak otomatis menjadi tiga class yang setara dalam ruang lingkup proyek ini.
+  \item Mengapa riwayat buku memakai multiplicity \texttt{0..*}, padahal sebuah buku hanya boleh memiliki satu peminjaman aktif? Berikan contoh dua transaksi pada waktu berbeda.
+  \item Jelaskan alasan tanggal jatuh tempo disimpan saat transaksi dibuat, sedangkan status aktif dan ketersediaan diturunkan dari data yang sudah ada.
+  \item Jelaskan langkah memuat P001 dari JSON agar rujukan anggota dan bukunya menunjuk object terdaftar yang benar, serta dua keadaan data yang harus ditolak.
+\end{enumerate}
+
+\begin{info}[Cek Jawaban Pilihan Ganda]
+1 b; 2 c; 3 a; 4 d; 5 b; 6 a; 7 c; 8 d; 9 b; 10 c. Cocokkan alasan jawaban Anda dengan kebutuhan, kontrak, dan diagram, terutama jika jawaban benar diperoleh dengan menebak.
+\end{info}
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Hasil praktik pada bab ini berupa dokumen rancangan. Tuliskan keputusan dan alasannya agar dapat dipakai sebagai acuan implementasi, baik oleh Anda sendiri maupun teman satu kelompok.
+
+\subsection{Praktik 1: Melengkapi Dokumen Kebutuhan}
+
+Gunakan studi kasus perpustakaan dari bab ini. Pilih dua kebutuhan dari F01--F06, kemudian lengkapi masing-masing dengan aktor, kondisi awal, masukan, langkah utama, hasil berhasil, dan dua alur penolakan. Salah satu kebutuhan yang dipilih harus berupa peminjaman atau pengembalian.
+
+Untuk setiap alur penolakan, sebutkan data mana yang harus tetap sama. Misalnya, peminjaman kedua yang ditolak tidak boleh menambah riwayat atau mengubah peminjam pada catatan yang masih aktif.
+
+\subsection{Praktik 2: Menilai Dampak Perubahan Aturan}
+
+Perpustakaan ingin menambahkan aturan baru: satu anggota paling banyak mempunyai tiga peminjaman aktif. Aturan ini merupakan pengembangan latihan, belum menjadi batas pada rancangan dasar bab ini.
+
+\begin{langkah}{Langkah Pengerjaan}
+  \item Tambahkan kebutuhan dan kriteria penerimaan untuk batas tiga peminjaman aktif.
+  \item Tentukan class serta method yang perlu memeriksa aturan itu, dan jelaskan data apa yang diperlukannya.
+  \item Jelaskan apakah aturan tersebut membutuhkan class baru. Berikan alasan, bukan hanya menambah class agar diagram tampak lebih lengkap.
+  \item Buat skenario peminjaman ketiga yang berhasil, peminjaman keempat yang ditolak, dan peminjaman baru setelah satu buku dikembalikan.
+  \item Perbarui kontrak atau catatan pada diagram yang terdampak. Tunjukkan bagian rancangan yang tetap dapat digunakan.
+\end{langkah}
+
+\subsection{Praktik 3: Merancang Peminjaman Alat Laboratorium}
+
+Rancang aplikasi peminjaman alat laboratorium dengan petugas sebagai pengguna. Setiap alat memiliki kode dan nama; mahasiswa terdaftar dapat meminjam alat yang tersedia; pengembalian mempertahankan riwayat. Tentukan sendiri dua jenis alat dengan lama pinjam berbeda dan jelaskan alasan perbedaannya.
+
+\begin{itemize}
+  \item Tuliskan ruang lingkup, minimal lima kebutuhan fungsional, tiga kebutuhan kualitas, dan aturan bisnisnya.
+  \item Identifikasi minimal dua contoh object untuk setiap class domain yang direncanakan.
+  \item Susun daftar class, attribute, method, serta kontrak peminjaman dan pengembalian.
+  \item Gambarkan class diagram dengan nama relasi dan multiplicity yang jelas. Gunakan inheritance hanya jika hubungan \emph{is-a} dapat dijelaskan.
+  \item Rancang data JSON yang mempertahankan hubungan antar-object melalui identitas.
+  \item Siapkan minimal enam skenario pemeriksaan, termasuk kegagalan dan simpan--muat data.
+\end{itemize}
+
+\begin{penting}[Kriteria Penilaian]
+\begin{itemize}
+  \item \textbf{Kebutuhan dan aturan, 25\%}: jelas, dapat diperiksa, dan sesuai ruang lingkup.
+  \item \textbf{Identifikasi object, 20\%}: identitas dan keadaan konkret dibedakan dari class serta attribute.
+  \item \textbf{Pembagian tanggung jawab, 20\%}: attribute dan method mendukung kebutuhan tanpa menumpuk semua pekerjaan pada satu class.
+  \item \textbf{Relasi dan diagram, 20\%}: arah generalisasi, kepemilikan, serta multiplicity sesuai dengan penjelasan.
+  \item \textbf{Pemeriksaan rancangan, 15\%}: skenario berhasil, gagal, dan pemuatan data menghasilkan keadaan yang konsisten.
+\end{itemize}
+\end{penting}
+\endgroup

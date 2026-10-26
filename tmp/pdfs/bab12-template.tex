@@ -1,0 +1,570 @@
+\subjudul{Mengubah rancangan menjadi kode yang berjalan.}
+\chapter{Implementasi Aplikasi}
+
+% Penyesuaian listing hanya untuk bab ini; tanda kutip kode tetap lurus.
+\begingroup
+\ifPDFTeX\else
+  \lstset{basicstyle=\ttfamily\small\addfontfeatures{Ligatures=TeXOff}}
+\fi
+
+\begin{dibabini}
+  \item Implementasi class
+  \item Encapsulation
+  \item Inheritance/composition sesuai rancangan
+  \item Polymorphism bila diperlukan
+  \item Module/package
+  \item File handling
+  \item Integrasi antar-class
+\end{dibabini}
+
+Pada Bab 11 kita telah merancang Sistem Peminjaman Perpustakaan: siapa penggunanya, data apa yang diperlukan, dan aturan apa yang harus dijaga. Bab ini mengubah rancangan tersebut menjadi aplikasi Python yang dapat dijalankan melalui terminal. Model dan layanan yang dibuat di sini akan digunakan kembali untuk GUI pada Bab 13.
+
+Kita menggunakan kasus yang sama: satu kode buku mewakili satu eksemplar buku cetak atau satu lisensi e-book. Buku cetak dipinjam selama 14 hari, sedangkan e-book selama 7 hari. Satu buku hanya boleh mempunyai satu peminjaman aktif. Riwayat yang sudah selesai tetap disimpan. Aplikasi digunakan oleh satu petugas pada satu komputer; login, denda, dan akses serentak belum termasuk ruang lingkupnya.
+
+Penerapan class dalam proyek utuh membantu melihat hubungan antara data, aturan, dan pekerjaan pengguna, sebagaimana dibahas dalam proyek terpadu oleh \cite{north2025oop}. Kode dalam bab ini disusun untuk rancangan perpustakaan pada Bab 11, dengan pemisahan komponen agar setiap perilaku dapat diperiksa sebelum dihubungkan ke tampilan \cite{wilson2024design}.
+
+\begin{info}[Capaian Pembelajaran]
+Setelah mempelajari bab ini, Anda diharapkan mampu:
+\begin{itemize}
+  \item menerjemahkan rancangan class dan kontrak method menjadi kode Python;
+  \item menjaga identitas, nilai attribute, dan perubahan status melalui encapsulation;
+  \item menerapkan inheritance dan hubungan antar-object sesuai tanggung jawabnya;
+  \item menggunakan polymorphism untuk variasi perilaku yang memang diperlukan;
+  \item menyusun module dalam package dan menyimpan data beserta relasinya ke JSON;
+  \item mengintegrasikan pendaftaran, peminjaman, pengembalian, serta simpan--muat;
+  \item memeriksa hasil normal dan penolakan transaksi tanpa membuka GUI.
+\end{itemize}
+\end{info}
+
+\begin{penting}[Cara Mengikuti Kode dalam Bab Ini]
+Gunakan Python 3.10 atau yang lebih baru. Seluruh contoh hanya memakai pustaka standar Python. Buat folder proyek baru agar tidak bercampur dengan contoh perpustakaan dari bab sebelumnya. Setiap listing yang berjudul nama file merupakan \textbf{isi lengkap file tersebut}; setiap file hanya perlu dibuat sekali. Listing berjudul \texttt{demo\_...py} adalah pemeriksaan tambahan, bukan bagian yang digabungkan ke \texttt{main.py}.
+
+Lengkapi semua file inti sampai Subbab Integrasi Antar-Class sebelum menjalankan contoh yang mengimpor package \texttt{perpustakaan}. Urutan pembahasan mengikuti konsep; beberapa module yang diimpor baru dituliskan pada subbab berikutnya.
+\end{penting}
+
+% =====================================================================
+\section{Implementasi Class}
+% =====================================================================
+
+\subsection{Menerjemahkan Tanggung Jawab ke Kode}
+
+Class tidak cukup hanya mempunyai attribute yang sama dengan diagram. Method-nya harus memenuhi kontrak: menerima masukan yang sesuai, menjaga aturan, lalu menghasilkan nilai atau exception yang dapat ditangani pemanggil. Pembagian pekerjaan berikut mempertahankan rancangan pada Bab 11.
+
+\begin{table}[htbp]
+\caption{Tanggung jawab komponen pada implementasi.}
+\label{tab:b12-komponen}
+\begin{tabularx}{\linewidth}{P{36mm}L}
+\kepala \kp{Komponen} & \kp{Tanggung jawab} \\
+\texttt{Buku}, turunannya & Menyimpan kode dan judul, menyediakan lama pinjam sesuai jenis buku. \\
+\texttt{Anggota} & Menyimpan ID anggota dan nama yang valid. \\
+\texttt{Peminjaman} & Menghubungkan anggota dengan buku, menyimpan tanggal, dan menyelesaikan satu transaksi. \\
+\texttt{Perpustakaan} & Mendaftarkan object, mencari data, memeriksa ketersediaan, dan mengoordinasikan transaksi serta simpan--muat. \\
+\texttt{PenyimpananJSON} & Membaca dan menulis dictionary melalui file JSON. \\
+\texttt{main.py} & Menerima input terminal dan menampilkan hasil layanan. \\
+\end{tabularx}
+\end{table}
+
+Kode buku dan ID anggota merupakan identitas tetap. Judul dan nama boleh diperbarui, tetapi tidak boleh kosong. Object \texttt{Peminjaman} menyimpan rujukan ke object anggota dan buku yang sudah terdaftar. Saat data disimpan, rujukan tersebut diubah menjadi ID; saat dimuat, hubungan object dibangun kembali.
+
+\subsection{Menyiapkan Exception Aplikasi}
+
+Buat folder \texttt{perpustakaan}, lalu file \texttt{kesalahan.py} di dalamnya. Semua exception khusus mewarisi \texttt{PerpustakaanError}. Dengan demikian, antarmuka dapat menangkap kesalahan aplikasi melalui satu induk, sedangkan pemeriksaan yang lebih khusus tetap dapat membedakan penyebabnya.
+
+\begin{kode}[perpustakaan/kesalahan.py]
+%<file:perpustakaan/kesalahan.py>
+\end{kode}
+
+\texttt{DataTidakValidError} dipakai untuk masukan seperti nama kosong atau tanggal kembali yang terlalu awal. \texttt{DataTidakDitemukanError} berarti ID yang diminta belum terdaftar. \texttt{BukuSedangDipinjamError} dan \texttt{PeminjamanSelesaiError} menyatakan penolakan transaksi. \texttt{DataRusakError} menyatakan isi simpanan tidak dapat dipakai, sedangkan \texttt{PenyimpananError} menyatakan kegagalan membuka atau menulis file.
+
+\subsection{Membuat Model Buku, Anggota, dan Peminjaman}
+
+Buat file \texttt{model.py} dalam folder yang sama. Listing berikut memuat seluruh class domain, termasuk property dan turunan buku yang akan dibahas lebih rinci pada subbab berikutnya. Model tidak memanggil \texttt{input()}, \texttt{print()}, atau komponen GUI; hasilnya dapat dipakai oleh antarmuka yang berbeda.
+
+\begin{kode}[perpustakaan/model.py]
+%<file:perpustakaan/model.py>
+\end{kode}
+
+Fungsi \texttt{teks\_wajib()} memeriksa tipe dan isi teks, kemudian membuang spasi di awal serta akhir. Fungsi \texttt{tanggal\_valid()} memastikan nilai berupa \texttt{date}, bukan teks atau object \texttt{datetime}. Pemeriksaan ini menjaga agar operasi tanggal di model mempunyai arti yang sama. Input dari terminal akan dikonversi dengan \texttt{date.fromisoformat()} sebelum diteruskan ke layanan.
+
+Parameter \texttt{jatuh\_tempo=None} pada constructor \texttt{Peminjaman} mempunyai dua kegunaan. Untuk transaksi baru, nilainya dihitung dari tanggal pinjam ditambah hasil \texttt{buku.lama\_pinjam()}. Saat memuat riwayat dari JSON, pemanggil memberikan tanggal jatuh tempo yang sudah tersimpan. Karena itu, perubahan kebijakan lama pinjam kelak tidak mengubah kesepakatan transaksi lama.
+
+Property \texttt{aktif} dihitung dari \texttt{tanggal\_kembali is None}. Tidak ada attribute boolean kedua yang harus diperbarui bersamaan. Method \texttt{kembalikan()} memeriksa keadaan dan tanggal terlebih dahulu; tanggal kembali baru diisi jika seluruh syarat terpenuhi. Method \texttt{ke\_data()} menyiapkan nilai yang bisa ditulis sebagai JSON, tanpa melakukan pekerjaan file di dalam model.
+
+\begin{tips}[Satu Aturan, Satu Tempat Pemeriksaan]
+Model memeriksa kebenaran satu object. Layanan memeriksa aturan yang melibatkan koleksi object. Misalnya, \texttt{Peminjaman} memeriksa tanggal kembali, tetapi hanya \texttt{Perpustakaan} yang dapat memeriksa apakah buku sudah mempunyai peminjaman aktif lain.
+\end{tips}
+
+% =====================================================================
+\section{Encapsulation}
+% =====================================================================
+
+\subsection{Membatasi Perubahan melalui Antarmuka Object}
+
+Encapsulation pada proyek ini menjaga agar perubahan data mengikuti aturan yang sudah ditetapkan. Property \texttt{kode} dan \texttt{id\_anggota} hanya mempunyai getter sehingga tidak dapat diberi nilai melalui antarmuka publik. Ini diperlukan karena kode dan ID dipakai sebagai kunci dictionary serta penghubung riwayat. Jika identitas berubah sepihak, kunci koleksi dan data object dapat tidak sesuai.
+
+Property \texttt{judul} dan \texttt{nama} mempunyai setter karena keduanya boleh dikoreksi. Setter memanggil validasi sebelum mengisi attribute internal; jika nilai baru ditolak, nilai lama tetap tersimpan. Tanggal dan rujukan pada peminjaman hanya dibaca melalui property. Penyelesaian transaksi dilakukan dengan method \texttt{kembalikan()}, bukan dengan mengisi tanggal kembali secara langsung.
+
+Setelah seluruh file inti tersedia, buat file \texttt{demo\_encapsulation.py} di folder utama proyek. Isi dengan contoh berikut, lalu jalankan melalui terminal.
+
+\begin{keluaran}[Perintah menjalankan demo]
+python demo_encapsulation.py
+\end{keluaran}
+
+\begin{kode}[demo\_encapsulation.py]
+%<file:demo_encapsulation.py>
+\end{kode}
+
+\needspace{11\baselineskip}
+\begin{keluaran}
+[B001] OOP dengan Python
+Ditolak: Judul buku harus berupa teks yang terisi.
+Judul tetap: OOP dengan Python
+Kode hanya dapat dibaca.
+Aktif: True
+Aktif setelah kembali: False
+Ditolak: Peminjaman sudah selesai.
+\end{keluaran}
+
+Judul berhasil berubah karena nilai barunya valid. Percobaan mengisi judul dengan spasi ditolak sebelum \texttt{\_judul} diubah. Pemberian nilai ke \texttt{buku.kode} memicu \texttt{AttributeError} karena property tersebut tidak mempunyai setter. Pemanggilan pengembalian kedua ditolak karena transaksi sudah selesai.
+
+\subsection{Menjaga Koleksi dan Memahami Batasnya}
+
+Layanan menyimpan buku, anggota, dan peminjaman dalam dictionary internal. Method daftar mengembalikan list baru. Menghapus isi list hasil tersebut tidak menghapus catatan di layanan. Namun, object di dalam list masih merupakan object yang sama, sehingga perubahan melalui setter yang sah tetap terlihat pada layanan.
+
+Salinan koleksi tersebut adalah \emph{shallow copy}, bukan salinan mendalam seluruh object. Awalan satu garis bawah juga merupakan konvensi untuk pemakaian internal, bukan mekanisme keamanan. Pemanggil yang sengaja menulis ke \texttt{\_judul} atau koleksi internal dapat melewati aturan. Karena itu, kode antarmuka pada proyek ini selalu memakai property dan method publik yang disediakan.
+
+\begin{penting}[Pembuatan Object dan Transaksi Aplikasi]
+Pembuatan \texttt{Peminjaman} secara langsung pada contoh konsep hanya memeriksa aturan satu catatan. Dalam aplikasi, lakukan peminjaman melalui \texttt{perpus.pinjamkan(...)} agar keberadaan anggota, keberadaan buku, dan larangan peminjaman ganda ikut diperiksa. Demikian juga, lakukan pengembalian melalui layanan agar pemanggil bekerja dengan catatan yang terdaftar.
+\end{penting}
+
+% =====================================================================
+\section{Inheritance/Composition sesuai Rancangan}
+% =====================================================================
+
+\subsection{Inheritance untuk Jenis Buku}
+
+\texttt{BukuCetak} dan \texttt{EBook} merupakan jenis \texttt{Buku}. Keduanya memakai validasi kode, setter judul, method \texttt{ke\_data()}, dan representasi teks yang diwarisi dari induknya. Perbedaannya berada pada nilai \texttt{JENIS} dan implementasi \texttt{lama\_pinjam()}.
+
+Class \texttt{Buku} menggunakan \texttt{ABC} dan \texttt{@abstractmethod}. Kita tidak membuat \texttt{Buku(...)} secara langsung karena lama pinjamnya belum ditentukan. Class turunan yang konkret wajib menyediakan implementasi method abstrak tersebut. Pemilihan inheritance didasarkan pada kesamaan kontrak dan hubungan jenis, sebagaimana pembahasan pemakaian class oleh \cite{lutz2025learning}.
+
+\subsection{Association untuk Rujukan, Composition untuk Catatan Layanan}
+
+\texttt{Peminjaman} bukan turunan \texttt{Anggota} ataupun \texttt{Buku}. Ia menyimpan rujukan ke keduanya melalui attribute internal. Hubungan ini adalah association: satu peminjaman menunjuk satu peminjam dan satu buku, sedangkan object anggota serta buku dapat dipakai oleh banyak catatan sepanjang riwayatnya.
+
+Simpan contoh berikut sebagai \texttt{demo\_relasi.py}. Operator \texttt{is} memeriksa apakah dua rujukan menunjuk object yang sama, bukan sekadar memiliki isi yang sama.
+
+\begin{kode}[demo\_relasi.py]
+%<file:demo_relasi.py>
+\end{kode}
+
+\begin{keluaran}
+BukuCetak adalah Buku: True
+Anggota yang sama: True
+Buku yang sama: True
+Peminjam: Ani Lestari
+\end{keluaran}
+
+Nama baru terlihat melalui \texttt{pinjam.anggota.nama} karena catatan menyimpan rujukan ke object \texttt{ani} yang sama. Nama anggota tidak digandakan di dalam peminjaman. Konsekuensinya, riwayat menampilkan nama anggota terbaru; menyimpan salinan nama pada waktu transaksi merupakan kebutuhan berbeda yang belum diterapkan pada proyek ini.
+
+Dalam rancangan Bab 11, layanan \texttt{Perpustakaan} memiliki catatan peminjamannya sebagai composition. Implementasinya dilakukan dengan membuat \texttt{Peminjaman} di dalam \texttt{pinjamkan()} dan menyimpannya dalam dictionary layanan. Buku dan anggota didaftarkan sebagai object yang sudah dibuat, sesuai hubungan aggregation pada diagram. Composition di sini menyatakan kepemilikan dalam model aplikasi; menutup program tidak berarti menghapus riwayat yang sudah disimpan ke file.
+
+Object penyimpanan diberikan ke constructor layanan. Class \texttt{Perpustakaan} memakainya tanpa mewarisi class file JSON. Pemilihan hubungan ini mengikuti tanggung jawab object: layanan mengelola transaksi, sedangkan object penyimpanan mengurus file.
+
+% =====================================================================
+\section{Polymorphism bila Diperlukan}
+% =====================================================================
+
+Polymorphism diperlukan ketika pemanggil menjalankan operasi yang sama tetapi perilakunya dapat berbeda menurut jenis object. Pada aplikasi ini, perbedaannya nyata: buku cetak mempunyai masa pinjam 14 hari dan e-book 7 hari. Constructor \texttt{Peminjaman} cukup memanggil \texttt{buku.lama\_pinjam()}, tanpa memilih rumus berdasarkan jenis buku.
+
+Simpan dan jalankan \texttt{demo\_polymorphism.py} berikut. Kedua object melewati baris pembuatan peminjaman yang sama, tetapi menghasilkan tanggal jatuh tempo berbeda.
+
+\begin{kode}[demo\_polymorphism.py]
+%<file:demo_polymorphism.py>
+\end{kode}
+
+\begin{keluaran}
+B001 14 hari, jatuh tempo 2026-11-10
+E001 7 hari, jatuh tempo 2026-11-03
+\end{keluaran}
+
+Jika kelak ditambahkan jenis buku lain dengan masa pinjam berbeda, turunan baru menyediakan \texttt{lama\_pinjam()}. Rumus di constructor peminjaman tetap dapat digunakan. Namun, integrasi jenis baru juga memerlukan pembaruan pilihan input dan pemetaan jenis pada pemuatan JSON. Polymorphism mengurangi percabangan pada perhitungan transaksi, bukan menghilangkan seluruh pekerjaan integrasi.
+
+Kontrak \texttt{Penyimpanan} juga memberi peluang polymorphism: layanan memanggil \texttt{muat()} dan \texttt{simpan(data)} tanpa mengetahui cara penulisan file. Bab ini menyediakan satu implementasi, yaitu JSON. Implementasi lain dapat ditambahkan jika kebutuhan memang berubah; tidak perlu membuat banyak class penyimpanan hanya untuk memperbanyak turunan.
+
+% =====================================================================
+\needspace{8\baselineskip}
+\section{Module/Package}
+% =====================================================================
+
+\subsection{Menyusun Folder dan Arah Import}
+
+Module adalah satu file Python, sedangkan package mengelompokkan module yang berkaitan. Pada proyek ini kita memakai package biasa dengan file \texttt{\_\_init\_\_.py}. Struktur akhirnya sebagai berikut. Folder \texttt{data} dan file JSON dibuat ketika penyimpanan pertama berhasil.
+
+\begin{keluaran}[Struktur folder proyek]
+proyek_perpustakaan/
+|-- main.py
+|-- demo_integrasi.py
+|-- demo_encapsulation.py
+|-- demo_relasi.py
+|-- demo_polymorphism.py
+|-- cek_kontrak.py
+|-- perpustakaan/
+|   |-- __init__.py
+|   |-- kesalahan.py
+|   |-- model.py
+|   |-- penyimpanan.py
+|   `-- layanan.py
+`-- data/
+    `-- perpustakaan.json
+\end{keluaran}
+
+\begin{table}[htbp]
+\caption{Isi file dan ketergantungannya.}
+\label{tab:b12-module}
+\begin{tabularx}{\linewidth}{P{34mm}LL}
+\kepala \kp{File} & \kp{Isi} & \kp{Memakai} \\
+\texttt{kesalahan.py} & Exception khusus & Exception bawaan Python \\
+\texttt{model.py} & Class domain dan validasinya & Exception khusus, tanggal, ABC \\
+\texttt{penyimpanan.py} & Kontrak dan adapter JSON & Exception khusus, JSON, path, file sementara \\
+\texttt{layanan.py} & Koordinasi aplikasi & Model, kontrak penyimpanan, exception \\
+\texttt{\_\_init\_\_.py} & Nama publik package & Model, layanan, penyimpanan, exception \\
+\texttt{main.py} & Menu terminal & Nama publik package dan pustaka standar \\
+\end{tabularx}
+\end{table}
+Model tidak mengimpor layanan; penyimpanan tidak mengimpor menu; layanan tidak mengimpor \texttt{main.py}. Arah import tersebut mencegah ketergantungan berputar dan memungkinkan model digunakan kembali ketika menu terminal diganti dengan GUI. Pemisahan komponen berdasarkan pekerjaan yang jelas juga memudahkan pemeriksaan perilaku setiap komponen \cite{wilson2024design}.
+
+\subsection{Menetapkan Antarmuka Package}
+
+Buat \texttt{perpustakaan/\_\_init\_\_.py} dengan isi berikut. File ini menyediakan nama yang paling sering dipakai oleh antarmuka. Exception khusus yang lebih rinci tetap dapat diimpor dari module \texttt{perpustakaan.kesalahan}.
+
+\begin{kode}[perpustakaan/\_\_init\_\_.py]
+%<file:perpustakaan/__init__.py>
+\end{kode}
+
+Tanda titik pada \texttt{from .model import ...} berarti import relatif dari package yang sama. Sebaliknya, \texttt{main.py} memakai \texttt{from perpustakaan import ...} karena berada di luar package. Jalankan aplikasi dari folder \texttt{proyek\_perpustakaan}, bukan dengan menjalankan \texttt{layanan.py} secara langsung.
+
+\begin{keluaran}[Perintah di terminal]
+python main.py
+python demo_integrasi.py
+\end{keluaran}
+
+Jika sistem menyediakan perintah \texttt{python3} atau \texttt{py} untuk interpreter yang digunakan, sesuaikan nama perintahnya. Tidak ada perintah \texttt{pip install} yang diperlukan untuk proyek ini. Import package hanya menyiapkan class; program menu dijalankan oleh blok \texttt{if \_\_name\_\_ == "\_\_main\_\_"} dalam \texttt{main.py}.
+
+% =====================================================================
+\section{File Handling}
+% =====================================================================
+
+\subsection{Mengubah Object Menjadi Data JSON}
+
+JSON tidak menyimpan object Python beserta method dan rujukannya secara langsung. Karena itu, setiap model menyediakan \texttt{ke\_data()} yang menghasilkan dictionary berisi teks, angka, atau \texttt{None}. Tanggal diubah menjadi teks ISO seperti \texttt{2026-10-27}. Nilai \texttt{None} menjadi \texttt{null} di JSON.
+
+Satu data aplikasi memuat \texttt{versi}, nomor peminjaman berikutnya, daftar buku, daftar anggota, dan daftar peminjaman. Penanda versi membuat format yang belum didukung dapat ditolak secara jelas. Nomor berikutnya disimpan agar ID transaksi tetap berlanjut setelah aplikasi ditutup.
+
+\needspace{12\baselineskip}
+\begin{keluaran}[Contoh satu catatan peminjaman dalam JSON]
+{
+  "id_pinjam": "P001",
+  "id_anggota": "M001",
+  "kode_buku": "B001",
+  "tanggal_pinjam": "2026-10-27",
+  "tanggal_jatuh_tempo": "2026-11-10",
+  "tanggal_kembali": null
+}
+\end{keluaran}
+
+Catatan tersebut menyimpan identitas anggota dan buku, bukan salinan object atau hasil \texttt{id()}. Ketika dimuat, buku dan anggota harus dibuat terlebih dahulu. Layanan kemudian mencari object yang sesuai dengan ID pada catatan. Dengan urutan itu, peminjaman kembali terhubung ke object yang terdaftar, bukan ke salinan terpisah.
+
+\subsection{Membuat Adapter Penyimpanan JSON}
+
+Buat \texttt{perpustakaan/penyimpanan.py} berikut. \texttt{Protocol} menyatakan bentuk operasi yang diperlukan layanan. Anotasi tersebut membantu pembacaan kode dan pemeriksaan tipe; Python tidak otomatis memeriksa kepatuhan object pada saat runtime hanya karena parameter diberi anotasi.
+
+\begin{kode}[perpustakaan/penyimpanan.py]
+%<file:perpustakaan/penyimpanan.py>
+\end{kode}
+
+Method \texttt{muat()} bertugas membaca JSON dan memastikan nilai utamanya berupa dictionary. Pemeriksaan makna data, seperti ID anggota yang tidak ditemukan atau dua transaksi aktif untuk satu buku, menjadi tugas layanan. File yang belum ada dibiarkan menghasilkan \texttt{FileNotFoundError}; layanan akan menganggapnya sebagai pemakaian pertama. File yang ada tetapi rusak menghasilkan exception yang berbeda.
+
+Saat menyimpan, program menulis file sementara pada folder yang sama, menutupnya, lalu memanggil \texttt{os.replace()} untuk mengganti file tujuan. Cara ini mengurangi risiko file lama terpotong ketika proses penulisan belum selesai. Pada Windows, file sementara perlu ditutup sebelum diganti. Bagian \texttt{finally} membersihkan file sementara yang tersisa tanpa menutupi penyebab kegagalan utama.
+
+\begin{penting}[Bedakan File Belum Ada dan File Rusak]
+File yang belum ada adalah keadaan wajar pada pemakaian pertama. File rusak harus dilaporkan agar pengguna dapat memeriksa atau memulihkan datanya. Aplikasi terminal pada bab ini berhenti jika pemuatan gagal; aplikasi tidak melanjutkan dengan data kosong lalu menimpa simpanan lama.
+
+Penggantian melalui file sementara bukan sistem pencadangan, bukan pengaturan akses serentak, dan tidak menjamin pemulihan dari setiap gangguan listrik atau kerusakan disk. Proyek ini tetap mengikuti batas satu petugas dan satu proses aplikasi.
+\end{penting}
+
+\subsection{Memuat Data tanpa Mengubah Keadaan Sebagian}
+
+Layanan tidak langsung mengosongkan koleksi ketika mulai memuat file. Ia membuat keadaan sementara, memeriksa seluruh buku, anggota, dan transaksi, lalu mengganti keadaan lama hanya setelah semua data sah. Jika satu rujukan tidak ditemukan atau satu tanggal salah, proses dibatalkan dan keadaan layanan yang lama tetap ada.
+
+Tanggal jatuh tempo dibaca dari file dan diberikan ke constructor peminjaman. Tanggal kembali yang bukan \texttt{null} diterapkan melalui \texttt{kembalikan()} agar pemeriksaan tanggal dan status tetap digunakan. Setelah itu, layanan memeriksa ID peminjaman, larangan dua catatan aktif pada satu buku, serta urutan nomor berikutnya. Implementasi lengkap proses ini berada dalam \texttt{layanan.py} pada subbab berikut.
+
+% =====================================================================
+\section{Integrasi Antar-Class}
+% =====================================================================
+
+\subsection{Menghubungkan Aturan melalui Layanan}
+
+Layanan menjadi pintu masuk operasi aplikasi. Menu tidak mencari sendiri transaksi aktif lalu mengubah attribute peminjaman. Menu memanggil \texttt{pinjamkan()} atau \texttt{kembalikan()} dan menangani hasilnya. Dengan begitu, GUI pada Bab 13 dapat menggunakan aturan yang sama.
+
+Buat \texttt{perpustakaan/layanan.py} dengan isi lengkap berikut. Koleksi buku, anggota, dan peminjaman memakai dictionary dengan identitas sebagai kunci. List untuk tampilan dibuat melalui method daftar. JSON tetap memakai daftar record karena format penyimpanan tidak harus meniru bentuk koleksi internal secara persis.
+
+\begin{kode}[perpustakaan/layanan.py]
+%<file:perpustakaan/layanan.py>
+\end{kode}
+
+Method \texttt{pinjamkan()} mencari anggota dan buku yang terdaftar, memeriksa ketersediaan, lalu membentuk catatan. Penambahan ke dictionary dan kenaikan nomor dilakukan setelah constructor berhasil. Karena itu, permintaan yang ditolak tidak menambah riwayat dan tidak menghabiskan nomor transaksi.
+
+Method \texttt{tersedia()} menghitung status dari peminjaman aktif. Setelah tanggal kembali terisi, catatan tetap berada di dictionary sebagai riwayat, tetapi tidak lagi menghalangi peminjaman berikutnya. Kita tidak perlu menyelaraskan flag \texttt{dipinjam} pada buku dengan flag \texttt{aktif} pada transaksi.
+
+Pada \texttt{muat()}, pemetaan \texttt{jenis\_buku} mengubah penanda \texttt{"cetak"} atau \texttt{"ebook"} menjadi class pembentuk object. Percabangan saat membaca format file berbeda tujuannya dari perhitungan lama pinjam. Setelah object terbentuk, transaksi kembali memakai polymorphism melalui \texttt{lama\_pinjam()}.
+
+\subsection{Membuat Menu Terminal}
+
+Buat \texttt{main.py} di folder utama proyek. Path data dibangun dari lokasi file program, sehingga tidak bergantung pada folder kerja terminal. Menu menerima input, mengubah teks tanggal menjadi \texttt{date}, dan meneruskan pekerjaan ke layanan.
+
+\begin{kode}[main.py]
+%<file:main.py>
+\end{kode}
+
+Jalankan \texttt{python main.py}, lalu daftarkan B001 sebagai buku cetak berjudul Dasar OOP dan M001 sebagai anggota bernama Ani. Gunakan menu Pinjam dengan tanggal \texttt{2026-10-27}. Contoh berikut merupakan cuplikan interaksi; tampilan menu yang berulang tidak dituliskan kembali.
+
+\begin{keluaran}[Cuplikan interaksi terminal]
+Pilihan: 4
+ID anggota: M001
+Kode buku: B001
+Tanggal YYYY-MM-DD: 2026-10-27
+Berhasil: P001 jatuh tempo 2026-11-10
+
+Pilihan: 1
+[B001] Dasar OOP - dipinjam
+
+Pilihan: 0
+Data tersimpan.
+\end{keluaran}
+
+Perubahan selama menu berjalan berada di memori. Pilihan \texttt{0} menyimpan data dan baru keluar jika penyimpanan berhasil. Jika penyimpanan ditolak, program menampilkan pesan dan kembali ke menu sehingga pengguna dapat mencoba lagi. Penghentian dengan Ctrl+C atau berakhirnya input tidak menyimpan perubahan sesi secara otomatis. Buka kembali program untuk memeriksa bahwa data yang berhasil disimpan tetap terbaca.
+
+\subsection{Memeriksa Alur Terpadu secara Berulang}
+
+Menu berguna untuk mencoba aplikasi sebagai pengguna, tetapi pengulangan input manual mudah keliru. Buat \texttt{demo\_integrasi.py} berikut untuk memeriksa satu alur tetap: daftar buku dan anggota, pinjam, tolak peminjaman kedua, kembalikan, pinjam e-book, simpan, lalu muat ulang.
+
+Contoh memakai \texttt{TemporaryDirectory} agar setiap eksekusi dimulai dari keadaan baru. File demo berada di folder sementara dan dibersihkan saat blok selesai; file data milik \texttt{main.py} tidak digunakan.
+
+\begin{kode}[demo\_integrasi.py]
+%<file:demo_integrasi.py>
+\end{kode}
+
+\begin{keluaran}
+Pinjam: P001 jatuh tempo 2026-11-10
+B001 tersedia: False
+Ditolak: Buku masih dipinjam.
+Jumlah riwayat: 1
+Sesudah kembali: True
+E-book jatuh tempo: 2026-11-03
+Dimuat: 2 buku, 2 riwayat
+Status: [('P001', False), ('P002', True)]
+\end{keluaran}
+
+Jumlah riwayat tetap satu setelah percobaan peminjaman ganda, sehingga penolakan tidak membuat catatan tambahan. Setelah P001 dikembalikan, B001 tersedia kembali. Transaksi e-book berikutnya mendapat ID P002 dan jatuh tempo tujuh hari setelah tanggal pinjam. Pemuatan ulang mempertahankan kedua catatan beserta statusnya: P001 selesai, P002 aktif.
+
+\subsection{Memeriksa Kontrak dengan Assertion}
+
+Keluaran membantu pembaca menelusuri alur, tetapi assertion dapat memeriksa syarat secara langsung. Simpan pemeriksaan berikut sebagai \texttt{cek\_kontrak.py} di folder utama. Contoh ini menilai relasi setelah simpan--muat dan memastikan pengembalian yang ditolak tidak mengubah transaksi. Assertion di sini dipakai untuk pengujian; validasi masukan aplikasi tetap menggunakan exception, sebab assertion dapat dinonaktifkan oleh opsi interpreter.
+
+\begin{kode}[cek\_kontrak.py]
+%<file:cek_kontrak.py>
+\end{kode}
+
+\begin{keluaran}
+Kontrak pengembalian, relasi, dan nomor transaksi terpenuhi.
+\end{keluaran}
+
+Pemeriksaan identitas rujukan memakai \texttt{is}: object buku pada transaksi hasil muat harus sama dengan object yang ada di daftar buku layanan hasil muat. Kesamaan judul saja belum membuktikan hubungan tersebut. Pemeriksaan ID P002 memastikan penghitung ikut disimpan, bukan kembali ke satu saat aplikasi dibuka ulang.
+
+\begin{table}[htbp]
+\caption{Skenario tambahan dan hasil yang harus diperiksa.}
+\label{tab:b12-uji}
+\begin{tabularx}{\linewidth}{P{46mm}L}
+\kepala \kp{Percobaan} & \kp{Hasil yang diharapkan} \\
+Kode buku atau ID anggota ganda & Ditolak; object yang sudah terdaftar tetap sama. \\
+Anggota atau buku tidak terdaftar & Ditolak; riwayat dan nomor berikutnya tidak berubah. \\
+Mengembalikan sebelum tanggal pinjam & Ditolak; transaksi tetap aktif. \\
+Mengembalikan transaksi selesai & Ditolak; tanggal kembali sebelumnya tetap tersimpan. \\
+File JSON berisi teks yang tidak sah & Pemuatan gagal dengan pesan; simpanan tidak ditimpa data kosong. \\
+JSON sah tetapi rujukan ID hilang & Pemuatan gagal; keadaan lama di memori tetap utuh. \\
+Dua catatan aktif untuk satu buku & Data ditolak saat dimuat. \\
+Gagal menulis file sementara & Kesalahan penyimpanan dilaporkan; file tujuan lama belum diganti. \\
+\end{tabularx}
+\end{table}
+
+\begin{langkah}{Urutan Pemeriksaan sebelum Membuat GUI}
+  \item Lengkapi file package, \texttt{main.py}, dan file demo pada folder yang benar.
+  \item Jalankan demo konsep dan cocokkan keluarannya dengan contoh pada bab ini.
+  \item Jalankan \texttt{python demo\_integrasi.py} serta \texttt{python cek\_kontrak.py}.
+  \item Coba menu terminal dari data baru, simpan dengan pilihan 0, lalu buka kembali.
+  \item Periksa skenario penolakan. Catat keadaan sebelum dan sesudah operasi yang gagal.
+  \item Gunakan salinan file data untuk mencoba kasus kerusakan JSON atau rujukan ID.
+\end{langkah}
+
+Setelah langkah tersebut terpenuhi, model, layanan, dan penyimpanan sudah dapat dipakai oleh GUI. Pada Bab 13, tombol dan formulir akan menggantikan input menu sambil tetap memanggil operasi layanan yang sama.
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item Implementasi menerjemahkan tanggung jawab dan kontrak rancangan menjadi perilaku yang dapat dijalankan dan diperiksa.
+  \item Property menjaga perubahan data: identitas hanya dibaca, sedangkan judul dan nama diperbarui melalui setter yang melakukan validasi.
+  \item Inheritance dipakai untuk jenis buku; association menghubungkan transaksi dengan anggota serta buku; layanan memiliki kumpulan catatan peminjamannya.
+  \item Polymorphism memungkinkan perhitungan jatuh tempo memanggil operasi yang sama untuk jenis buku yang berbeda.
+  \item Module memisahkan model, exception, penyimpanan, layanan, dan tampilan. Arah import mengikuti tanggung jawab tersebut.
+  \item JSON menyimpan data sederhana serta ID rujukan. Hubungan object dibangun kembali setelah buku dan anggota dimuat.
+  \item Pemuatan divalidasi pada keadaan sementara sebelum mengganti keadaan lama. Penyimpanan menulis file sementara sebelum mengganti file tujuan.
+  \item Aturan lintas-object dijalankan melalui layanan. Kegagalan transaksi tidak boleh meninggalkan perubahan sebagian.
+  \item Pemeriksaan integrasi perlu mencakup hasil normal, penolakan, kelanjutan ID, dan hubungan object setelah simpan--muat.
+\end{itemize}
+
+% =====================================================================
+\needspace{9\baselineskip}
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat berdasarkan implementasi dalam bab ini.
+
+\begin{enumerate}
+  \item Kode buku disediakan sebagai property hanya-baca karena \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item judul buku tidak boleh diubah
+    \item kode menjadi identitas tetap dan kunci koleksi
+    \item semua attribute Python harus tidak dapat diubah
+    \item JSON tidak dapat menyimpan kode berupa teks
+  \end{enumerate}
+  \item Jika setter judul menerima teks berisi spasi saja, hasilnya adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item judul lama dihapus sebelum kesalahan dilaporkan
+    \item judul diganti dengan satu spasi
+    \item exception dilaporkan dan judul lama tetap ada
+    \item object buku otomatis dihapus
+  \end{enumerate}
+  \item Pemanggilan \texttt{buku.lama\_pinjam()} pada constructor peminjaman merupakan contoh \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item polymorphism
+    \item pembacaan file
+    \item duplikasi seluruh object
+    \item penghapusan inheritance
+  \end{enumerate}
+  \item Pemeriksaan bahwa B001 belum mempunyai peminjaman aktif lain dilakukan oleh \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item menu saja
+    \item \texttt{Anggota.info()}
+    \item encoder JSON secara otomatis
+    \item layanan \texttt{Perpustakaan}
+  \end{enumerate}
+  \item Setelah \texttt{daftar\_buku()} menghasilkan list baru, pemanggilan \texttt{clear()} pada list itu akan \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item menghapus semua buku pada layanan
+    \item mengosongkan list hasil tanpa menghapus dictionary layanan
+    \item menghapus file JSON secara otomatis
+    \item mengubah semua kode buku
+  \end{enumerate}
+  \item Cara menyimpan hubungan peminjaman dengan buku dalam JSON adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item menyalin method buku sebagai teks kode
+    \item menyimpan alamat memori Python
+    \item menyimpan kode buku lalu menghubungkannya kembali saat dimuat
+    \item menyimpan hanya judul dan mengabaikan identitas
+  \end{enumerate}
+  \item Alasan memakai keadaan sementara saat pemuatan adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item mencegah kegagalan di tengah pemuatan meninggalkan data lama yang sudah berubah sebagian
+    \item membuat setiap kesalahan selalu diabaikan
+    \item menghindari kebutuhan validasi
+    \item mengganti semua ID dengan \texttt{id()}
+  \end{enumerate}
+  \item Saat buku yang masih dipinjam diminta lagi, nomor berikutnya \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item selalu bertambah dua
+    \item selalu kembali ke satu
+    \item berubah menjadi kode anggota
+    \item tetap karena catatan baru belum berhasil dibuat
+  \end{enumerate}
+  \item Jika JSON ada tetapi tidak dapat dibaca, menu terminal akan \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item menghapusnya tanpa memberi pesan
+    \item melaporkan kegagalan dan berhenti sebelum mengubah simpanan
+    \item otomatis menganggap semua buku tersedia lalu menyimpan
+    \item memuat hanya baris pertama tanpa pemeriksaan
+  \end{enumerate}
+  \item Penyimpanan tanggal jatuh tempo di dalam transaksi bertujuan untuk \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item selalu mengikuti perubahan kebijakan terbaru pada riwayat lama
+    \item mengganti tanggal pinjam setiap kali file dibuka
+    \item mempertahankan kesepakatan jatuh tempo ketika transaksi dibuat
+    \item menghilangkan kebutuhan tanggal kembali
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Jelaskan mengapa validasi tanggal diletakkan pada \texttt{Peminjaman}, sedangkan pemeriksaan buku tersedia diletakkan pada \texttt{Perpustakaan}.
+  \item Telusuri apa yang berubah dan tidak berubah ketika peminjaman kedua untuk buku yang sama ditolak.
+  \item Jelaskan perbedaan inheritance buku dengan association antara peminjaman dan anggota. Gunakan hasil \texttt{demo\_relasi.py} untuk mendukung jawaban.
+  \item Mengapa pemuatan JSON perlu membentuk buku dan anggota sebelum peminjaman? Apa yang harus dilakukan jika ID rujukannya tidak ditemukan?
+  \item Jika ditambahkan \texttt{BukuReferensi} dengan masa pinjam tiga hari, bagian mana yang harus ditambah dan bagian mana yang tetap dapat digunakan? Sertakan pemetaan JSON serta pilihan input dalam jawaban.
+\end{enumerate}
+
+\begin{info}[Kunci Pilihan Ganda]
+1 b; 2 c; 3 a; 4 d; 5 b; 6 c; 7 a; 8 d; 9 b; 10 c.
+\end{info}
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Latihan berikut melanjutkan proyek, bukan mengganti seluruh rancangan. Gunakan salinan proyek dan data khusus latihan. Bentuk latihan dengan syarat serta hasil yang dapat diperiksa membantu pembaca menilai perilaku programnya sendiri, sebagaimana pendekatan latihan pada \cite{edcornerOopExercises}.
+
+\subsection{Praktik 1: Menambah Jenis Buku}
+
+Tambahkan class \texttt{BukuReferensi} dengan penanda jenis \texttt{"referensi"} dan lama pinjam tiga hari. Perbarui ekspor package, pemetaan jenis ketika memuat, serta pilihan input menu. Gunakan seluruh validasi kode dan judul yang sudah tersedia pada induk.
+
+\begin{itemize}
+  \item Hasil wajib: peminjaman pada 27 Oktober 2026 jatuh tempo pada 30 Oktober 2026.
+  \item Simpan, muat ulang, lalu pastikan object kembali menjadi \texttt{BukuReferensi}, bukan \texttt{BukuCetak}.
+  \item Buktikan bahwa rumus pembuatan jatuh tempo pada \texttt{Peminjaman} tidak perlu ditambah percabangan jenis.
+\end{itemize}
+
+\subsection{Praktik 2: Menampilkan Peminjaman Terlambat}
+
+Tambahkan operasi layanan yang menerima tanggal pemeriksaan dan menghasilkan peminjaman yang masih aktif dengan tanggal jatuh tempo \emph{sebelum} tanggal pemeriksaan. Jangan menyimpan flag \texttt{terlambat} tambahan karena status ini bergantung pada tanggal pemeriksaan.
+
+\begin{itemize}
+  \item Hasil wajib: transaksi yang jatuh tempo 10 November belum terlambat pada 10 November, tetapi terlambat pada 11 November jika belum dikembalikan.
+  \item Transaksi selesai tidak ditampilkan, walaupun tanggal pemeriksaan melewati jatuh temponya.
+  \item Tambahkan menu laporan dan uji masukan tanggal yang tidak valid tanpa mengubah riwayat.
+\end{itemize}
+
+\subsection{Praktik 3: Memeriksa Kegagalan Simpan--Muat}
+
+Buat pemeriksaan terpisah menggunakan folder sementara. Siapkan data sah, lalu uji salinan data dengan ID anggota hilang, dua transaksi aktif pada satu buku, nomor berikutnya yang sudah terpakai, dan JSON yang tidak sah. Periksa exception serta keadaan layanan sebelum dan sesudah setiap percobaan.
+
+\begin{itemize}
+  \item Hasil wajib: seluruh data salah ditolak, keadaan lama tetap ada, dan file asli tidak ditimpa oleh data kosong.
+  \item Tambahkan kasus simpan--muat yang berhasil untuk membuktikan bahwa pemeriksaan tidak hanya menolak semua file.
+  \item Catat langkah, hasil yang diharapkan, hasil aktual, dan penyebab jika terjadi perbedaan.
+\end{itemize}
+
+\begin{table}[htbp]
+\caption{Rubrik praktik implementasi.}
+\label{tab:b12-rubrik}
+\begin{tabularx}{\linewidth}{P{39mm}P{16mm}L}
+\kepala \kp{Aspek} & \kp{Bobot} & \kp{Bukti} \\
+Aturan dan hasil operasi & 35\% & Skenario normal serta penolakan menghasilkan keadaan yang tepat. \\
+Pemakaian konsep OOP & 25\% & Tanggung jawab, property, relasi, dan polymorphism sesuai kebutuhan. \\
+Integritas simpan--muat & 25\% & Identitas, relasi, jenis object, tanggal, dan nomor transaksi bertahan. \\
+Keterbacaan dan pemeriksaan & 15\% & File tersusun jelas, hasil bisa diulang, dan laporan menjelaskan perilaku yang diperiksa. \\
+\end{tabularx}
+\end{table}
+\endgroup

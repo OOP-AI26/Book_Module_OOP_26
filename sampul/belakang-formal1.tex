@@ -1,0 +1,94 @@
+% Sampul belakang, versi formal3. Dipanggil dari main.tex lewat \versiSampul.
+% Konsep: latar kertas dan tulang punggung merah seperti sampul depan, kurung kurawal pembuka { di kiri teks,
+% sinopsis, daftar topik bernomor, diagram kelas mini, dan pita marun tipis di bawah.
+% Pasangan di sampul depan: depan-formal3.tex.
+% Digambar lewat hook shipout (bukan remember picture) agar muncul pada kompilasi pertama.
+\clearpage
+\thispagestyle{empty}
+\AddToHookNext{shipout/background}{%
+  \put(0,0){%
+  \begin{tikzpicture}[overlay,shift={(0,-\paperheight)}]
+  \node[inner sep=0pt,outer sep=0pt,anchor=south west,minimum width=\paperwidth,minimum height=\paperheight] (halaman) at (0,0) {};
+
+  % --- Latar kertas ---
+  \fill[kertas] (halaman.south west) rectangle (halaman.north east);
+
+  % --- Pita marun tipis di bawah ---
+  \fill[marun] (halaman.south west) rectangle ([yshift=30mm]halaman.south east);
+  \fill[emas] ([yshift=30mm]halaman.south west) rectangle ([yshift=31.2mm]halaman.south east);
+
+  % --- Tulang punggung merah di kiri (sama dengan sampul depan) ---
+  \fill[merah] (halaman.south west) rectangle ([xshift=14mm]halaman.north west);
+  \fill[emas] ([xshift=14mm]halaman.south west) rectangle ([xshift=15.2mm]halaman.north west);
+  \node[rotate=90,text=emasmuda,font=\capsfont\small,inner sep=0pt]
+    at ([xshift=7mm,yshift=-60mm]halaman.north west) {\jenisBuku};
+
+  % --- Kurung kurawal pembuka ---
+  \node[text=merah,font=\judul\fontsize{330}{330}\selectfont,inner sep=0pt]
+    at ([xshift=40mm,yshift=-92mm]halaman.north west) {\{};
+
+  % --- Blok teks ---
+  \fill[emas] ([xshift=66mm,yshift=-34mm]halaman.north west) rectangle ++(14mm,-1.2pt);
+  \node[anchor=west,text=merah,font=\capsfont\small,inner sep=0pt]
+    at ([xshift=84mm,yshift=-34.2mm]halaman.north west) {Tentang buku};
+  \node[anchor=north west,text=gelap,font=\judul\fontsize{30}{34}\selectfont,align=left,inner sep=0pt,
+        text width=122mm]
+    (judul) at ([xshift=66mm,yshift=-42mm]halaman.north west)
+    {\hyphenpenalty=10000 \exhyphenpenalty=10000 \judulBuku\par};
+  \node[anchor=north west,text=merah,font=\itshape\fontsize{14}{18}\selectfont,align=left,inner sep=0pt,
+        text width=122mm]
+    (sub) at ([yshift=-5mm]judul.south west) {\subJudul};
+  \fill[emas] ([yshift=-8mm]sub.south west) rectangle ++(26mm,-1.2pt);
+  \node[anchor=north west,text=gelap,font=\sffamily\fontsize{10.5}{16}\selectfont,align=left,inner sep=0pt,
+        text width=122mm]
+    (isi) at ([yshift=-14mm]sub.south west)
+    {Buku ini membahas pemrograman berorientasi objek dengan Python secara bertahap, mulai dari pengenalan paradigma,
+     class dan object, hingga prinsip desain dan penerapannya dalam aplikasi.\par\vspace{6pt}
+     Setiap bab dilengkapi penjelasan konsep, contoh kode beserta hasil eksekusinya, studi kasus, dan latihan,
+     serta ditutup dengan pengembangan proyek aplikasi yang memadukan seluruh konsep yang telah dipelajari.};
+
+  % --- Topik bernomor ---
+  \node[anchor=north west,text=merah,font=\capsfont\small,inner sep=0pt]
+    (topik) at ([yshift=-10mm]isi.south west) {Yang dipelajari};
+  \fill[emas] ([yshift=-2.5mm]topik.south west) rectangle ++(14mm,-1.2pt);
+  \node[anchor=north west,text=gelap,font=\sffamily\fontsize{10}{15}\selectfont,align=left,inner sep=0pt]
+    at ([yshift=-6mm]topik.south west)
+    {%
+      \begin{minipage}[t]{60mm}\raggedright
+        {\color{merah}\ttfamily\bfseries 01}\ Class dan object\\
+        {\color{merah}\ttfamily\bfseries 02}\ Encapsulation, decorator\\
+        {\color{merah}\ttfamily\bfseries 03}\ Inheritance\\
+        {\color{merah}\ttfamily\bfseries 04}\ Abstraksi, polymorphism\\
+        {\color{merah}\ttfamily\bfseries 05}\ Relasi antarkelas
+      \end{minipage}\hfill
+      \begin{minipage}[t]{60mm}\raggedright
+        {\color{merah}\ttfamily\bfseries 06}\ Modular programming\\
+        {\color{merah}\ttfamily\bfseries 07}\ Exception handling\\
+        {\color{merah}\ttfamily\bfseries 08}\ File handling\\
+        {\color{merah}\ttfamily\bfseries 09}\ Antarmuka grafis (GUI)\\
+        {\color{merah}\ttfamily\bfseries 10}\ Proyek aplikasi terpadu
+      \end{minipage}%
+    };
+
+  % --- Diagram kelas mini (gema dari sampul depan; satuan 1 mm dari pojok kiri bawah) ---
+  \begin{scope}[shift={(halaman.south west)},x=1mm,y=1mm]
+    \draw[marun,line width=0.7pt] (101,64) |- (127,70) -| (153,64);
+    \draw[-{Triangle[open,length=3mm,width=3mm]},marun,line width=0.7pt,fill=kertas] (127,70) -- (127,80);
+    \foreach \x/\y in {112/80, 86/52, 138/52}{
+      \draw[marun,line width=0.7pt,fill=white] (\x,\y) rectangle ++(30,12);
+      \fill[merahmuda] (\x,\y+9) rectangle ++(30,3);
+      \draw[marun,line width=0.7pt] (\x,\y+9) -- ++(30,0);
+      \draw[marun,line width=0.7pt] (\x,\y+4.5) -- ++(30,0);
+      \fill[emas] (\x+2.5,\y+10) rectangle ++(11,1);
+      \fill[marun!35] (\x+2.5,\y+6.3) rectangle ++(15,0.8);
+      \fill[marun!35] (\x+2.5,\y+1.9) rectangle ++(18,0.8);
+      \draw[marun,line width=0.7pt] (\x,\y) rectangle ++(30,12);
+    }
+  \end{scope}
+
+  % --- Kaki: judul buku dan tahun saja ---
+  \node[anchor=west,text=emasmuda,font=\capsfont\scriptsize,inner sep=0pt]
+    at ([xshift=66mm,yshift=15mm]halaman.south west)
+    {\MakeUppercase{\judulBuku} \quad\textbullet\quad \tahun};
+  \end{tikzpicture}}}
+\mbox{}\clearpage

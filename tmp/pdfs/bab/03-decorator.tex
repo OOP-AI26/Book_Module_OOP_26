@@ -1,0 +1,977 @@
+\subjudul{Method milik class, method yang berdiri sendiri, dan fungsi pembungkus fungsi.}
+\chapter{Class Method, Static Method, dan Decorator}
+
+\begin{dibabini}
+  \item Class method
+  \item Static method
+  \item Decorator
+  \item Custom dan chaining decorator
+  \item \texttt{*args} dan \texttt{**kwargs}
+\end{dibabini}
+
+Semua method yang kita tulis di Bab 1 dan Bab 2 adalah \emph{instance method}: method yang bekerja pada satu object tertentu melalui \texttt{self}. Namun tidak semua perilaku cocok ditempelkan pada satu object. Menghitung jumlah seluruh mahasiswa adalah urusan \emph{class}, bukan urusan satu mahasiswa. Memeriksa apakah sebuah NIM formatnya benar bahkan tidak membutuhkan object maupun class sama sekali.
+
+Untuk kebutuhan seperti itu Python menyediakan \emph{class method} dan \emph{static method}. Keduanya dibuat dengan menuliskan \texttt{@classmethod} atau \texttt{@staticmethod} di atas method. Tanda \texttt{@} itu, yang juga sudah kita pakai pada \texttt{@property} di Bab 2, disebut \emph{decorator}. Pada paruh kedua bab ini kita akan membongkar cara kerja decorator dan membuat decorator sendiri.
+
+% =====================================================================
+\section{Class Method}
+% =====================================================================
+
+\emph{Class method} adalah method yang terikat pada \textbf{class}, bukan pada object. Class method dibuat dengan decorator \texttt{@classmethod}, dan parameter pertamanya bukan \texttt{self} melainkan \texttt{cls}, yaitu rujukan ke class itu sendiri. Melalui \texttt{cls}, class method dapat membaca dan mengubah class attribute, serta membuat object baru dari class tersebut.
+
+\begin{kode}[Class method untuk data milik class]
+class Mahasiswa:
+    kampus = "UNESA"
+    jumlah = 0
+
+    def __init__(self, nama, nim):
+        self.nama = nama
+        self.nim = nim
+        Mahasiswa.jumlah += 1
+
+    @classmethod
+    def info_kelas(cls):
+        return f"{cls.__name__} di {cls.kampus}: {cls.jumlah} orang"
+
+    @classmethod
+    def ganti_kampus(cls, nama_kampus):
+        cls.kampus = nama_kampus
+
+ani = Mahasiswa("Ani", "001")
+budi = Mahasiswa("Budi", "002")
+
+print(Mahasiswa.info_kelas())          # dipanggil lewat class
+Mahasiswa.ganti_kampus("Universitas Negeri Surabaya")
+print(ani.info_kelas())                # lewat object pun, cls tetap class
+\end{kode}
+
+\begin{keluaran}
+Mahasiswa di UNESA: 2 orang
+Mahasiswa di Universitas Negeri Surabaya: 2 orang
+\end{keluaran}
+
+Class method lazimnya dipanggil lewat nama class (\texttt{Mahasiswa.info\_kelas()}), karena memang tidak membutuhkan object. Jika dipanggil lewat object, Python tetap mengirim \emph{class} dari object tersebut sebagai \texttt{cls}.
+
+\subsection{Alternative Constructor}
+
+Kegunaan class method yang paling sering ditemui adalah sebagai \emph{alternative constructor}: cara lain untuk membuat object dari bentuk data yang berbeda. Class hanya boleh punya satu \texttt{\_\_init\_\_}, tetapi boleh punya banyak class method yang masing-masing menerima format masukan berbeda, mengolahnya, lalu memanggil \texttt{cls(\ldots)}.
+
+\begin{kode}[Beberapa cara membuat object Mahasiswa]
+class Mahasiswa:
+    def __init__(self, nama, nim, semester=1):
+        self.nama = nama
+        self.nim = nim
+        self.semester = semester
+
+    @classmethod
+    def dari_teks(cls, teks):
+        nama, nim, semester = teks.split(";")
+        return cls(nama.strip(), nim.strip(), int(semester))
+
+    @classmethod
+    def dari_dict(cls, data):
+        return cls(data["nama"], data["nim"], data.get("semester", 1))
+
+    def __str__(self):
+        return f"{self.nim} {self.nama} (semester {self.semester})"
+
+a = Mahasiswa("Ani", "001", 3)
+b = Mahasiswa.dari_teks("Budi; 002; 5")
+c = Mahasiswa.dari_dict({"nama": "Citra", "nim": "003"})
+
+for mhs in (a, b, c):
+    print(mhs)
+\end{kode}
+
+\begin{keluaran}
+001 Ani (semester 3)
+002 Budi (semester 5)
+003 Citra (semester 1)
+\end{keluaran}
+
+Nama method yang diawali \texttt{dari\_\ldots} (dalam bahasa Inggris biasanya \texttt{from\_\ldots}) membuat maksudnya langsung jelas: ``buat object Mahasiswa dari teks'' atau ``dari dictionary''.
+
+\begin{info}[Alternative Constructor di Python]
+Pola ini banyak dipakai di pustaka bawaan Python. Contohnya \texttt{dict.fromkeys(["a", "b"], 0)} membuat dictionary dari daftar kunci, \texttt{int.from\_bytes(\ldots)} membuat bilangan dari deretan byte, dan \texttt{date.fromisoformat("2026-10-16")} dari modul \texttt{datetime} membuat tanggal dari teks.
+\end{info}
+
+\subsection{Mengapa \texttt{cls} dan Bukan Nama Class?}
+
+Di dalam \texttt{dari\_teks()} kita menulis \texttt{cls(\ldots)}, bukan \texttt{Mahasiswa(\ldots)}. Perbedaannya baru terasa saat ada class turunan (Bab 4). Dengan \texttt{cls}, class method yang diwarisi akan membuat object dari class turunan tersebut, bukan dari class induknya.
+
+\begin{kode}[cls mengikuti class yang memanggil]
+class MahasiswaPascasarjana(Mahasiswa):
+    pass
+
+d = MahasiswaPascasarjana.dari_teks("Dodi; 004; 1")
+print(type(d).__name__)
+\end{kode}
+
+\begin{keluaran}
+MahasiswaPascasarjana
+\end{keluaran}
+
+\begin{penting}[Gunakan \texttt{cls}, Bukan Nama Class]
+Di dalam class method, selalu rujuk class melalui \texttt{cls}. Menuliskan nama class secara langsung, misalnya \texttt{return Mahasiswa(\ldots)}, membuat class turunan diam-diam menghasilkan object dari class yang salah.
+\end{penting}
+
+% =====================================================================
+\section{Static Method}
+% =====================================================================
+
+\emph{Static method} adalah method yang \textbf{tidak menerima} \texttt{self} maupun \texttt{cls}. Static method dibuat dengan decorator \texttt{@staticmethod} dan pada dasarnya adalah fungsi biasa yang ``dititipkan'' di dalam class karena maknanya berkaitan erat dengan class tersebut. Static method tidak bisa membaca atau mengubah attribute apa pun; ia hanya bekerja dengan parameter yang diberikan kepadanya.
+
+Contoh yang pas adalah fungsi pemeriksa format. Memeriksa apakah sebuah teks merupakan NIM yang valid jelas berkaitan dengan class \texttt{Mahasiswa}, tetapi tidak membutuhkan data mahasiswa mana pun.
+
+\begin{kode}[Static method sebagai pemeriksa]
+class Mahasiswa:
+    def __init__(self, nama, nim):
+        self.nama = nama
+        self.nim = nim                 # lewat setter
+
+    @property
+    def nim(self):
+        return self.__nim
+
+    @nim.setter
+    def nim(self, nilai):
+        if not Mahasiswa.nim_valid(nilai):
+            raise ValueError(f"NIM tidak valid: {nilai}")
+        self.__nim = nilai
+
+    @staticmethod
+    def nim_valid(nim):
+        return nim.isdigit() and len(nim) == 11
+
+print(Mahasiswa.nim_valid("24051204084"))   # tanpa membuat object
+print(Mahasiswa.nim_valid("2405-12"))
+mhs = Mahasiswa("Ani", "24051204084")
+print(mhs.nim)
+Mahasiswa("Budi", "123")
+\end{kode}
+
+\begin{keluaran}
+True
+False
+24051204084
+Traceback (most recent call last):
+  ...
+ValueError: NIM tidak valid: 123
+\end{keluaran}
+
+Karena tidak bergantung pada object, \texttt{nim\_valid()} bisa dipakai di mana saja: oleh setter di dalam class, atau oleh kode lain yang ingin memeriksa NIM sebelum membuat object, misalnya form pendaftaran.
+
+Static method juga sering dipakai untuk mengelompokkan fungsi-fungsi utilitas yang saling berkaitan di bawah satu nama.
+
+\begin{kode}[Mengelompokkan fungsi utilitas]
+class KonversiSuhu:
+    @staticmethod
+    def c_ke_f(celsius):
+        return celsius * 9 / 5 + 32
+
+    @staticmethod
+    def f_ke_c(fahrenheit):
+        return (fahrenheit - 32) * 5 / 9
+
+print(KonversiSuhu.c_ke_f(100))
+print(KonversiSuhu.f_ke_c(212))
+\end{kode}
+
+\begin{keluaran}
+212.0
+100.0
+\end{keluaran}
+
+\subsection{Memilih Jenis Method}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    metode/.style={rectangle,fill=merah,text=white,font=\sffamily\small\bfseries,
+      minimum width=38mm,minimum height=11mm,align=center},
+    data/.style={rectangle,draw=marun,line width=0.8pt,fill=merahmuda,text=gelap,
+      font=\sffamily\small,minimum width=46mm,minimum height=13mm,align=center},
+    akses/.style={-{Latex},line width=1pt,emas}]
+  \node[metode] (im) at (0,2.4)  {Instance method\\{\ttfamily\footnotesize\mdseries (self, ...)}};
+  \node[metode] (cm) at (0,0)    {Class method\\{\ttfamily\footnotesize\mdseries (cls, ...)}};
+  \node[metode] (sm) at (0,-2.4) {Static method\\{\ttfamily\footnotesize\mdseries (...)}};
+  \node[data] (obj) at (8.2,2.4) {Data object\\{\footnotesize instance attribute}};
+  \node[data] (kls) at (8.2,0)   {Data class\\{\footnotesize class attribute}};
+  \draw[akses] (im.east) -- (obj.west);
+  \draw[akses] (im.east) -- (kls.west);
+  \draw[akses] (cm.east) -- (kls.west);
+  \node[anchor=west,text=abu,font=\sffamily\small\itshape,align=left] at (sm.east)
+    {\hspace{4mm}hanya memakai parameternya sendiri};
+\end{tikzpicture}
+\caption{Apa yang dapat diakses oleh tiap jenis method.}
+\end{figure}
+
+\begin{table}[htbp]
+\caption{Perbandingan tiga jenis method.}
+\begin{tabularx}{\linewidth}{P{30mm}LLL}
+\kepala \kp{Aspek} & \kp{Instance method} & \kp{Class method} & \kp{Static method} \\
+Decorator & tidak ada & \texttt{@classmethod} & \texttt{@staticmethod} \\
+Parameter pertama & \texttt{self} (object) & \texttt{cls} (class) & tidak ada yang khusus \\
+Akses instance attribute & ya & tidak & tidak \\
+Akses class attribute & ya & ya & tidak \\
+Biasa dipanggil lewat & object & class & class \\
+Contoh kegunaan & \texttt{setor()}, \texttt{info()} & alternative constructor, penghitung & validasi format, konversi \\
+\end{tabularx}
+\end{table}
+
+\begin{tips}[Pertanyaan Penuntun]
+\begin{itemize}
+  \item Apakah method membutuhkan data object tertentu? Gunakan \textbf{instance method}.
+  \item Apakah method hanya membutuhkan class, misalnya untuk membuat object atau mengolah class attribute? Gunakan \textbf{class method}.
+  \item Apakah method tidak membutuhkan keduanya, tetapi maknanya sangat terkait dengan class? Gunakan \textbf{static method}.
+  \item Jika fungsinya tidak terkait erat dengan class mana pun, tulis saja sebagai fungsi biasa di luar class.
+\end{itemize}
+\end{tips}
+
+% =====================================================================
+\section{Konsep Decorator}
+% =====================================================================
+
+\texttt{@property}, \texttt{@classmethod}, dan \texttt{@staticmethod} adalah \emph{decorator bawaan} Python. Decorator adalah fungsi yang menerima sebuah fungsi, lalu mengembalikan fungsi baru yang ``membungkus'' fungsi asli dengan perilaku tambahan, tanpa mengubah kode fungsi asli tersebut. Untuk memahami cara kerjanya, kita perlu dua bekal terlebih dahulu.
+
+\subsection{Bekal 1: Fungsi Adalah Object}
+
+Di Python, fungsi juga merupakan object. Akibatnya, fungsi bisa disimpan ke variabel, dikirim sebagai argumen ke fungsi lain, dan dikembalikan sebagai hasil fungsi.
+
+\begin{kode}[Fungsi diperlakukan seperti data]
+def sapa(nama):
+    return f"Halo, {nama}!"
+
+salam = sapa                    # disimpan ke variabel (tanpa tanda kurung)
+print(salam("Ani"))
+
+def jalankan(fungsi, nilai):    # menerima fungsi sebagai argumen
+    return fungsi(nilai)
+
+print(jalankan(sapa, "Budi"))
+print(jalankan(str.upper, "citra"))
+\end{kode}
+
+\begin{keluaran}
+Halo, Ani!
+Halo, Budi!
+CITRA
+\end{keluaran}
+
+\subsection{Bekal 2: Fungsi di dalam Fungsi dan Closure}
+
+Fungsi boleh didefinisikan di dalam fungsi lain. Fungsi dalam tersebut dapat memakai variabel milik fungsi luar, dan tetap ``mengingatnya'' walaupun fungsi luar sudah selesai dijalankan. Fungsi dalam yang membawa ingatan seperti ini disebut \emph{closure}.
+
+\begin{kode}[Closure]
+def buat_pengali(n):
+    def kali(x):
+        return x * n            # n diingat dari fungsi luar
+    return kali                 # fungsi dikembalikan sebagai hasil
+
+kali_dua = buat_pengali(2)
+kali_tiga = buat_pengali(3)
+print(kali_dua(10), kali_tiga(10))
+\end{kode}
+
+\begin{keluaran}
+20 30
+\end{keluaran}
+
+\subsection{Pola Dasar Decorator}
+
+Dengan dua bekal tersebut, kita bisa menulis decorator pertama: fungsi yang menerima fungsi \texttt{func}, mendefinisikan fungsi dalam \texttt{pembungkus} yang menjalankan kode tambahan di sekitar pemanggilan \texttt{func}, lalu mengembalikan \texttt{pembungkus}.
+
+\begin{kode}[Membungkus fungsi secara manual]
+def dekorator(func):
+    def pembungkus():
+        print(">> sebelum fungsi dijalankan")
+        func()
+        print("<< sesudah fungsi dijalankan")
+    return pembungkus
+
+def halo():
+    print("Halo, dunia!")
+
+halo = dekorator(halo)      # nama halo kini merujuk ke pembungkus
+halo()
+\end{kode}
+
+\begin{keluaran}
+>> sebelum fungsi dijalankan
+Halo, dunia!
+<< sesudah fungsi dijalankan
+\end{keluaran}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small]
+  \fill[merahmuda!45] (0,0) rectangle (7.6,4.4);
+  \draw[merah,line width=1pt,dashed] (0,0) rectangle (7.6,4.4);
+  \node[anchor=north west,text=merah,font=\ttfamily\small\bfseries] at (0.2,4.25) {pembungkus()};
+  \node[text=gelap] (seb) at (3.8,3.15) {kode \emph{sebelum}};
+  \node[rectangle,fill=marun,text=white,font=\ttfamily\small,minimum width=46mm,minimum height=10mm]
+    (asli) at (3.8,2.05) {func()  {\sffamily\itshape (fungsi asli)}};
+  \node[text=gelap] (ses) at (3.8,0.85) {kode \emph{sesudah}};
+  \draw[-{Latex},abu] (seb) -- (asli);
+  \draw[-{Latex},abu] (asli) -- (ses);
+  \draw[-{Latex},line width=1.2pt,emas] (-2.6,2.05) -- node[above,text=gelap]{panggil \texttt{halo()}} (0,2.05);
+  \draw[-{Latex},line width=1.2pt,emas] (7.6,2.05) -- node[above,text=gelap]{hasil} (9.6,2.05);
+\end{tikzpicture}
+\caption{Setelah didekorasi, pemanggilan \texttt{halo()} masuk ke \texttt{pembungkus}, yang menjalankan fungsi asli di antara kode tambahan.}
+\end{figure}
+
+\subsection{Sintaks \texttt{@}}
+
+Menulis \texttt{halo = dekorator(halo)} setiap kali tentu merepotkan. Python menyediakan sintaks singkat: tulis \texttt{@dekorator} tepat di atas definisi fungsi. Kedua cara berikut sepenuhnya setara.
+
+\begin{kode}[Sintaks @]
+@dekorator
+def halo():
+    print("Halo, dunia!")
+
+# sama persis dengan:
+# def halo(): ...
+# halo = dekorator(halo)
+
+halo()
+\end{kode}
+
+\begin{langkah}{Yang Terjadi Saat Python Membaca \texttt{@dekorator}}
+  \item Python mendefinisikan fungsi \texttt{halo} seperti biasa.
+  \item Python memanggil \texttt{dekorator(halo)}. Di dalamnya, fungsi \texttt{pembungkus} dibuat dan mengingat \texttt{halo} asli sebagai \texttt{func}.
+  \item Nilai kembalian, yaitu \texttt{pembungkus}, disimpan dengan nama \texttt{halo}.
+  \item Setiap kali \texttt{halo()} dipanggil, yang sebenarnya berjalan adalah \texttt{pembungkus()}.
+\end{langkah}
+
+\begin{info}[Decorator Dijalankan Sekali]
+Fungsi decorator dijalankan \emph{satu kali}, saat fungsi didefinisikan. Yang dijalankan berulang kali setiap pemanggilan adalah \texttt{pembungkus}.
+\end{info}
+
+% =====================================================================
+\section{Custom Decorator}
+% =====================================================================
+
+Decorator buatan sendiri (\emph{custom decorator}) berguna untuk menambahkan perilaku yang sama ke banyak fungsi tanpa menyalin kode: mencatat pemanggilan, mengukur waktu, memeriksa hak akses, memvalidasi argumen, dan sebagainya. Subbab ini membahas hal-hal yang perlu diperhatikan saat menulisnya.
+
+\subsection{Jangan Lupa Mengembalikan Hasil}
+
+Pembungkus pada contoh sebelumnya memanggil \texttt{func()} tetapi membuang hasilnya. Jika fungsi asli mengembalikan nilai, pembungkus wajib meneruskannya dengan \texttt{return}.
+
+\begin{kode}[Meneruskan nilai kembalian]
+def dekorator(func):
+    def pembungkus():
+        print("memanggil", func.__name__)
+        return func()               # teruskan hasil fungsi asli
+    return pembungkus
+
+@dekorator
+def angka_keberuntungan():
+    return 7
+
+print(angka_keberuntungan())
+\end{kode}
+
+\begin{keluaran}
+memanggil angka_keberuntungan
+7
+\end{keluaran}
+
+\begin{penting}[Pembungkus Tanpa \texttt{return}]
+Jika baris \texttt{return func()} ditulis sebagai \texttt{func()} saja, fungsi yang didekorasi akan selalu mengembalikan \texttt{None}. Kesalahan ini tidak menimbulkan pesan error sehingga sering lolos tanpa disadari.
+\end{penting}
+
+\subsection{Decorator Pengukur Waktu dan \texttt{functools.wraps}}
+
+Contoh berikut mengukur lama sebuah fungsi berjalan. Perhatikan baris \texttt{@wraps(func)} di atas pembungkus.
+
+\begin{kode}[ukur\_waktu.py]
+import time
+from functools import wraps
+
+def ukur_waktu(func):
+    @wraps(func)
+    def pembungkus():
+        mulai = time.perf_counter()
+        hasil = func()
+        selesai = time.perf_counter()
+        print(f"{func.__name__} selesai dalam {selesai - mulai:.2f} detik")
+        return hasil
+    return pembungkus
+
+@ukur_waktu
+def proses_berat():
+    """Mensimulasikan proses yang lama."""
+    time.sleep(0.5)
+    return "selesai"
+
+print(proses_berat())
+print(proses_berat.__name__, "-", proses_berat.__doc__)
+\end{kode}
+
+\begin{keluaran}
+proses_berat selesai dalam 0.50 detik
+selesai
+proses_berat - Mensimulasikan proses yang lama.
+\end{keluaran}
+
+Tanpa \texttt{@wraps(func)}, baris terakhir akan mencetak \texttt{pembungkus - None}, karena nama \texttt{proses\_berat} kini merujuk ke fungsi \texttt{pembungkus} yang tidak punya docstring. Decorator \texttt{wraps} dari modul \texttt{functools} menyalin identitas fungsi asli (nama, docstring, dan informasi lain) ke pembungkus, sehingga fungsi yang didekorasi tetap ``mengaku'' sebagai dirinya sendiri. Hal ini penting untuk \texttt{help()}, pesan error, dan alat bantu debugging.
+
+\begin{tips}[Biasakan \texttt{@wraps}]
+Jadikan \texttt{@wraps(func)} kebiasaan di setiap decorator yang Anda tulis. Mulai sekarang semua contoh di buku ini memakainya.
+\end{tips}
+
+\subsection{Decorator dengan Argumen}
+
+Kadang decorator perlu diatur, misalnya ``ulangi fungsi ini sebanyak \emph{n} kali''. Caranya adalah menambah satu lapisan fungsi lagi: fungsi terluar menerima argumen pengaturan dan mengembalikan decorator.
+
+\begin{kode}[Decorator yang menerima argumen]
+from functools import wraps
+
+def ulangi(kali):                  # lapisan 1: menerima argumen
+    def dekorator(func):           # lapisan 2: decorator biasa
+        @wraps(func)
+        def pembungkus():          # lapisan 3: pembungkus
+            for _ in range(kali):
+                func()
+        return pembungkus
+    return dekorator
+
+@ulangi(3)
+def yel():
+    print("Semangat!")
+
+yel()
+\end{kode}
+
+\begin{keluaran}
+Semangat!
+Semangat!
+Semangat!
+\end{keluaran}
+
+Baris \texttt{@ulangi(3)} dibaca dalam dua tahap: \texttt{ulangi(3)} dijalankan lebih dulu dan menghasilkan \texttt{dekorator}, kemudian \texttt{dekorator} itulah yang dipakai untuk membungkus \texttt{yel}. Dengan kata lain, \texttt{yel = ulangi(3)(yel)}.
+
+% =====================================================================
+\section{Chaining Decorator}
+% =====================================================================
+
+Satu fungsi boleh diberi lebih dari satu decorator dengan menumpuknya. Teknik ini disebut \emph{chaining} (merangkai) decorator.
+
+\begin{kode}[Dua decorator bertumpuk]
+from functools import wraps
+
+def tebal(func):
+    @wraps(func)
+    def pembungkus():
+        return "<b>" + func() + "</b>"
+    return pembungkus
+
+def miring(func):
+    @wraps(func)
+    def pembungkus():
+        return "<i>" + func() + "</i>"
+    return pembungkus
+
+@tebal
+@miring
+def teks():
+    return "Halo"
+
+print(teks())
+\end{kode}
+
+\begin{keluaran}
+<b><i>Halo</i></b>
+\end{keluaran}
+
+Tumpukan decorator dipasang \textbf{dari bawah ke atas}: decorator yang paling dekat dengan fungsi dipasang lebih dulu. Jadi kode di atas setara dengan \texttt{teks = tebal(miring(teks))}. Jika urutannya ditukar menjadi \texttt{@miring} di atas \texttt{@tebal}, hasilnya berubah menjadi \texttt{<i><b>Halo</b></i>}.
+
+\subsection{Urutan Eksekusi}
+
+Saat fungsi dipanggil, urutannya berkebalikan dengan urutan pemasangan: eksekusi masuk dari decorator \textbf{paling atas} (lapisan terluar) menuju fungsi inti, lalu keluar kembali melewati lapisan-lapisan yang sama dalam urutan terbalik. Contoh berikut memperlihatkannya dengan jelas.
+
+\begin{kode}[Melacak urutan masuk dan keluar]
+from functools import wraps
+
+def lapisan(nama):
+    def dekorator(func):
+        @wraps(func)
+        def pembungkus():
+            print(f"masuk  {nama}")
+            hasil = func()
+            print(f"keluar {nama}")
+            return hasil
+        return pembungkus
+    return dekorator
+
+@lapisan("A")
+@lapisan("B")
+def inti():
+    print("    inti dijalankan")
+
+inti()
+\end{kode}
+
+\begin{keluaran}
+masuk  A
+masuk  B
+    inti dijalankan
+keluar B
+keluar A
+\end{keluaran}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small]
+  \fill[merahmuda!45] (0,0) rectangle (9,4.2);
+  \draw[merah,line width=0.8pt] (0,0) rectangle (9,4.2);
+  \node[anchor=north west,text=merah,font=\ttfamily\small\bfseries] at (0.15,4.1) {@lapisan("A")  \sffamily\mdseries\itshape lapisan terluar};
+  \fill[merahmuda] (0.8,0.45) rectangle (8.2,3.35);
+  \draw[merah,line width=0.8pt] (0.8,0.45) rectangle (8.2,3.35);
+  \node[anchor=north west,text=merah,font=\ttfamily\small\bfseries] at (0.95,3.25) {@lapisan("B")};
+  \node[rectangle,fill=marun,text=white,font=\ttfamily\small,minimum width=50mm,minimum height=10mm] at (4.5,1.5) {inti()};
+  \draw[-{Latex},line width=1.2pt,emas] (-0.7,4.0) -- node[sloped,above,text=gelap]{masuk} (-0.7,1.0);
+  \draw[-{Latex},line width=1.2pt,emas] (9.7,1.0) -- node[sloped,above,text=gelap]{keluar} (9.7,4.0);
+\end{tikzpicture}
+\caption{Decorator bertumpuk bekerja seperti lapisan bawang: pemanggilan menembus lapisan dari luar ke dalam, lalu hasilnya kembali dari dalam ke luar.}
+\end{figure}
+
+\begin{tips}[Urutan Itu Penting]
+Saat merangkai decorator, tanyakan: ``pemeriksaan atau perilaku mana yang harus terjadi lebih dulu?''. Misalnya, decorator yang memeriksa hak akses sebaiknya diletakkan paling atas agar pengguna tanpa izin langsung ditolak sebelum decorator lain (misalnya pencatat log) sempat bekerja.
+\end{tips}
+
+% =====================================================================
+\section{\texttt{*args} dan \texttt{**kwargs} pada Decorator}
+% =====================================================================
+
+Semua pembungkus yang kita tulis sejauh ini tidak menerima parameter, sehingga hanya bisa dipakai untuk fungsi tanpa parameter. Padahal decorator yang baik harus bisa membungkus fungsi \emph{apa pun}. Kuncinya adalah \texttt{*args} dan \texttt{**kwargs}.
+
+\subsection{Mengenal \texttt{*args} dan \texttt{**kwargs}}
+
+Pada definisi fungsi, \texttt{*args} mengumpulkan semua argumen posisi yang tersisa menjadi sebuah \emph{tuple}, sedangkan \texttt{**kwargs} mengumpulkan semua argumen kata kunci yang tersisa menjadi sebuah \emph{dictionary}. Nama \texttt{args} dan \texttt{kwargs} hanyalah kebiasaan; yang penting adalah tanda bintangnya.
+
+\begin{kode}[Mengumpulkan argumen]
+def jumlahkan(*args):
+    print(args)
+    return sum(args)
+
+def profil(**kwargs):
+    print(kwargs)
+
+def campur(a, *args, **kwargs):
+    print(a, args, kwargs)
+
+print(jumlahkan(1, 2, 3))
+profil(nama="Ani", umur=20)
+campur(1, 2, 3, x=4, y=5)
+\end{kode}
+
+\begin{keluaran}
+(1, 2, 3)
+6
+{'nama': 'Ani', 'umur': 20}
+1 (2, 3) {'x': 4, 'y': 5}
+\end{keluaran}
+
+Tanda bintang juga bisa dipakai ke arah sebaliknya saat \emph{memanggil} fungsi: \texttt{*} membongkar list atau tuple menjadi argumen posisi, dan \texttt{**} membongkar dictionary menjadi argumen kata kunci.
+
+\begin{table}[htbp]
+\caption{Arti tanda bintang di dua tempat.}
+\begin{tabularx}{\linewidth}{P{24mm}LL}
+\kepala \kp{Tanda} & \kp{Pada definisi fungsi} & \kp{Pada pemanggilan fungsi} \\
+\texttt{*} & \texttt{def f(*args)}: kumpulkan argumen posisi menjadi tuple & \texttt{f(*daftar)}: bongkar list/tuple menjadi argumen posisi \\
+\texttt{**} & \texttt{def f(**kwargs)}: kumpulkan argumen kata kunci menjadi dictionary & \texttt{f(**data)}: bongkar dictionary menjadi argumen kata kunci \\
+\end{tabularx}
+\end{table}
+
+\subsection{Masalah: Pembungkus Tanpa Parameter}
+
+\begin{kode}[Decorator lama pada fungsi berparameter]
+def dekorator(func):
+    def pembungkus():
+        print("memanggil", func.__name__)
+        return func()
+    return pembungkus
+
+@dekorator
+def tambah(a, b):
+    return a + b
+
+print(tambah(2, 3))
+\end{kode}
+
+\begin{keluaran}
+Traceback (most recent call last):
+  ...
+TypeError: dekorator.<locals>.pembungkus() takes 0 positional arguments but 2 were given
+\end{keluaran}
+
+Argumen \texttt{2} dan \texttt{3} dikirim ke \texttt{pembungkus}, bukan ke \texttt{tambah}, dan \texttt{pembungkus} tidak menerima parameter apa pun.
+
+\subsection{Solusi: Terima Apa Saja, Teruskan Apa Saja}
+
+Pembungkus cukup menerima \texttt{*args, **kwargs}, lalu meneruskannya utuh ke fungsi asli dengan \texttt{func(*args, **kwargs)}. Dengan pola ini, satu decorator dapat membungkus fungsi dengan jumlah dan jenis parameter berapa pun.
+
+\begin{kode}[Decorator umum]
+from functools import wraps
+
+def catat(func):
+    @wraps(func)
+    def pembungkus(*args, **kwargs):
+        print(f"memanggil {func.__name__} args={args} kwargs={kwargs}")
+        hasil = func(*args, **kwargs)
+        print(f"{func.__name__} mengembalikan {hasil!r}")
+        return hasil
+    return pembungkus
+
+@catat
+def tambah(a, b):
+    return a + b
+
+@catat
+def sapa(nama, salam="Halo"):
+    return f"{salam}, {nama}!"
+
+tambah(2, 3)
+sapa("Ani", salam="Selamat pagi")
+\end{kode}
+
+\begin{keluaran}
+memanggil tambah args=(2, 3) kwargs={}
+tambah mengembalikan 5
+memanggil sapa args=('Ani',) kwargs={'salam': 'Selamat pagi'}
+sapa mengembalikan 'Selamat pagi, Ani!'
+\end{keluaran}
+
+\begin{info}[Kerangka Decorator Siap Pakai]
+Hampir semua decorator mengikuti kerangka yang sama. Simpan kerangka ini dan isi bagian ``sebelum'' dan ``sesudah'' sesuai kebutuhan.
+\end{info}
+
+\begin{kode}[Kerangka decorator]
+from functools import wraps
+
+def nama_decorator(func):
+    @wraps(func)
+    def pembungkus(*args, **kwargs):
+        # ... kode sebelum ...
+        hasil = func(*args, **kwargs)
+        # ... kode sesudah ...
+        return hasil
+    return pembungkus
+\end{kode}
+
+\subsection{Decorator pada Method Class}
+
+Decorator juga bisa dipasang pada method. Saat method dipanggil, \texttt{self} ikut dikirim sebagai argumen posisi pertama, sehingga ia ikut tertampung di \texttt{*args}. Jika decorator perlu memakai \texttt{self} atau argumen tertentu, parameter tersebut boleh ditulis eksplisit sebelum \texttt{*args}.
+
+Sebagai penutup bab, kita rapikan kembali class \texttt{Rekening}. Di Bab 2, pemeriksaan ``jumlah harus lebih dari nol'' ditulis berulang di \texttt{setor()} dan \texttt{tarik()}. Kini pemeriksaan itu dan pencatatan riwayat kita pindahkan ke decorator, sementara class method dan static method mengisi peran masing-masing.
+
+\begin{kode}[rekening.py]
+from functools import wraps
+
+def wajib_positif(func):
+    @wraps(func)
+    def pembungkus(self, jumlah, *args, **kwargs):
+        if jumlah <= 0:
+            raise ValueError(f"{func.__name__}: jumlah harus lebih dari nol.")
+        return func(self, jumlah, *args, **kwargs)
+    return pembungkus
+
+def catat_transaksi(func):
+    @wraps(func)
+    def pembungkus(self, *args, **kwargs):
+        hasil = func(self, *args, **kwargs)
+        self._riwayat.append((func.__name__, *args))
+        return hasil
+    return pembungkus
+
+
+class Rekening:
+    BIAYA_ADMIN = 2500
+
+    def __init__(self, pemilik, saldo=0):
+        self.pemilik = pemilik
+        self._saldo = saldo
+        self._riwayat = []
+
+    @classmethod
+    def dari_teks(cls, teks):                 # alternative constructor
+        pemilik, saldo = teks.split(";")
+        return cls(pemilik.strip(), int(saldo))
+
+    @staticmethod
+    def rupiah(angka):                        # utilitas format
+        return f"Rp{angka:,}".replace(",", ".")
+
+    @property
+    def saldo(self):
+        return self._saldo
+
+    @property
+    def riwayat(self):
+        return list(self._riwayat)
+
+    @catat_transaksi
+    @wajib_positif
+    def setor(self, jumlah):
+        self._saldo += jumlah
+
+    @catat_transaksi
+    @wajib_positif
+    def tarik(self, jumlah):
+        total = jumlah + Rekening.BIAYA_ADMIN
+        if total > self._saldo:
+            raise ValueError("Saldo tidak mencukupi.")
+        self._saldo -= total
+
+    def __str__(self):
+        return f"{self.pemilik}: {Rekening.rupiah(self.saldo)}"
+
+
+rek = Rekening.dari_teks("Ani; 100000")
+rek.setor(50000)
+rek.tarik(20000)
+print(rek)
+print(rek.riwayat)
+rek.setor(-5000)
+\end{kode}
+
+\begin{keluaran}
+Ani: Rp127.500
+[('setor', 50000), ('tarik', 20000)]
+Traceback (most recent call last):
+  ...
+ValueError: setor: jumlah harus lebih dari nol.
+\end{keluaran}
+
+Ada beberapa hal yang patut diperhatikan dari studi kasus ini:
+
+\begin{itemize}
+  \item \texttt{@wajib\_positif} diletakkan \emph{di bawah} \texttt{@catat\_transaksi}. Karena eksekusi masuk dari atas, \texttt{catat\_transaksi} memanggil \texttt{wajib\_positif} terlebih dahulu, dan pencatatan baru dilakukan \emph{setelah} transaksi berhasil. Setoran $-5000$ ditolak dan tidak pernah masuk riwayat.
+  \item Logika validasi dan pencatatan kini ditulis sekali saja, lalu dipakai ulang oleh dua method.
+  \item \texttt{dari\_teks()} adalah class method karena tugasnya membuat object; \texttt{rupiah()} adalah static method karena hanya memformat angka tanpa memerlukan data rekening.
+\end{itemize}
+
+\begin{penting}[Mengapa \texttt{\_riwayat}, Bukan \texttt{\_\_riwayat}?]
+Decorator \texttt{catat\_transaksi} ditulis \emph{di luar} class. Ingat dari Bab 2 bahwa name mangling hanya terjadi untuk kode yang ditulis di dalam class. Seandainya attribute bernama \texttt{\_\_riwayat}, ia tersimpan sebagai \texttt{\_Rekening\_\_riwayat}, dan decorator yang mencari \texttt{self.\_\_riwayat} akan gagal dengan \texttt{AttributeError}. Karena itu attribute yang perlu diakses decorator memakai satu garis bawah (protected).
+\end{penting}
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item \textbf{Class method} (\texttt{@classmethod}) menerima \texttt{cls} dan bekerja pada tingkat class: mengolah class attribute dan menjadi \emph{alternative constructor}. Selalu buat object dengan \texttt{cls(\ldots)} agar ramah terhadap class turunan.
+  \item \textbf{Static method} (\texttt{@staticmethod}) tidak menerima \texttt{self} maupun \texttt{cls}; cocok untuk utilitas yang terkait erat dengan class, seperti validasi format atau konversi.
+  \item Fungsi di Python adalah object: bisa disimpan ke variabel, dikirim sebagai argumen, dan dikembalikan. Fungsi dalam yang mengingat variabel fungsi luar disebut \textbf{closure}.
+  \item \textbf{Decorator} adalah fungsi yang menerima fungsi dan mengembalikan pembungkusnya. \texttt{@dekorator} di atas fungsi \texttt{f} setara dengan \texttt{f = dekorator(f)}.
+  \item Pembungkus harus meneruskan nilai kembalian (\texttt{return func(\ldots)}) dan sebaiknya diberi \texttt{@wraps(func)} agar identitas fungsi asli terjaga.
+  \item Decorator dengan argumen membutuhkan satu lapisan fungsi tambahan: \texttt{@ulangi(3)} setara dengan \texttt{f = ulangi(3)(f)}.
+  \item Pada \textbf{chaining}, decorator dipasang dari bawah ke atas, tetapi dieksekusi dari atas (lapisan luar) ke dalam, lalu keluar kembali.
+  \item Pembungkus yang menerima \texttt{*args, **kwargs} dan meneruskannya dengan \texttt{func(*args, **kwargs)} dapat membungkus fungsi dan method apa pun.
+\end{itemize}
+
+% =====================================================================
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat.
+
+\begin{enumerate}
+  \item Parameter pertama yang diterima sebuah class method adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{self}, yaitu object pemanggil
+    \item \texttt{cls}, yaitu class itu sendiri
+    \item \texttt{args}, yaitu tuple argumen
+    \item tidak ada parameter khusus
+  \end{enumerate}
+
+  \item Sebuah method hanya mengubah teks menjadi format rupiah dan tidak membutuhkan data object maupun class. Jenis method yang paling tepat adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item instance method
+    \item class method
+    \item static method
+    \item property
+  \end{enumerate}
+
+  \item Kegunaan class method yang paling umum adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item mengubah instance attribute satu object
+    \item menyediakan cara alternatif untuk membuat object
+    \item menyembunyikan attribute dengan name mangling
+    \item mempercepat eksekusi method
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 4]
+class Toko:
+    cabang = 0
+
+    def __init__(self):
+        Toko.cabang += 1
+
+    @classmethod
+    def total(cls):
+        return cls.cabang
+
+Toko(); Toko(); Toko()
+print(Toko.total())
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{0}
+    \item \texttt{1}
+    \item \texttt{3}
+    \item \texttt{TypeError}
+  \end{enumerate}
+
+  \item Penulisan \texttt{@log} di atas definisi fungsi \texttt{hitung} setara dengan \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{log = hitung(log)}
+    \item \texttt{hitung = log(hitung)}
+    \item \texttt{hitung = log()}
+    \item \texttt{log(hitung())}
+  \end{enumerate}
+
+  \item Fungsi dalam yang tetap mengingat variabel milik fungsi luarnya disebut \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item closure
+    \item constructor
+    \item generator
+    \item mangling
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 7]
+def kurung(func):
+    def pembungkus():
+        return "(" + func() + ")"
+    return pembungkus
+
+def bintang(func):
+    def pembungkus():
+        return "*" + func() + "*"
+    return pembungkus
+
+@bintang
+@kurung
+def kata():
+    return "OOP"
+
+print(kata())
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{(*OOP*)}
+    \item \texttt{*(OOP)*}
+    \item \texttt{*OOP*}
+    \item \texttt{(OOP)}
+  \end{enumerate}
+
+  \item Sebuah decorator memiliki pembungkus yang memanggil \texttt{func(*args, **kwargs)} tanpa \texttt{return}. Fungsi \texttt{luas(4, 5)} yang semula mengembalikan \texttt{20} kini mengembalikan \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{20}
+    \item \texttt{0}
+    \item \texttt{None}
+    \item \texttt{TypeError}
+  \end{enumerate}
+
+  \item Fungsi utama \texttt{functools.wraps} pada decorator adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item mempercepat pemanggilan fungsi
+    \item menyalin nama dan docstring fungsi asli ke pembungkus
+    \item mengizinkan decorator menerima argumen
+    \item mencegah fungsi dipanggil lebih dari sekali
+  \end{enumerate}
+
+  \item Pada pembungkus \texttt{def pembungkus(*args, **kwargs)}, pemanggilan \texttt{f(1, 2, x=3)} membuat nilai \texttt{args} dan \texttt{kwargs} berturut-turut menjadi \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{[1, 2]} dan \texttt{\{'x': 3\}}
+    \item \texttt{(1, 2, 3)} dan \texttt{\{\}}
+    \item \texttt{(1, 2)} dan \texttt{\{'x': 3\}}
+    \item \texttt{(1, 2)} dan \texttt{('x', 3)}
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Jelaskan perbedaan instance method, class method, dan static method dari segi parameter pertama dan data yang dapat diaksesnya. Berikan satu contoh kegunaan masing-masing pada class \texttt{Produk}.
+  \item Mengapa di dalam alternative constructor sebaiknya ditulis \texttt{cls(\ldots)} dan bukan nama class secara langsung? Jelaskan dengan contoh class turunan.
+  \item Jelaskan langkah-langkah yang terjadi ketika Python membaca kode \texttt{@ukur\_waktu} di atas definisi sebuah fungsi, dan apa yang sebenarnya dijalankan ketika fungsi itu dipanggil.
+  \item Dua decorator, \texttt{@cek\_login} dan \texttt{@catat\_log}, akan dipasang pada fungsi \texttt{hapus\_data()}. Tentukan urutan penumpukan yang tepat agar pengguna yang belum login tidak tercatat di log, dan jelaskan alasannya.
+  \item Mengapa pembungkus pada decorator sebaiknya menerima \texttt{*args, **kwargs}? Apa yang terjadi jika decorator dengan pembungkus tanpa parameter dipasang pada method sebuah class?
+\end{enumerate}
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Kerjakan praktik berikut secara berurutan. Simpan setiap praktik dalam file \texttt{.py} terpisah, jalankan, dan pastikan keluarannya sesuai dengan contoh.
+
+\subsection{Praktik 1: Durasi}
+
+Buat class \texttt{Durasi} yang menyimpan lama waktu dalam satuan detik.
+
+\begin{itemize}
+  \item Constructor menerima \texttt{jam}, \texttt{menit}, dan \texttt{detik}, lalu menyimpannya sebagai total detik.
+  \item Class method \texttt{dari\_detik(total)} untuk membuat durasi dari jumlah detik.
+  \item Class method \texttt{dari\_teks(teks)} untuk membuat durasi dari teks berformat \texttt{"JJ:MM:DD"}. Tolak teks yang formatnya salah dengan \texttt{ValueError}, memakai static method di bawah.
+  \item Static method \texttt{format\_valid(teks)} yang mengembalikan \texttt{True} jika teks terdiri dari tiga bagian angka yang dipisah titik dua, dengan menit dan detik di bawah 60.
+  \item Method \texttt{\_\_str\_\_} yang menampilkan durasi dalam format \texttt{JJ:MM:DD}, serta method \texttt{tambah(lain)} yang mengembalikan object \texttt{Durasi} baru hasil penjumlahan.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 1]
+01:30:15
+00:01:40
+02:05:00
+01:31:55
+False
+ValueError: Format durasi tidak valid: 1:75:00
+\end{keluaran}
+
+\subsection{Praktik 2: Koleksi Decorator}
+
+Buat tiga decorator berikut dalam satu file. Semuanya wajib memakai \texttt{@wraps} dan \texttt{*args, **kwargs}.
+
+\begin{enumerate}
+  \item \texttt{@hitung\_panggilan}: mencetak berapa kali fungsi sudah dipanggil setiap kali fungsi itu dijalankan.
+  \item \texttt{@batasi(n)}: decorator dengan argumen yang hanya mengizinkan fungsi dipanggil sebanyak \emph{n} kali. Pemanggilan berikutnya mencetak pesan penolakan dan mengembalikan \texttt{None}.
+  \item \texttt{@huruf\_besar}: mengubah hasil fungsi (yang berupa string) menjadi huruf kapital.
+\end{enumerate}
+
+Uji ketiganya, termasuk merangkai \texttt{@batasi(2)} dan \texttt{@huruf\_besar} pada satu fungsi \texttt{sapa(nama)}. Coba kedua urutan penumpukan dan jelaskan dalam komentar apakah hasilnya berbeda.
+
+\begin{keluaran}[Contoh keluaran Praktik 2]
+[hitung] tambah dipanggil ke-1
+5
+[hitung] tambah dipanggil ke-2
+9
+HALO, ANI!
+HALO, BUDI!
+[batasi] sapa sudah dipanggil 2 kali, permintaan ditolak.
+None
+\end{keluaran}
+
+\subsection{Praktik 3: Toko dengan Decorator}
+
+Lanjutkan class \texttt{Produk} dari Praktik Mandiri Bab 2, lalu tambahkan fitur berikut.
+
+\begin{langkah}{Langkah Pengerjaan}
+  \item Tambahkan class method \texttt{dari\_baris\_csv(baris)} yang membuat produk dari teks seperti \texttt{"P-01,Buku Tulis,5000,40"}.
+  \item Tambahkan static method \texttt{rupiah(angka)} untuk menampilkan harga dengan format \texttt{Rp5.000}, dan pakai di \texttt{\_\_str\_\_}.
+  \item Tulis decorator \texttt{@wajib\_positif} untuk memeriksa argumen \texttt{jumlah} pada method \texttt{jual()} dan \texttt{tambah\_stok()}, lalu hapus pemeriksaan serupa dari dalam kedua method tersebut.
+  \item Tulis decorator \texttt{@catat} yang menyimpan setiap transaksi berhasil ke attribute protected \texttt{\_log}, lalu rangkai dengan \texttt{@wajib\_positif} pada urutan yang benar.
+  \item Buat minimal tiga produk dari daftar baris CSV menggunakan perulangan, lakukan beberapa transaksi (termasuk yang gagal), lalu tampilkan isi log.
+\end{langkah}
+
+\begin{penting}[Kriteria Penilaian]
+\begin{itemize}
+  \item Ketepatan pemilihan jenis method (instance, class, atau static) untuk setiap kebutuhan.
+  \item Decorator memakai \texttt{@wraps} dan \texttt{*args, **kwargs}, serta meneruskan nilai kembalian.
+  \item Urutan chaining decorator tepat: transaksi yang gagal tidak tercatat di log.
+  \item Tidak ada logika validasi yang ditulis berulang di beberapa method.
+\end{itemize}
+\end{penting}

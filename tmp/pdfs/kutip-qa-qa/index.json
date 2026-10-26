@@ -1,0 +1,1 @@
+[{"page":1,"text":"QA  \"B001\"  Kutip   lurus  1   print (\"B001\")  2   print ('Ani')  3   class   Buku:  4   def   info(self):  5   return   \"Halo\"  6   print (\"selesai\")  1"}]

@@ -1,0 +1,59 @@
+% Sampul belakang, versi santai. Dipanggil dari main.tex lewat \versiSampul.
+\clearpage
+\thispagestyle{empty}
+\begin{tikzpicture}[remember picture,overlay]
+  \fill[marun] (current page.south west) rectangle (current page.north east);
+  \node[text=merah,font=\judul\fontsize{470}{470}\selectfont,inner sep=0pt]
+    at ([xshift=14mm]current page.west) {\{};
+  \draw[emas,line width=0.6pt] ([xshift=10mm,yshift=10mm]current page.south west) rectangle ([xshift=-10mm,yshift=-10mm]current page.north east);
+  \node at ([yshift=50mm]current page.center) {\includegraphics[width=34mm]{\logoFile}};
+  \node[text=white,font=\judul\fontsize{40}{44}\selectfont,align=center] at ([yshift=12mm]current page.center) {Semua adalah object.\\Termasuk kamu.};
+  \fill[emas] ([xshift=-15mm,yshift=-10mm]current page.center) rectangle ++(30mm,-2pt);
+  \node[anchor=north,text=emasmuda,font=\itshape\large,align=center,text width=120mm] at ([yshift=-18mm]current page.center) {Pernah menulis kode yang makin lama makin mirip mi kusut? Buku ini mengajakmu merapikannya dengan cara berpikir berorientasi objek: dari class pertamamu, encapsulation, inheritance, dan polymorphism, sampai membangun aplikasi lengkap dengan GUI. Setiap bab punya kode yang bisa langsung dijalankan, ilustrasi, kuis, dan praktik mandiri. Siapkan kopi, buka editor, dan selamat ngoding!};
+  % Taburan kode samar
+  \begin{scope}[every node/.style={text=white,text opacity=0.14,font=\ttfamily\bfseries,inner sep=0pt}]
+    \node[rotate=6,font=\ttfamily\bfseries\fontsize{20}{20}\selectfont]  at ([xshift=48mm,yshift=-34mm]current page.north west) {self};
+    \node[rotate=-5,font=\ttfamily\bfseries\fontsize{14}{14}\selectfont] at ([xshift=150mm,yshift=-28mm]current page.north west) {@dataclass};
+    \node[rotate=-3,font=\ttfamily\bfseries\fontsize{13}{13}\selectfont] at ([xshift=160mm,yshift=-64mm]current page.north west) {def \_\_str\_\_(self):};
+    \node[rotate=4,font=\ttfamily\bfseries\fontsize{15}{15}\selectfont]  at ([xshift=30mm,yshift=104mm]current page.south west) {super()};
+    \node[rotate=-4,font=\ttfamily\bfseries\fontsize{13}{13}\selectfont] at ([xshift=170mm,yshift=36mm]current page.south west) {@abstractmethod};
+  \end{scope}
+  % ===== Ornamen tambahan sampul belakang =====
+  \begin{scope}[shift={(current page.south west)},x=1mm,y=1mm]
+    \foreach \i in {2,...,28}
+      \foreach \j in {2,...,40}
+        \fill[white,opacity=0.06] (\i*7,\j*7) circle (0.35);
+    \begin{scope}[every node/.style={text=white,text opacity=0.14,font=\ttfamily\bfseries\fontsize{11}{11}\selectfont,inner sep=0pt}]
+      \node[rotate=-6] at (40,232) {@property};
+      \node[rotate=5]  at (36,40)  {\_\_init\_\_};
+      \node[rotate=-4] at (184,136) {cls};
+      \node[rotate=4]  at (176,206) {return self};
+      \node[rotate=-3] at (34,180) {\# TODO};
+    \end{scope}
+    % Kartu kode di atas
+    \node[fill=kodebg,text=kodeteks,font=\ttfamily\scriptsize,align=left,inner xsep=3.5mm,inner ysep=3mm] (kk) at (105,250)
+      {\textcolor{emas}{class} Kamu(Mahasiswa):\\
+       \quad\textcolor{emas}{def} \_\_init\_\_(self):\\
+       \quad\quad super().\_\_init\_\_()\\
+       \quad\quad self.semangat = \textcolor{kodestring}{100}};
+    \node[anchor=south west,fill=merah,text=white,font=\ttfamily\scriptsize\bfseries,inner xsep=5pt,inner ysep=2.5pt] at (kk.north west) {kamu.py};
+    % Bilah kemajuan
+    \node[anchor=east,text=emasmuda,font=\ttfamily\scriptsize] at (73,68) {belajar\_oop};
+    \draw[emasmuda,line width=0.6pt] (75,66.4) rectangle (135,69.6);
+    \fill[emas] (75,66.4) rectangle (123,69.6);
+    \node[anchor=west,text=emasmuda,font=\ttfamily\scriptsize] at (137,68) {80\%};
+    % Kilau kecil
+    \foreach \x/\y/\r in {150/255/2, 192/160/1.6, 184/188/2, 140/45/1.6} {
+      \fill[emasmuda] (\x,\y+\r) -- (\x+0.28*\r,\y+0.28*\r) -- (\x+\r,\y) -- (\x+0.28*\r,\y-0.28*\r)
+        -- (\x,\y-\r) -- (\x-0.28*\r,\y-0.28*\r) -- (\x-\r,\y) -- (\x-0.28*\r,\y+0.28*\r) -- cycle;
+    }
+  \end{scope}
+  % Lelucon REPL
+  \node[fill=kodebg,text=kodeteks,font=\ttfamily\small,align=left,inner xsep=4mm,inner ysep=3mm]
+    at ([yshift=48mm]current page.south)
+    {\textcolor{kodekomen}{\textgreater\kern0pt\textgreater\kern0pt\textgreater} isinstance(\textcolor{emas}{kamu}, object)\\\textcolor{kodestring}{True}};
+  \node[text=emasmuda,font=\capsfont\scriptsize] at ([yshift=20mm]current page.south) {\MakeUppercase{\judulBuku} \quad\textbullet\quad \universitas \quad\textbullet\quad \tahun};
+\end{tikzpicture}
+
+
+

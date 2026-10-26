@@ -1,0 +1,855 @@
+\subjudul{Mengatur siapa yang boleh melihat dan mengubah data di dalam objek.}
+\chapter{Visibility dan Encapsulation}
+
+\begin{dibabini}
+  \item Visibility property
+  \item Encapsulation
+  \item Public, protected, private
+  \item Name mangling
+  \item Validasi lewat property
+\end{dibabini}
+
+Di akhir Bab 1 kita membuat class \texttt{Rekening} yang menolak penarikan jika saldo tidak mencukupi. Aturan itu dijaga oleh method \texttt{tarik()}. Namun ada celah besar: siapa pun tetap bisa menulis \texttt{rek.saldo = -999} dari luar class, dan aturan yang sudah kita buat dengan susah payah terlewati begitu saja.
+
+Bab ini membahas cara menutup celah tersebut. Kita akan mengenal \emph{visibility}, yaitu tingkat keterlihatan attribute dan method, lalu menerapkan prinsip \emph{encapsulation} agar data di dalam object hanya bisa diubah melalui jalur yang sudah kita kendalikan. Di akhir bab, kita memakai fitur \emph{property} milik Python untuk memvalidasi data dengan sintaks yang tetap ringkas.
+
+% =====================================================================
+\section{Visibility Property}
+% =====================================================================
+
+\emph{Visibility} (keterlihatan) menentukan \textbf{dari mana} sebuah attribute atau method boleh diakses. Ada tiga ``wilayah'' yang biasanya dibedakan:
+
+\begin{itemize}
+  \item \textbf{di dalam class itu sendiri}, yaitu oleh method-method milik class;
+  \item \textbf{di dalam class turunan} (\emph{subclass}), yang akan dibahas di Bab 4;
+  \item \textbf{di luar class}, yaitu kode lain yang memakai object tersebut.
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small]
+  \fill[merahmuda!35] (0,0) rectangle (12,5.6);
+  \draw[merah,line width=0.8pt] (0,0) rectangle (12,5.6);
+  \node[anchor=north west,text=merah,font=\sffamily\small\bfseries] at (0.2,5.45) {Kode di luar class};
+  \node[anchor=north east,text=gelap] at (11.8,5.45) {boleh memakai: \texttt{nama}};
+  \fill[merahmuda] (0.7,0.45) rectangle (11.3,4.6);
+  \draw[merah,line width=0.8pt] (0.7,0.45) rectangle (11.3,4.6);
+  \node[anchor=north west,text=merah,font=\sffamily\small\bfseries] at (0.9,4.45) {Class turunan};
+  \node[anchor=north east,text=gelap] at (11.1,4.45) {boleh memakai: \texttt{nama}, \texttt{\_nama}};
+  \fill[marun] (1.4,0.9) rectangle (10.6,3.55);
+  \node[anchor=north west,text=emasmuda,font=\sffamily\small\bfseries] at (1.6,3.4) {Class itu sendiri};
+  \node[text=white] at (6,2.0) {boleh memakai: \texttt{nama}, \texttt{\_nama}, \texttt{\_\_nama}};
+\end{tikzpicture}
+\caption{Tiga wilayah akses. Semakin ke dalam, semakin banyak nama yang boleh dipakai.}
+\end{figure}
+
+Bahasa seperti Java dan C++ memakai kata kunci khusus (\texttt{public}, \texttt{protected}, \texttt{private}) dan kompilatornya benar-benar menolak akses yang melanggar. Python mengambil pendekatan berbeda. Python tidak punya kata kunci visibility; yang ada adalah \textbf{konvensi penamaan} berupa garis bawah di depan nama.
+
+\begin{table}[htbp]
+\caption{Visibility di Java/C++ dan di Python.}
+\begin{tabularx}{\linewidth}{P{26mm}P{40mm}L}
+\kepala \kp{Tingkat} & \kp{Java/C++} & \kp{Python} \\
+Public & kata kunci \texttt{public} & nama biasa: \texttt{saldo} \\
+Protected & kata kunci \texttt{protected} & satu garis bawah: \texttt{\_saldo} \\
+Private & kata kunci \texttt{private} & dua garis bawah: \texttt{\_\_saldo} \\
+Penegakan & dipaksa oleh kompilator & sebagian besar berupa kesepakatan antarprogrammer \\
+\end{tabularx}
+\end{table}
+
+\begin{info}[``We Are All Consenting Adults'']
+Komunitas Python punya semboyan ``kita semua orang dewasa yang saling sepakat''. Artinya, Python memercayai programmer untuk menghormati tanda garis bawah, alih-alih memasang pagar yang tidak bisa ditembus. Tanda \texttt{\_} dan \texttt{\_\_} adalah pesan: \emph{``ini urusan internal, jangan disentuh dari luar''}.
+\end{info}
+
+% =====================================================================
+\section{Konsep Encapsulation}
+% =====================================================================
+
+\emph{Encapsulation} (enkapsulasi) adalah salah satu pilar utama OOP. Konsep ini memiliki dua sisi:
+
+\begin{enumerate}
+  \item \textbf{Pembungkusan}: data (attribute) dan perilaku yang mengolahnya (method) disatukan di dalam satu class.
+  \item \textbf{Penyembunyian informasi} (\emph{information hiding}): detail internal class disembunyikan, dan dunia luar hanya berinteraksi melalui antarmuka (\emph{interface}) yang disediakan, yaitu method-method publik.
+\end{enumerate}
+
+Bayangkan mesin ATM. Kita bisa menarik uang, mengecek saldo, dan mentransfer melalui tombol-tombol yang tersedia. Kita tidak bisa membuka mesin lalu mengambil uang langsung dari brankasnya. Tombol-tombol itu adalah antarmuka publik; brankas dan mekanisme di dalamnya adalah detail internal yang disembunyikan. Setiap transaksi wajib melewati tombol, sehingga aturan seperti ``saldo harus cukup'' selalu diperiksa.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    metode/.style={rectangle,fill=merah,text=white,font=\ttfamily\small\bfseries,minimum width=22mm,minimum height=8mm}]
+  \fill[merahmuda!45] (0,0) rectangle (8,4.6);
+  \draw[merah,line width=1pt] (0,0) rectangle (8,4.6);
+  \node[anchor=south east,text=merah,font=\ttfamily\small\bfseries] at (7.85,0.15) {object rek};
+  \node[rectangle,fill=marun,text=white,align=center,minimum width=38mm,minimum height=16mm] (data) at (5,2.1)
+    {\textbf{data private}\\[2pt]\texttt{\_\_saldo}\\\texttt{\_\_riwayat}};
+  \node[metode] (m1) at (0,3.5) {setor()};
+  \node[metode] (m2) at (0,2.1) {tarik()};
+  \node[metode] (m3) at (0,0.7) {saldo};
+  \node[rectangle,draw=marun,line width=0.8pt,fill=white,align=center,minimum width=24mm,minimum height=12mm] (luar) at (-4.4,2.1)
+    {kode di\\luar class};
+  \foreach \m in {m1,m2,m3} {
+    \draw[-{Latex},line width=1pt,emas] (luar.east) -- (\m.west);
+    \draw[-{Latex},abu,dashed] (\m.east) -- (data.west);
+  }
+  \draw[-{Latex},line width=1pt,merah,dashed] (luar.north) |- node[pos=0.75,above,text=merah,font=\sffamily\footnotesize]{akses langsung ke data} (5,5.5) -- (data.north);
+  \draw[merah,line width=2.2pt] (4.72,4.32) -- (5.28,4.88) (4.72,4.88) -- (5.28,4.32);
+\end{tikzpicture}
+\caption{Encapsulation: kode luar hanya berinteraksi lewat antarmuka publik (merah) yang memeriksa aturan; akses langsung ke data private ditolak.}
+\end{figure}
+
+\subsection{Implementasi Encapsulation}
+
+\begin{kode}[Rekening tanpa encapsulation]
+class Rekening:
+    def __init__(self, pemilik, saldo=0):
+        self.pemilik = pemilik
+        self.saldo = saldo
+
+    def tarik(self, jumlah):
+        if jumlah > self.saldo:
+            print("Saldo tidak mencukupi.")
+        else:
+            self.saldo -= jumlah
+
+rek = Rekening("Ani", 100000)
+rek.tarik(500000)      # ditolak oleh method
+rek.saldo = -999       # ...tetapi saldo bisa diubah langsung
+rek.saldo -= 500000    # dan aturan dilewati begitu saja
+print(rek.saldo)
+\end{kode}
+
+\begin{keluaran}
+Saldo tidak mencukupi.
+-500999
+\end{keluaran}
+
+Method \texttt{tarik()} sudah bekerja dengan benar, tetapi tidak ada gunanya jika data bisa diubah tanpa melewatinya. Encapsulation memastikan perubahan data \emph{hanya} terjadi melalui method yang sudah memeriksa aturan.
+
+\subsection{Manfaat Encapsulation}
+
+\begin{itemize}
+  \item \textbf{Integritas data}: keadaan object selalu valid karena setiap perubahan diperiksa.
+  \item \textbf{Kemudahan perubahan}: cara penyimpanan data di dalam class boleh diganti tanpa mengubah kode lain yang memakai class tersebut, selama antarmuka publiknya tetap sama.
+  \item \textbf{Kemudahan pemakaian}: pengguna class cukup mengetahui method publik, tanpa perlu memahami detail di dalamnya.
+  \item \textbf{Kemudahan pelacakan kesalahan}: jika data menjadi salah, sumbernya hanya bisa berasal dari sedikit method, bukan dari seluruh program.
+\end{itemize}
+
+% =====================================================================
+\section{Public, Protected, dan Private secara Konseptual}
+% =====================================================================
+
+Python mengenal tiga tingkat visibility yang dibedakan dari awalan nama.
+
+\subsection{Public}
+
+Nama tanpa awalan garis bawah, misalnya \texttt{username}, bersifat \emph{public}: boleh dibaca, diubah, dan dipanggil dari mana saja. Semua attribute dan method yang kita tulis di Bab 1 bersifat public.
+
+\subsection{Protected}
+
+Nama dengan satu garis bawah, misalnya \texttt{\_email}, bersifat \emph{protected}. Maknanya: ``attribute ini untuk keperluan internal class dan turunannya''. Python \textbf{tidak} melarang akses dari luar; tanda ini murni kesepakatan. Editor dan alat pemeriksa kode (\emph{linter}) biasanya memberi peringatan jika kita mengaksesnya dari luar class.
+
+\subsection{Private}
+
+Nama dengan dua garis bawah di depan, misalnya \texttt{\_\_password}, bersifat \emph{private}: hanya untuk dipakai di dalam class itu sendiri. Berbeda dengan protected, Python benar-benar mempersulit akses dari luar melalui mekanisme \emph{name mangling} (dibahas di subbab berikutnya), sehingga akses biasa akan gagal.
+
+\begin{kode}[Tiga tingkat visibility]
+class Akun:
+    def __init__(self, username, email, password):
+        self.username = username       # public
+        self._email = email            # protected
+        self.__password = password     # private
+
+    def cek_password(self, teks):
+        # di dalam class, attribute private boleh diakses
+        return teks == self.__password
+
+akun = Akun("ani24", "ani@mail.com", "rahasia123")
+print(akun.username)
+print(akun._email)                     # bisa, tetapi melanggar kesepakatan
+print(akun.cek_password("rahasia123"))
+print(akun.__password)                 # gagal
+\end{kode}
+
+\begin{keluaran}
+ani24
+ani@mail.com
+True
+Traceback (most recent call last):
+  ...
+AttributeError: 'Akun' object has no attribute '__password'. Did you mean: 'cek_password'?
+\end{keluaran}
+
+Aturan yang sama berlaku untuk method. Method pembantu yang hanya dipakai di dalam class sebaiknya diberi awalan garis bawah, misalnya \texttt{\_format\_tanggal()} atau \texttt{\_\_enkripsi()}.
+
+\begin{table}[htbp]
+\caption{Ringkasan tingkat visibility di Python.}
+\begin{tabularx}{\linewidth}{P{22mm}P{24mm}P{22mm}P{22mm}L}
+\kepala \kp{Tingkat} & \kp{Contoh nama} & \kp{Dalam class} & \kp{Dari luar} & \kp{Kapan dipakai} \\
+Public & \texttt{nama} & boleh & boleh & antarmuka yang memang disediakan untuk pengguna class \\
+Protected & \texttt{\_nama} & boleh & bisa, tetapi tidak dianjurkan & detail internal yang mungkin dipakai class turunan \\
+Private & \texttt{\_\_nama} & boleh & gagal dengan cara biasa & detail internal yang benar-benar milik class itu saja \\
+\end{tabularx}
+\end{table}
+
+\begin{tips}[Protected atau Private?]
+Dalam praktik sehari-hari, banyak programmer Python lebih sering memakai satu garis bawah (\texttt{\_nama}) untuk menandai data internal, dan memakai dua garis bawah hanya bila perlu menghindari bentrok nama dengan class turunan. Di buku ini kita memakai \texttt{\_\_nama} untuk data yang wajib dilindungi agar efek name mangling terlihat jelas saat belajar.
+\end{tips}
+
+% =====================================================================
+\section{Name Mangling}
+% =====================================================================
+
+Mengapa \texttt{akun.\_\_password} gagal diakses padahal attribute itu jelas dibuat di \texttt{\_\_init\_\_}? Jawabannya adalah \emph{name mangling}: setiap nama di dalam class yang diawali dua garis bawah (dan tidak diakhiri dua garis bawah) otomatis diubah Python menjadi \texttt{\_NamaClass\_\_nama}.
+
+\begin{kode}[Melihat hasil name mangling]
+class Rekening:
+    def __init__(self, saldo):
+        self.__saldo = saldo
+
+rek = Rekening(100000)
+print(rek.__dict__)
+print(rek._Rekening__saldo)     # nama aslinya setelah di-mangle
+\end{kode}
+
+\begin{keluaran}
+{'_Rekening__saldo': 100000}
+100000
+\end{keluaran}
+
+Attribute \texttt{\_\_saldo} sebenarnya tersimpan dengan nama \texttt{\_Rekening\_\_saldo}. Di dalam class, Python menerjemahkan \texttt{self.\_\_saldo} ke nama tersebut secara otomatis, sehingga method-method class tetap bisa memakainya dengan normal. Dari luar class, penerjemahan itu tidak terjadi, sehingga \texttt{rek.\_\_saldo} tidak ditemukan.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    kd/.style={rectangle,draw=marun,line width=0.8pt,fill=merahmuda,font=\ttfamily\small,minimum height=8mm,inner xsep=3mm},
+    lbl/.style={font=\sffamily\footnotesize,text=abu}]
+  \node[kd] (c1) at (0,1.3) {self.\_\_saldo};
+  \node[lbl,anchor=south] at (c1.north) {di dalam class};
+  \node[kd] (c2) at (6.2,1.3) {self.\_Rekening\_\_saldo};
+  \node[kd] (d1) at (0,-1.3) {rek.\_\_saldo};
+  \node[lbl,anchor=north] at (d1.south) {di luar class};
+  \node[kd] (d2) at (6.2,-1.3) {rek.\_\_saldo};
+  \node[rectangle,fill=marun,text=white,align=left,minimum height=34mm,text width=36mm,inner sep=3mm] (dict) at (11.9,0)
+    {\textbf{isi \_\_dict\_\_}\\[4pt]\ttfamily '\_Rekening\_\_saldo':\\ 100000};
+  \draw[-{Latex},line width=1pt,emas] (c1) -- node[above,font=\sffamily\footnotesize]{diterjemahkan} (c2);
+  \draw[-{Latex},line width=1pt,emas] (c2.east) -- (dict.west |- c2.east);
+  \draw[-{Latex},line width=1pt,abu] (d1) -- node[above,font=\sffamily\footnotesize]{tetap apa adanya} (d2);
+  \draw[-{Latex},line width=1pt,merah,dashed] (d2.east) -- (dict.west |- d2.east);
+  \draw[merah,line width=2pt] ($(d2.east)!0.5!(dict.west |- d2.east)+(-0.22,-0.22)$) -- ++(0.44,0.44)
+                              ($(d2.east)!0.5!(dict.west |- d2.east)+(-0.22,0.22)$) -- ++(0.44,-0.44);
+  \node[font=\sffamily\footnotesize,text=merah,anchor=north] at ($(d2.east)!0.5!(dict.west |- d2.east)+(0,-0.3)$) {tidak ditemukan};
+\end{tikzpicture}
+\caption{Name mangling hanya terjadi untuk kode yang ditulis di dalam class.}
+\end{figure}
+
+\begin{penting}[Name Mangling Bukan Fitur Keamanan]
+Seperti terlihat di atas, data private masih bisa dibaca lewat \texttt{rek.\_Rekening\_\_saldo}. Name mangling hanya mencegah akses \emph{tidak sengaja}, bukan akses yang disengaja. Jangan pernah mengandalkannya untuk menyembunyikan data rahasia seperti password; data semacam itu harus dilindungi dengan cara lain, misalnya enkripsi.
+\end{penting}
+
+\subsection{Jebakan: Menulis \texttt{\_\_nama} dari Luar Class}
+
+Karena penerjemahan hanya terjadi di dalam class, memberi nilai ke \texttt{rek.\_\_saldo} dari luar \textbf{tidak} mengubah saldo. Python justru membuat attribute baru bernama \texttt{\_\_saldo} apa adanya.
+
+\begin{kode}[Attribute baru, bukan mengubah yang private]
+rek.__saldo = 0
+print(rek.__dict__)
+\end{kode}
+
+\begin{keluaran}
+{'_Rekening__saldo': 100000, '__saldo': 0}
+\end{keluaran}
+
+\subsection{Tujuan Sebenarnya: Mencegah Bentrok Nama}
+
+Name mangling dirancang untuk melindungi attribute sebuah class agar tidak tertimpa secara tidak sengaja oleh class turunannya. Contoh berikut memakai pewarisan yang baru akan dibahas tuntas di Bab 4; cukup perhatikan bahwa class \texttt{Anak} dibangun di atas class \texttt{Induk}.
+
+\begin{kode}[Dua attribute private dengan nama sama]
+class Induk:
+    def __init__(self):
+        self.__kode = "INDUK"
+
+    def kode_induk(self):
+        return self.__kode
+
+class Anak(Induk):
+    def __init__(self):
+        super().__init__()
+        self.__kode = "ANAK"
+
+    def kode_anak(self):
+        return self.__kode
+
+a = Anak()
+print(a.kode_induk(), a.kode_anak())
+print(a.__dict__)
+\end{kode}
+
+\begin{keluaran}
+INDUK ANAK
+{'_Induk__kode': 'INDUK', '_Anak__kode': 'ANAK'}
+\end{keluaran}
+
+Karena di-mangle menjadi \texttt{\_Induk\_\_kode} dan \texttt{\_Anak\_\_kode}, kedua attribute hidup berdampingan tanpa saling menimpa. Seandainya kita memakai satu garis bawah (\texttt{\_kode}), nilai milik \texttt{Induk} akan tertimpa menjadi \texttt{"ANAK"}.
+
+\begin{info}[Yang Tidak Di-mangle]
+Nama yang diawali \emph{dan} diakhiri dua garis bawah, seperti \texttt{\_\_init\_\_} dan \texttt{\_\_str\_\_}, tidak terkena name mangling. Nama-nama ini adalah \emph{dunder method} milik Python dan memang harus bisa dipanggil dengan nama aslinya.
+\end{info}
+
+% =====================================================================
+\section{Pengendalian Akses Attribute}
+% =====================================================================
+
+Setelah attribute dijadikan private, dunia luar tidak bisa lagi membacanya maupun mengubahnya secara langsung. Kita perlu menyediakan jalur resmi. Cara klasik yang juga dipakai di banyak bahasa lain adalah \emph{getter} dan \emph{setter}:
+
+\begin{itemize}
+  \item \textbf{Getter}: method untuk membaca nilai, biasanya bernama \texttt{get\_nama()}.
+  \item \textbf{Setter}: method untuk mengubah nilai sekaligus memvalidasinya, biasanya bernama \texttt{set\_nama(nilai)}.
+\end{itemize}
+
+Dengan mengatur getter dan setter mana yang disediakan, kita bisa menentukan pola akses setiap attribute.
+
+\begin{table}[htbp]
+\caption{Pola pengendalian akses attribute.}
+\begin{tabularx}{\linewidth}{P{34mm}P{40mm}L}
+\kepala \kp{Pola} & \kp{Yang disediakan} & \kp{Contoh} \\
+Baca-tulis & getter dan setter dengan validasi & nama pemilik rekening \\
+Hanya-baca (\emph{read-only}) & getter saja & nomor rekening, NIM \\
+Hanya-tulis (\emph{write-only}) & setter saja & password \\
+Diubah lewat aksi & getter dan method aksi, tanpa setter & saldo yang hanya berubah lewat \texttt{setor()} dan \texttt{tarik()} \\
+\end{tabularx}
+\end{table}
+
+\begin{kode}[Rekening dengan getter dan setter]
+class Rekening:
+    def __init__(self, pemilik, saldo_awal=0):
+        if saldo_awal < 0:
+            raise ValueError("Saldo awal tidak boleh negatif.")
+        self.__pemilik = pemilik
+        self.__saldo = saldo_awal
+        self.__riwayat = []
+
+    # getter
+    def get_pemilik(self):
+        return self.__pemilik
+
+    def get_saldo(self):
+        return self.__saldo
+
+    def get_riwayat(self):
+        return list(self.__riwayat)    # kirim salinan, bukan list aslinya
+
+    # setter dengan validasi
+    def set_pemilik(self, nama):
+        if not nama.strip():
+            raise ValueError("Nama pemilik tidak boleh kosong.")
+        self.__pemilik = nama.strip()
+
+    # method aksi: satu-satunya jalan untuk mengubah saldo
+    def setor(self, jumlah):
+        if jumlah <= 0:
+            raise ValueError("Setoran harus lebih dari nol.")
+        self.__saldo += jumlah
+        self.__catat("setor", jumlah)
+
+    def tarik(self, jumlah):
+        if jumlah <= 0:
+            raise ValueError("Penarikan harus lebih dari nol.")
+        if jumlah > self.__saldo:
+            raise ValueError("Saldo tidak mencukupi.")
+        self.__saldo -= jumlah
+        self.__catat("tarik", jumlah)
+
+    # method private: hanya dipakai di dalam class
+    def __catat(self, jenis, jumlah):
+        self.__riwayat.append((jenis, jumlah))
+
+
+rek = Rekening("Ani", 100000)
+rek.setor(50000)
+rek.tarik(30000)
+rek.set_pemilik("Ani Lestari")
+print(rek.get_pemilik(), rek.get_saldo())
+print(rek.get_riwayat())
+rek.tarik(999999)
+\end{kode}
+
+\begin{keluaran}
+Ani Lestari 120000
+[('setor', 50000), ('tarik', 30000)]
+Traceback (most recent call last):
+  ...
+ValueError: Saldo tidak mencukupi.
+\end{keluaran}
+
+Perhatikan beberapa keputusan desain pada class di atas:
+
+\begin{itemize}
+  \item Tidak ada \texttt{set\_saldo()}. Saldo hanya boleh berubah lewat \texttt{setor()} dan \texttt{tarik()}, karena keduanya memeriksa aturan dan mencatat riwayat.
+  \item \texttt{get\_riwayat()} mengembalikan \emph{salinan} list. Jika yang dikembalikan list aslinya, kode di luar bisa menambah atau menghapus isi riwayat dan encapsulation pun bocor.
+  \item \texttt{\_\_catat()} adalah method private karena pencatatan riwayat adalah detail internal, bukan layanan untuk pengguna class.
+\end{itemize}
+
+\begin{info}[Tentang \texttt{raise ValueError}]
+Pada bab ini, data yang tidak valid ditolak dengan \texttt{raise ValueError("pesan")}. Perintah ini menghentikan program dan menampilkan pesan kesalahan, cara yang jauh lebih aman daripada diam-diam menerima data yang salah atau hanya mencetak pesan. Cara menangkap kesalahan semacam ini agar program tidak berhenti dibahas di Bab 8, \emph{Exception Handling}.
+\end{info}
+
+% =====================================================================
+\section{Validasi Data melalui Property}
+% =====================================================================
+
+Getter dan setter bekerja dengan baik, tetapi penulisannya panjang. Bandingkan dua baris berikut yang maksudnya sama, yaitu mengubah nama pemilik menjadi huruf kapital.
+
+\begin{kode}[Getter/setter vs sintaks attribute]
+rek.set_pemilik(rek.get_pemilik().upper())   # getter/setter: sulit dibaca
+rek.pemilik = rek.pemilik.upper()            # sintaks attribute: ringkas
+\end{kode}
+
+Python menyediakan \emph{property} untuk mendapatkan keduanya sekaligus: sintaks attribute biasa di luar, tetapi tetap dijaga oleh method di dalam.
+
+\subsection{Decorator \texttt{@property} dan \texttt{@nama.setter}}
+
+Property dibuat dengan dua decorator. Decorator adalah penanda berawalan \texttt{@} yang ditulis di atas method; cara kerjanya akan dibahas di Bab 3. Untuk saat ini, cukup ikuti polanya.
+
+\begin{langkah}{Membuat Property}
+  \item Simpan nilai sebenarnya di attribute private, misalnya \texttt{self.\_\_ipk}.
+  \item Tulis method getter bernama \texttt{ipk} dan beri decorator \texttt{@property}.
+  \item Tulis method setter dengan nama yang \textbf{sama}, \texttt{ipk}, dan beri decorator \texttt{@ipk.setter}. Letakkan validasi di sini.
+  \item Di \texttt{\_\_init\_\_}, isi nilai lewat property (\texttt{self.ipk = ipk}), bukan langsung ke attribute private, agar validasi juga berlaku saat object dibuat.
+\end{langkah}
+
+\begin{kode}[Property dengan validasi]
+class Mahasiswa:
+    def __init__(self, nama, ipk):
+        self.nama = nama          # melewati setter nama
+        self.ipk = ipk            # melewati setter ipk
+
+    @property
+    def nama(self):
+        return self.__nama
+
+    @nama.setter
+    def nama(self, nilai):
+        nilai = nilai.strip()
+        if not nilai:
+            raise ValueError("Nama tidak boleh kosong.")
+        self.__nama = nilai.title()
+
+    @property
+    def ipk(self):
+        return self.__ipk
+
+    @ipk.setter
+    def ipk(self, nilai):
+        if not 0 <= nilai <= 4:
+            raise ValueError("IPK harus di antara 0 dan 4.")
+        self.__ipk = nilai
+
+mhs = Mahasiswa("  ani lestari ", 3.5)
+print(mhs.nama, mhs.ipk)     # dibaca seperti attribute biasa
+mhs.ipk = 3.75               # diubah seperti attribute biasa
+print(mhs.ipk)
+mhs.ipk = 4.5                # ditolak oleh setter
+\end{kode}
+
+\begin{keluaran}
+Ani Lestari 3.5
+3.75
+Traceback (most recent call last):
+  ...
+ValueError: IPK harus di antara 0 dan 4.
+\end{keluaran}
+
+Dari luar, \texttt{mhs.ipk} tampak seperti attribute biasa. Namun setiap kali kita menulis \texttt{mhs.ipk = \ldots}, Python sebenarnya memanggil method setter, sehingga nilai yang tidak valid langsung ditolak. Setter juga bisa \emph{merapikan} data, seperti menghapus spasi berlebih dan mengubah kapitalisasi nama.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    kd/.style={rectangle,draw=marun,line width=0.8pt,fill=merahmuda,font=\ttfamily\small,minimum height=9mm,inner xsep=3mm},
+    proses/.style={rectangle,fill=merah,text=white,align=center,minimum width=30mm,minimum height=12mm},
+    ok/.style={rectangle,draw=hijau,line width=0.8pt,fill=hijau!12,font=\ttfamily\small,minimum height=9mm,inner xsep=3mm},
+    gagal/.style={rectangle,draw=jingga,line width=0.8pt,fill=jingga!12,font=\ttfamily\small,minimum height=9mm,inner xsep=3mm},
+    panah/.style={-{Latex},line width=1pt,emas}]
+  \node[font=\sffamily\small\bfseries,text=merah,anchor=west] at (-1.7,3.5) {Menulis nilai};
+  \node[kd] (a1) at (0,1.9) {mhs.ipk = 4.5};
+  \node[proses] (a2) at (4.6,1.9) {\texttt{@ipk.setter}\\{\footnotesize validasi}};
+  \node[ok] (a3) at (9.6,2.8) {self.\_\_ipk = nilai};
+  \node[gagal] (a4) at (9.6,1.0) {raise ValueError};
+  \draw[panah] (a1) -- (a2);
+  \draw[panah] (a2.east) -- node[above,sloped,font=\sffamily\footnotesize,text=hijau]{valid} (a3.west);
+  \draw[panah] (a2.east) -- node[below,sloped,font=\sffamily\footnotesize,text=jingga]{tidak valid} (a4.west);
+  \draw[garis,line width=0.6pt] (-1.7,-0.1) -- (11.8,-0.1);
+  \node[font=\sffamily\small\bfseries,text=merah,anchor=west] at (-1.7,-0.6) {Membaca nilai};
+  \node[kd] (b1) at (0,-1.9) {print(mhs.ipk)};
+  \node[proses] (b2) at (4.6,-1.9) {\texttt{@property}\\{\footnotesize getter}};
+  \node[ok] (b3) at (9.6,-1.9) {return self.\_\_ipk};
+  \draw[panah] (b1) -- (b2);
+  \draw[panah] (b2) -- (b3);
+\end{tikzpicture}
+\caption{Di balik sintaks attribute biasa, property selalu melewatkan penulisan ke setter dan pembacaan ke getter.}
+\end{figure}
+
+\begin{penting}[Jangan Langsung ke Attribute Private di \texttt{\_\_init\_\_}]
+Jika di \texttt{\_\_init\_\_} kita menulis \texttt{self.\_\_ipk = ipk}, validasi di setter dilewati dan object bisa lahir dengan IPK 9.0. Selalu isi nilai awal lewat property: \texttt{self.ipk = ipk}.
+\end{penting}
+
+\subsection{Property Hanya-Baca dan Property Terhitung}
+
+Property yang hanya memiliki getter (tanpa setter) bersifat \emph{read-only}. Property juga bisa \emph{terhitung} (\emph{computed}), yaitu nilainya tidak disimpan, melainkan dihitung dari attribute lain setiap kali dibaca.
+
+\begin{kode}[Property terhitung]
+class Suhu:
+    NOL_MUTLAK = -273.15
+
+    def __init__(self, celsius):
+        self.celsius = celsius
+
+    @property
+    def celsius(self):
+        return self.__celsius
+
+    @celsius.setter
+    def celsius(self, nilai):
+        if nilai < Suhu.NOL_MUTLAK:
+            raise ValueError("Suhu tidak boleh di bawah nol mutlak.")
+        self.__celsius = nilai
+
+    @property
+    def fahrenheit(self):              # terhitung dan hanya-baca
+        return self.__celsius * 9 / 5 + 32
+
+    @property
+    def kelvin(self):                  # terhitung dan hanya-baca
+        return self.__celsius - Suhu.NOL_MUTLAK
+
+s = Suhu(30)
+print(s.fahrenheit, s.kelvin)
+s.celsius = 100
+print(s.fahrenheit)                    # ikut berubah otomatis
+s.fahrenheit = 50                      # tidak ada setter
+\end{kode}
+
+\begin{keluaran}
+86.0 303.15
+212.0
+Traceback (most recent call last):
+  ...
+AttributeError: property 'fahrenheit' of 'Suhu' object has no setter
+\end{keluaran}
+
+Pada contoh ini, nilai \texttt{fahrenheit} dan \texttt{kelvin} dihitung dari \texttt{celsius} terbaru setiap kali dibaca dan tidak dapat diubah secara langsung.
+
+\subsection{Deleter dengan \texttt{@nama.deleter}}
+
+Selain getter dan setter, property dapat memiliki \emph{deleter} yang dijalankan saat kita memakai perintah \texttt{del}. Deleter jarang dipakai, tetapi berguna jika penghapusan perlu disertai tindakan lain, misalnya mencatat log.
+
+\begin{kode}[Deleter]
+class Profil:
+    def __init__(self, foto):
+        self.__foto = foto
+
+    @property
+    def foto(self):
+        return self.__foto
+
+    @foto.deleter
+    def foto(self):
+        print(f"Menghapus foto {self.__foto}")
+        self.__foto = "default.png"
+
+p = Profil("ani.jpg")
+del p.foto
+print(p.foto)
+\end{kode}
+
+\begin{keluaran}
+Menghapus foto ani.jpg
+default.png
+\end{keluaran}
+
+\begin{table}[htbp]
+\caption{Getter/setter klasik dibandingkan property.}
+\begin{tabularx}{\linewidth}{P{28mm}LL}
+\kepala \kp{Aspek} & \kp{Getter/setter klasik} & \kp{Property} \\
+Membaca & \texttt{rek.get\_pemilik()} & \texttt{rek.pemilik} \\
+Mengubah & \texttt{rek.set\_pemilik("Ani")} & \texttt{rek.pemilik = "Ani"} \\
+Validasi & di method setter & di method \texttt{@pemilik.setter} \\
+Hanya-baca & tidak menyediakan setter & tidak menulis \texttt{@nama.setter} \\
+Gaya & umum di Java dan C++ & gaya yang dianjurkan di Python (\emph{Pythonic}) \\
+\end{tabularx}
+\end{table}
+
+\subsection{Studi Kasus: Rekening dengan Property}
+
+Kita gabungkan semua yang sudah dipelajari untuk menyempurnakan class \texttt{Rekening}: nomor rekening hanya-baca, nama pemilik bisa diubah dengan validasi, dan saldo hanya-baca karena perubahannya wajib lewat \texttt{setor()} dan \texttt{tarik()}.
+
+\begin{kode}[rekening.py]
+class Rekening:
+    def __init__(self, nomor, pemilik, saldo_awal=0):
+        if saldo_awal < 0:
+            raise ValueError("Saldo awal tidak boleh negatif.")
+        self.__nomor = nomor
+        self.pemilik = pemilik            # lewat setter
+        self.__saldo = saldo_awal
+
+    @property
+    def nomor(self):                      # hanya-baca
+        return self.__nomor
+
+    @property
+    def pemilik(self):
+        return self.__pemilik
+
+    @pemilik.setter
+    def pemilik(self, nama):
+        nama = nama.strip()
+        if len(nama) < 3:
+            raise ValueError("Nama pemilik minimal 3 huruf.")
+        self.__pemilik = nama.title()
+
+    @property
+    def saldo(self):                      # hanya-baca
+        return self.__saldo
+
+    def setor(self, jumlah):
+        if jumlah <= 0:
+            raise ValueError("Setoran harus lebih dari nol.")
+        self.__saldo += jumlah
+
+    def tarik(self, jumlah):
+        if jumlah <= 0:
+            raise ValueError("Penarikan harus lebih dari nol.")
+        if jumlah > self.__saldo:
+            raise ValueError("Saldo tidak mencukupi.")
+        self.__saldo -= jumlah
+
+    def __str__(self):
+        return f"[{self.nomor}] {self.pemilik} - saldo Rp{self.saldo:,}"
+
+
+rek = Rekening("KM-001", "ani lestari", 100000)
+rek.setor(25000)
+rek.tarik(50000)
+print(rek)
+rek.saldo = -999
+\end{kode}
+
+\begin{keluaran}
+[KM-001] Ani Lestari - saldo Rp75,000
+Traceback (most recent call last):
+  ...
+AttributeError: property 'saldo' of 'Rekening' object has no setter
+\end{keluaran}
+
+Celah yang kita temukan di awal bab kini tertutup. Saldo tetap mudah dibaca dengan \texttt{rek.saldo}, tetapi satu-satunya cara mengubahnya adalah melalui method yang sudah memeriksa aturan.
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item \textbf{Visibility} menentukan dari mana attribute dan method boleh diakses. Python memakai konvensi garis bawah, bukan kata kunci.
+  \item \textbf{Encapsulation} membungkus data dan perilaku dalam satu class sekaligus menyembunyikan detail internal di balik antarmuka publik.
+  \item \textbf{Public} (\texttt{nama}) bebas diakses; \textbf{protected} (\texttt{\_nama}) adalah kesepakatan untuk penggunaan internal dan class turunan; \textbf{private} (\texttt{\_\_nama}) hanya untuk class itu sendiri.
+  \item \textbf{Name mangling} mengubah \texttt{\_\_nama} menjadi \texttt{\_NamaClass\_\_nama}. Tujuannya mencegah bentrok nama dengan class turunan, bukan sebagai fitur keamanan.
+  \item Akses attribute private dikendalikan lewat \textbf{getter}, \textbf{setter}, atau method aksi. Pola akses bisa baca-tulis, hanya-baca, hanya-tulis, atau diubah lewat aksi.
+  \item \textbf{Property} (\texttt{@property}, \texttt{@nama.setter}, \texttt{@nama.deleter}) memberi sintaks attribute biasa dengan validasi di dalam method.
+  \item Isi nilai awal di \texttt{\_\_init\_\_} lewat property agar validasi juga berlaku saat object dibuat.
+\end{itemize}
+
+% =====================================================================
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat.
+
+\begin{enumerate}
+  \item Dalam konvensi Python, attribute \texttt{\_harga} (satu garis bawah) menandakan attribute yang bersifat \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item public
+    \item protected
+    \item private
+    \item konstan
+  \end{enumerate}
+
+  \item Manakah yang \textbf{bukan} manfaat encapsulation?
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item Menjaga data object tetap valid
+    \item Detail internal class bisa diubah tanpa mengganggu kode pemakainya
+    \item Program otomatis berjalan lebih cepat
+    \item Sumber kesalahan data lebih mudah dilacak
+  \end{enumerate}
+
+  \item Di dalam class \texttt{Produk}, attribute \texttt{self.\_\_stok} akan disimpan dengan nama \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{\_\_stok}
+    \item \texttt{\_stok}
+    \item \texttt{\_\_Produk\_stok}
+    \item \texttt{\_Produk\_\_stok}
+  \end{enumerate}
+
+  \item Tujuan utama name mangling adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item mengenkripsi data rahasia
+    \item mencegah bentrok nama attribute dengan class turunan
+    \item mempercepat akses attribute
+    \item membuat attribute menjadi konstan
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 5]
+class A:
+    def __init__(self):
+        self.__x = 1
+    def get_x(self):
+        return self.__x
+
+a = A()
+a.__x = 99
+print(a.get_x())
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{1}
+    \item \texttt{99}
+    \item \texttt{AttributeError}
+    \item \texttt{None}
+  \end{enumerate}
+
+  \item Decorator yang dipakai untuk membuat getter pada property adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{@getter}
+    \item \texttt{@property}
+    \item \texttt{@attribute}
+    \item \texttt{@nama.getter}
+  \end{enumerate}
+
+  \item Sebuah class memiliki \texttt{@property def luas(self)} tanpa setter. Apa yang terjadi saat kita menjalankan \texttt{objek.luas = 10}?
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item Nilai \texttt{luas} berubah menjadi 10
+    \item Dibuat attribute baru bernama \texttt{luas}
+    \item Terjadi \texttt{AttributeError}
+    \item Perintah diabaikan tanpa pesan
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 8]
+class Barang:
+    def __init__(self, harga):
+        self.__harga = harga
+
+    @property
+    def harga(self):
+        return self.__harga
+
+    @harga.setter
+    def harga(self, nilai):
+        if nilai < 0:
+            raise ValueError("Harga negatif")
+        self.__harga = nilai
+
+b = Barang(-500)
+print(b.harga)
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{ValueError: Harga negatif}
+    \item \texttt{-500}
+    \item \texttt{0}
+    \item \texttt{AttributeError}
+  \end{enumerate}
+
+  \item Nama berikut yang \textbf{tidak} terkena name mangling adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{\_\_saldo}
+    \item \texttt{\_\_hitung()}
+    \item \texttt{\_\_str\_\_}
+    \item \texttt{\_\_data\_rahasia}
+  \end{enumerate}
+
+  \item Sebuah method \texttt{get\_daftar()} mengembalikan \texttt{self.\_\_daftar} (list asli). Masalah yang mungkin muncul adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item list tidak bisa dibaca dari luar
+    \item kode di luar bisa mengubah isi list tanpa melewati validasi class
+    \item Python menolak mengembalikan attribute private
+    \item list otomatis dikosongkan
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Jelaskan dua sisi dari konsep encapsulation dan berikan satu analogi dari kehidupan sehari-hari selain mesin ATM.
+  \item Jelaskan perbedaan protected dan private di Python. Mengapa keduanya disebut ``konseptual'' dan bukan pembatasan mutlak seperti di Java?
+  \item Seorang programmer mengaku ``sudah mengamankan password'' dengan menyimpannya di attribute \texttt{\_\_password}. Apakah klaim itu benar? Jelaskan dengan mengacu pada name mangling.
+  \item Jelaskan mengapa nilai awal di \texttt{\_\_init\_\_} sebaiknya diisi lewat property (\texttt{self.ipk = ipk}) dan bukan langsung ke attribute private (\texttt{self.\_\_ipk = ipk}).
+  \item Untuk class \texttt{Mahasiswa} dengan attribute NIM, nama, dan password, tentukan pola akses yang tepat (baca-tulis, hanya-baca, hanya-tulis, atau lewat aksi) untuk masing-masing attribute beserta alasannya.
+\end{enumerate}
+
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Kerjakan praktik berikut secara berurutan. Simpan setiap praktik dalam file \texttt{.py} terpisah, jalankan, dan pastikan keluarannya sesuai dengan contoh.
+
+\subsection{Praktik 1: Produk Toko}
+
+Buat class \texttt{Produk} dengan ketentuan:
+
+\begin{itemize}
+  \item Property \texttt{kode} bersifat hanya-baca.
+  \item Property \texttt{nama}: tidak boleh kosong; spasi di awal dan akhir dihapus.
+  \item Property \texttt{harga}: harus lebih dari 0.
+  \item Property \texttt{stok}: tidak boleh negatif.
+  \item Property terhitung \texttt{nilai\_persediaan} yang mengembalikan \texttt{harga * stok}.
+  \item Method \texttt{jual(jumlah)} yang mengurangi stok jika mencukupi, dan menolak dengan \texttt{ValueError} jika tidak.
+  \item Semua nilai awal di \texttt{\_\_init\_\_} wajib diisi lewat property.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 1]
+P-01 Buku Tulis: 40 x Rp5,000 = Rp200,000
+Setelah menjual 15: stok 25, nilai Rp125,000
+ValueError: Stok tidak mencukupi.
+\end{keluaran}
+
+\subsection{Praktik 2: Akun Pengguna}
+
+Buat class \texttt{AkunPengguna} dengan ketentuan:
+
+\begin{itemize}
+  \item Property \texttt{username}: minimal 5 karakter dan tidak boleh mengandung spasi; disimpan dalam huruf kecil.
+  \item Password bersifat \textbf{hanya-tulis}: sediakan setter untuk menggantinya (minimal 8 karakter dan harus mengandung angka), tetapi getter selalu mengembalikan \texttt{"********"}.
+  \item Method \texttt{login(password)} yang mengembalikan \texttt{True} jika password cocok.
+  \item Attribute private \texttt{\_\_gagal\_login} yang bertambah setiap login gagal. Setelah 3 kali gagal, akun terkunci dan \texttt{login()} selalu mengembalikan \texttt{False}.
+  \item Property hanya-baca \texttt{terkunci}.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 2]
+ani_24 ********
+Login benar: True
+Login salah 3x -> terkunci: True
+Login benar setelah terkunci: False
+\end{keluaran}
+
+\subsection{Praktik 3: Refaktor dengan Encapsulation}
+
+Ambil salah satu class yang Anda buat di Praktik Mandiri Bab 1 (\texttt{Buku}, \texttt{Mahasiswa}, atau hasil Praktik 3), lalu terapkan encapsulation.
+
+\begin{langkah}{Langkah Pengerjaan}
+  \item Tentukan pola akses setiap attribute (baca-tulis, hanya-baca, hanya-tulis, atau lewat aksi) dan tuliskan alasannya dalam komentar.
+  \item Ubah attribute menjadi private, lalu sediakan property atau method aksi sesuai pola yang dipilih.
+  \item Pindahkan semua validasi ke setter atau method aksi; gunakan \texttt{raise ValueError} untuk data tidak valid.
+  \item Jika ada attribute berupa list, pastikan getter-nya mengembalikan salinan.
+  \item Uji dengan mencoba mengubah data secara tidak sah dari luar class dan tunjukkan bahwa percobaan tersebut ditolak.
+\end{langkah}
+
+\begin{penting}[Kriteria Penilaian]
+\begin{itemize}
+  \item Ketepatan pemilihan visibility dan pola akses setiap attribute.
+  \item Validasi berada di setter atau method aksi, dan berlaku sejak object dibuat.
+  \item Tidak ada jalur untuk mengubah data penting tanpa validasi.
+  \item Program berjalan, dan pengujian menunjukkan data tidak valid benar-benar ditolak.
+\end{itemize}
+\end{penting}

@@ -1,0 +1,101 @@
+% Sampul depan, versi santai. Dipanggil dari main.tex lewat \versiSampul.
+\begin{tikzpicture}[remember picture,overlay]
+  \fill[merah] (current page.south west) rectangle (current page.north east);
+  % Pasangannya "{" ada di sampul belakang
+  \node[text=marun!55!merah,font=\judul\fontsize{470}{470}\selectfont,inner sep=0pt]
+    at ([xshift=-14mm,yshift=-100mm]current page.north east) {\}};
+  % Blok bawah
+  \fill[marun] (current page.south west) rectangle ([yshift=104mm]current page.south east);
+  \fill[emas] ([yshift=104mm]current page.south west) rectangle ([yshift=105.2mm]current page.south east);
+  % Nama empat penulis menggantikan logo dan identitas instansi
+  \node[
+    anchor=north west,
+    text=white,
+    align=left,
+    text width=166mm,
+    inner sep=0pt,
+    font=\sffamily\fontsize{13}{17}\selectfont
+  ] at ([xshift=22mm,yshift=-18mm]current page.north west)
+    {%
+      \dosenPengampu\\[3pt]
+      Muhammad Fariq Faqih\\[3pt]
+      Mohammad Ariffansyah\\[3pt]
+      Abdullah Al-Firdaus Nuzula
+    };
+  % Judul
+  \fill[emas] ([xshift=22mm,yshift=-70mm]current page.north west) rectangle ++(14mm,-1.2pt);
+  \node[anchor=west,text=emasmuda,font=\capsfont\small,inner sep=0pt] at ([xshift=40mm,yshift=-70.2mm]current page.north west) {\jenisBuku};
+  \node[anchor=north west,text=white,font=\judul\fontsize{60}{58}\selectfont,text width=150mm,align=left,inner sep=0pt]
+    (judul) at ([xshift=22mm,yshift=-80mm]current page.north west) {\judulBuku};
+  \node[anchor=north west,text=emasmuda,font=\itshape\fontsize{20}{25}\selectfont,text width=150mm,align=left,inner sep=0pt]
+    (sub) at ([yshift=-8mm]judul.south west) {\subJudul};
+  % Diagram kelas
+  \node[kelas,anchor=north] (induk) at ([xshift=-25mm,yshift=94mm]current page.south) {\kelas{Mahasiswa}{- kopi : int\\- deadline : list}{+ ngoding() : str\\+ begadang() : None}};
+  \node[kelas,anchor=north] (anak1) at ([xshift=-32mm,yshift=-18mm]induk.south) {\kelas{Ambis}{- ipk : float}{+ nugas\_duluan() : None}};
+  \node[kelas,anchor=north] (anak2) at ([xshift=32mm,yshift=-18mm]induk.south) {\kelas{Deadliner}{- sks : bool}{+ kebut\_semalam() : str}};
+  \coordinate (cabang) at ([yshift=-9mm]induk.south);
+  \draw[emas,line width=0.9pt] (anak1.north) |- (cabang) -| (anak2.north);
+  \draw[turunan,emas] (cabang) -- (induk.south);
+  % Taburan kode samar di latar merah
+  \begin{scope}[every node/.style={text=white,text opacity=0.16,font=\ttfamily\bfseries,inner sep=0pt}]
+    \node[rotate=8,font=\ttfamily\bfseries\fontsize{22}{22}\selectfont]  at ([xshift=168mm,yshift=-14mm]current page.north west) {self};
+    \node[rotate=-6,font=\ttfamily\bfseries\fontsize{13}{13}\selectfont] at ([xshift=150mm,yshift=-46mm]current page.north west) {@property};
+    \node[rotate=4,font=\ttfamily\bfseries\fontsize{18}{18}\selectfont]  at ([xshift=128mm,yshift=-66mm]current page.north west) {class};
+    \node[rotate=-4,font=\ttfamily\bfseries\fontsize{15}{15}\selectfont] at ([xshift=38mm,yshift=-174mm]current page.north west) {\_\_init\_\_};
+    \node[rotate=3,font=\ttfamily\bfseries\fontsize{12}{12}\selectfont]  at ([xshift=88mm,yshift=-184mm]current page.north west) {isinstance()};
+    \node[rotate=-3,font=\ttfamily\bfseries\fontsize{14}{14}\selectfont] at ([xshift=138mm,yshift=-171mm]current page.north west) {super().\_\_init\_\_()};
+  \end{scope}
+  % Kartu terminal
+  \node[anchor=north west,fill=kodebg,text=kodeteks,font=\ttfamily\scriptsize,align=left,text width=42mm,inner xsep=3mm,inner ysep=3mm]
+    (kartu) at ([xshift=150mm,yshift=68mm]current page.south west)
+    {\textcolor{emas}{ani} = Deadliner()\\ani.kopi += 3\\ani.kebut\_semalam()\\[3pt]\textcolor{kodekomen}{\textgreater\kern0pt\textgreater\kern0pt\textgreater} \textcolor{kodestring}{\textquotesingle UTS aman (semoga)\textquotesingle}};
+  \node[anchor=south west,fill=merah,text=white,font=\ttfamily\scriptsize\bfseries,inner xsep=5pt,inner ysep=2.5pt] at (kartu.north west) {main.py};
+  \draw[-{Latex},emas,line width=0.8pt,dashed] (kartu.west) -- (anak2.east);
+  % Cangkir kopi
+  \begin{scope}[shift={($(current page.south west)+(160mm,90mm)$)},x=1mm,y=1mm]
+    \draw[emasmuda,line width=1pt,fill=marun] (0,0) -- (14,0) -- (12.5,-13) -- (1.5,-13) -- cycle;
+    \draw[emasmuda,line width=1pt] (13.5,-3) arc[start angle=90,end angle=-90,radius=3.3];
+    \draw[emasmuda,line width=1pt] (-3,-14.5) -- (17,-14.5);
+    \foreach \x in {3.5,7,10.5}
+      \draw[emasmuda,line width=0.8pt,line cap=round] (\x,2) .. controls (\x-2,5) and (\x+2,7) .. (\x,10);
+    \node[anchor=west,text=emasmuda,font=\ttfamily\scriptsize] at (19,-6) {kopi += 1};
+  \end{scope}
+  % ===== Ornamen tambahan sampul depan (koordinat dalam mm dari kiri bawah) =====
+  \begin{scope}[shift={(current page.south west)},x=1mm,y=1mm]
+    % Pola titik di latar merah
+    \foreach \i in {1,...,29}
+      \foreach \j in {16,...,42}
+        \fill[white,opacity=0.07] (\i*7,\j*7) circle (0.35);
+    % Taburan kode tambahan
+    \begin{scope}[every node/.style={text=white,text opacity=0.16,font=\ttfamily\bfseries\fontsize{10}{10}\selectfont,inner sep=0pt}]
+      \node[rotate=-5] at (100,290) {import this};
+      \node[rotate=6]  at (178,268) {return self};
+      \node[rotate=-8] at (186,236) {@staticmethod};
+      \node[rotate=3]  at (102,243) {\_\_repr\_\_};
+      \node[rotate=5,font=\ttfamily\bfseries\fontsize{13}{13}\selectfont] at (22,112) {cls};
+      \node[rotate=-4,font=\ttfamily\bfseries\fontsize{11}{11}\selectfont] at (68,129) {-> None};
+      \node[rotate=5,font=\ttfamily\bfseries\fontsize{11}{11}\selectfont]  at (184,113) {@classmethod};
+      \node[rotate=-6,font=\ttfamily\bfseries\fontsize{11}{11}\selectfont] at (188,130) {\# TODO};
+    \end{scope}
+    % Gelembung percakapan
+    \node[rectangle,rounded corners=2mm,fill=emasmuda,text=marun,font=\sffamily\scriptsize\itshape,inner sep=1.6mm] (bb1) at (30,59) {nyicil dari minggu lalu};
+    \fill[emasmuda] (27,56.6) -- (33,56.6) -- (31,49) -- cycle;
+    \node[rectangle,rounded corners=2mm,fill=emasmuda,text=marun,font=\sffamily\scriptsize\itshape,inner sep=1.6mm] (bb2) at (133,59) {H-1 masih aman kok};
+    \fill[emasmuda] (127,56.6) -- (133,56.6) -- (129,49) -- cycle;
+    % Kilau kecil
+    \foreach \x/\y/\r in {12/97/2.2, 146/97/1.8, 80/35/2, 40/84/1.6} {
+      \fill[emasmuda] (\x,\y+\r) -- (\x+0.28*\r,\y+0.28*\r) -- (\x+\r,\y) -- (\x+0.28*\r,\y-0.28*\r)
+        -- (\x,\y-\r) -- (\x-0.28*\r,\y-0.28*\r) -- (\x-\r,\y) -- (\x-0.28*\r,\y+0.28*\r) -- cycle;
+    }
+  \end{scope}
+  % Kaki sampul: tahun terbit
+  \node[anchor=south west,text=emasmuda,font=\capsfont\scriptsize] at ([xshift=22mm,yshift=10mm]current page.south west)
+    {\tahun};
+  % Ruang informasi penerbit: kotak putih polos 38 x 12 mm di pojok kanan bawah.
+  % Jarak dari tepi kanan 12 mm dan dari tepi bawah 6 mm.
+  \fill[white]
+    ([xshift=-50mm,yshift=6mm]current page.south east)
+    rectangle ([xshift=-12mm,yshift=18mm]current page.south east);
+\end{tikzpicture}
+\clearpage
+

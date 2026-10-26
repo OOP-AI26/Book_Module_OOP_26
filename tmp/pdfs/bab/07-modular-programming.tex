@@ -1,0 +1,1027 @@
+\subjudul{Memecah program menjadi bagian yang mudah dipakai ulang dan dirawat.}
+\chapter{Modular Programming}
+
+\begin{dibabini}
+  \item Modular programming
+  \item Module dan import
+  \item Package
+  \item Struktur folder project
+  \item Reusability dan maintainability
+\end{dibabini}
+
+Studi kasus perpustakaan di akhir Bab 6 sudah mencapai sekitar tujuh puluh baris dalam satu file \texttt{perpustakaan.py}. Ukuran itu masih nyaman dibaca. Sekarang bayangkan tiga bab ke depan: Bab 8 menambahkan class-class exception, Bab 9 menambahkan kode untuk menyimpan data ke file, dan Bab 10 menambahkan jendela GUI. Jika semuanya ditumpuk di file yang sama, file itu akan mencapai ratusan baris, dan mencari satu method berarti menggulir layar berkali-kali. Masalahnya bertambah ketika program dikerjakan bertiga, karena setiap orang mengubah file yang sama dan perubahan mereka saling bertabrakan.
+
+Bab ini membahas \emph{modular programming}, yaitu cara memecah program menjadi beberapa file yang masing-masing punya tugas jelas. Kita akan mengenal \emph{module} dan \emph{package}, berbagai bentuk perintah \texttt{import}, serta struktur folder proyek yang rapi. Di tengah bab, kode perpustakaan dari Bab 6 kita pecah menjadi sebuah package yang akan terus dikembangkan di bab-bab berikutnya.
+
+% =====================================================================
+\section{Konsep Modular Programming}
+% =====================================================================
+
+\emph{Modular programming} adalah cara menyusun program dari bagian-bagian kecil yang disebut \emph{modul}. Setiap modul berisi kode untuk satu urusan, misalnya urusan data buku atau urusan menyimpan file. Modul-modul itu saling memakai melalui perintah \texttt{import}.
+
+Contoh yang paling dekat adalah buku ini sendiri. Buku ini ditulis dengan LaTeX, dan naskahnya tidak disimpan dalam satu file raksasa. File utama \texttt{main.tex} hanya berisi pengaturan dan daftar bab, sedangkan setiap bab disimpan di file sendiri di folder \texttt{bab/}. Penulis Bab 8 bisa bekerja tanpa membuka file Bab 2, dan salah ketik di satu bab mudah dilacak karena letaknya jelas. Program Python dipecah dengan cara yang sama.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    b7lapis/.style={rectangle,draw=marun,line width=0.6pt,fill=white,minimum width=40mm,minimum height=6.5mm,font=\ttfamily\footnotesize},
+    b7modul/.style={rectangle,draw=marun,line width=0.8pt,fill=merahmuda,minimum width=23mm,minimum height=7mm,font=\ttfamily\footnotesize},
+    b7impor/.style={-{Latex},line width=0.8pt,emas}]
+  \node[rectangle,fill=marun,text=white,font=\ttfamily\small\bfseries,minimum width=40mm,minimum height=7mm] at (0,0) {perpustakaan.py};
+  \foreach \t [count=\i] in {class Buku, class Anggota, class Peminjaman, class Perpustakaan, simpan ke file, jendela GUI, program utama}
+    \node[b7lapis,anchor=north] at (0,{-0.35-0.65*(\i-1)}) {\t};
+  \node[font=\sffamily\footnotesize,text=abu] at (0,-5.35) {satu file, semua urusan bercampur};
+  \node[b7modul,fill=marun,text=white,font=\ttfamily\footnotesize\bfseries] (m) at (8.35,-0.4) {main.py};
+  \node[b7modul] (bk) at (4.6,-2.3)  {buku.py};
+  \node[b7modul] (ag) at (7.1,-2.3)  {anggota.py};
+  \node[b7modul] (ly) at (9.6,-2.3)  {layanan.py};
+  \node[b7modul] (gu) at (12.1,-2.3) {gui.py};
+  \node[b7modul] (pm) at (8.35,-4.2) {peminjaman.py};
+  \node[b7modul] (sp) at (10.85,-4.2) {penyimpanan.py};
+  \foreach \x in {bk,ag,ly,gu}
+    \draw[b7impor] (m.south) -- (\x.north);
+  \draw[b7impor] (ly.south) -- (pm.north);
+  \draw[b7impor] (ly.south) -- (sp.north);
+  \node[font=\sffamily\footnotesize,text=abu] at (8.35,-5.35) {setiap file mengurus satu hal};
+\end{tikzpicture}
+\caption{Program yang sama dalam satu file (kiri) dan dipecah menjadi beberapa module (kanan). Panah menunjukkan arah \texttt{import}: file di pangkal panah memakai file di ujungnya.}
+\end{figure}
+
+\subsection{Mengapa Perlu Dipecah?}
+
+Program satu file bekerja dengan baik selama ukurannya kecil. Masalah baru terasa ketika program tumbuh:
+
+\begin{itemize}
+  \item \textbf{Sulit dicari.} Untuk memperbaiki cara menghitung lama pinjam, kita harus menemukan beberapa baris di antara ratusan baris lain yang tidak berhubungan.
+  \item \textbf{Sulit dikerjakan bersama.} Dua orang yang mengubah file yang sama pada waktu bersamaan harus menggabungkan perubahan secara manual.
+  \item \textbf{Sulit dipakai ulang.} Fungsi format rupiah yang bagus di program perpustakaan tidak bisa dipakai program lain tanpa menyalin kodenya.
+\end{itemize}
+
+Dengan memecah program, setiap masalah di atas mengecil. Bagian akhir bab ini membahas dua manfaat terpenting secara khusus, yaitu \emph{reusability} dan \emph{maintainability}.
+
+% =====================================================================
+\section{Module}
+% =====================================================================
+
+Di Python, setiap file \texttt{.py} adalah sebuah \emph{module}. Nama module sama dengan nama file tanpa akhiran \texttt{.py}. Kita sudah memakai beberapa module bawaan, misalnya \texttt{functools} di Bab 3 dan \texttt{math} di Bab 5. Membuat module sendiri tidak memerlukan langkah khusus: cukup tulis sebuah file Python, lalu impor dari file lain di folder yang sama.
+
+\begin{kode}[kampus\_util.py]
+"""Fungsi bantu yang dipakai di banyak program kampus."""
+
+KAMPUS = "Universitas Negeri Surabaya"
+
+def format_rupiah(angka):
+    return f"Rp{angka:,}".replace(",", ".")
+
+def nim_valid(nim):
+    return nim.isdigit() and len(nim) == 11
+\end{kode}
+
+\begin{kode}[main.py]
+import kampus_util
+
+print(kampus_util.KAMPUS)
+print(kampus_util.format_rupiah(2500000))
+print(kampus_util.nim_valid("24051204084"))
+print(kampus_util.nim_valid("2405-ABC"))
+\end{kode}
+
+\begin{keluaran}
+Universitas Negeri Surabaya
+Rp2.500.000
+True
+False
+\end{keluaran}
+
+Perintah \texttt{import kampus\_util} mencari file \texttt{kampus\_util.py}, menjalankan isinya, lalu menyediakan sebuah \emph{object module} bernama \texttt{kampus\_util}. Semua nama yang dibuat di file itu, baik variabel, fungsi, maupun class, menjadi attribute object tersebut. Karena itu kita mengaksesnya dengan titik, persis seperti mengakses attribute object di Bab 1.
+
+\begin{kode}[Module juga sebuah object]
+import kampus_util
+
+print(type(kampus_util))
+print(kampus_util.__name__)
+print([n for n in dir(kampus_util) if not n.startswith("_")])
+\end{kode}
+
+\begin{keluaran}
+<class 'module'>
+kampus_util
+['KAMPUS', 'format_rupiah', 'nim_valid']
+\end{keluaran}
+
+\subsection{Module Hanya Dimuat Sekali}
+
+Python mengingat setiap module yang sudah diimpor. Jika module yang sama diimpor lagi, entah dari file yang sama atau dari file lain, Python tidak menjalankan isinya untuk kedua kalinya. Module yang sudah ada langsung dipakai ulang.
+
+\begin{kode}[salam.py]
+print("Module salam sedang dimuat...")
+
+def halo(nama):
+    return f"Halo, {nama}!"
+\end{kode}
+
+\begin{kode}[main.py]
+import salam
+import salam                  # impor kedua: salam.py tidak dijalankan lagi
+
+print(salam.halo("Ani"))
+\end{kode}
+
+\begin{keluaran}
+Module salam sedang dimuat...
+Halo, Ani!
+\end{keluaran}
+
+Perilaku ini membuat import murah untuk diulang. Lima module boleh sama-sama mengimpor \texttt{kampus\_util}, dan isi \texttt{kampus\_util.py} tetap hanya dijalankan satu kali. Daftar module yang sudah dimuat tersimpan di dictionary \texttt{sys.modules}.
+
+\subsection{Blok \texttt{if \_\_name\_\_ == "\_\_main\_\_"}}
+
+Saat menulis module, kita sering ingin mencoba fungsinya langsung di file yang sama. Cara yang terasa wajar adalah menambahkan beberapa \texttt{print} di bagian bawah file. Akibatnya kurang menyenangkan: baris uji itu ikut berjalan setiap kali module diimpor oleh program lain.
+
+\begin{kode}[kampus\_util.py]
+"""Fungsi bantu yang dipakai di banyak program kampus."""
+
+KAMPUS = "Universitas Negeri Surabaya"
+
+def format_rupiah(angka):
+    return f"Rp{angka:,}".replace(",", ".")
+
+def nim_valid(nim):
+    return nim.isdigit() and len(nim) == 11
+
+print("Uji:", format_rupiah(1500), nim_valid("123"))      # baris uji
+\end{kode}
+
+\begin{kode}[main.py]
+import kampus_util
+
+print(kampus_util.format_rupiah(2500000))
+\end{kode}
+
+\begin{keluaran}
+Uji: Rp1.500 False
+Rp2.500.000
+\end{keluaran}
+
+Baris \texttt{Uji:} tidak diminta oleh \texttt{main.py}, tetapi tetap muncul. Untuk membedakan ``dijalankan langsung'' dari ``diimpor'', Python menyediakan variabel khusus \texttt{\_\_name\_\_} di setiap module. Nilainya \texttt{"\_\_main\_\_"} jika file itu yang dijalankan dengan perintah \texttt{python}, dan berisi nama module jika file itu diimpor.
+
+\begin{table}[htbp]
+\caption{Nilai \texttt{\_\_name\_\_} pada file \texttt{kampus\_util.py}.}
+\begin{tabularx}{\linewidth}{LP{38mm}P{34mm}}
+\kepala \kp{Cara file dipakai} & \kp{Nilai \texttt{\_\_name\_\_}} & \kp{Blok \texttt{if} dijalankan?} \\
+dijalankan langsung: \texttt{python kampus\_util.py} & \texttt{"\_\_main\_\_"} & ya \\
+diimpor oleh \texttt{main.py}: \texttt{import kampus\_util} & \texttt{"kampus\_util"} & tidak \\
+\end{tabularx}
+\end{table}
+
+Dengan memeriksa nilai tersebut, kode uji hanya berjalan ketika module dijalankan langsung.
+
+\begin{kode}[kampus\_util.py]
+"""Fungsi bantu yang dipakai di banyak program kampus."""
+
+KAMPUS = "Universitas Negeri Surabaya"
+
+def format_rupiah(angka):
+    return f"Rp{angka:,}".replace(",", ".")
+
+def nim_valid(nim):
+    return nim.isdigit() and len(nim) == 11
+
+if __name__ == "__main__":             # hanya saat dijalankan langsung
+    print("Uji:", format_rupiah(1500), nim_valid("123"))
+\end{kode}
+
+\begin{keluaran}[python kampus\_util.py]
+Uji: Rp1.500 False
+\end{keluaran}
+
+\begin{kode}[main.py]
+import kampus_util
+
+print(kampus_util.format_rupiah(2500000))
+\end{kode}
+
+\begin{keluaran}[python main.py]
+Rp2.500.000
+\end{keluaran}
+
+\begin{tips}[Kebiasaan Baik]
+Biasakan setiap module diakhiri blok \texttt{if \_\_name\_\_ == "\_\_main\_\_":} yang berisi contoh pemakaian atau uji singkat. Module tetap bersih ketika diimpor, dan siapa pun yang membuka file itu langsung melihat cara memakainya.
+\end{tips}
+
+\begin{info}[Di Mana Python Mencari Module?]
+Saat menemui \texttt{import kampus\_util}, Python memeriksa daftar folder di \texttt{sys.path} secara berurutan. Urutannya kira-kira: folder tempat file yang dijalankan berada, folder di variabel lingkungan \texttt{PYTHONPATH}, folder pustaka standar, lalu folder \texttt{site-packages} tempat library hasil \texttt{pip install}. File pertama yang cocok akan dipakai.
+\end{info}
+
+\begin{penting}[Jangan Menamai File seperti Module Bawaan]
+Karena folder program diperiksa paling awal, file buatan sendiri bernama \texttt{random.py}, \texttt{math.py}, atau \texttt{json.py} akan \emph{menutupi} module bawaan yang bernama sama. Perintah \texttt{import random} lalu memuat file Anda, dan pemanggilan \texttt{random.randint()} gagal dengan \texttt{AttributeError}. Python 3.13 ke atas bahkan menambahkan saran untuk mengganti nama file tersebut di pesan kesalahannya. Gunakan nama yang menggambarkan isi, misalnya \texttt{undian.py}.
+\end{penting}
+
+% =====================================================================
+\section{Import}
+% =====================================================================
+
+Perintah \texttt{import} punya beberapa bentuk. Semuanya memuat module dengan cara yang sama; perbedaannya terletak pada \emph{nama} yang tersedia setelah perintah itu dijalankan.
+
+\begin{table}[htbp]
+\caption{Bentuk-bentuk perintah \texttt{import}.}
+\begin{tabularx}{\linewidth}{P{52mm}P{38mm}L}
+\kepala \kp{Bentuk} & \kp{Nama yang tersedia} & \kp{Cara memakai} \\
+\texttt{import math} & \texttt{math} & \texttt{math.sqrt(16)} \\
+\texttt{import kampus\_util as ku} & \texttt{ku} & \texttt{ku.nim\_valid(nim)} \\
+\texttt{from math import sqrt, pi} & \texttt{sqrt} dan \texttt{pi} & \texttt{sqrt(16)}, \texttt{pi} \\
+\texttt{from kampus\_util import format\_rupiah as rp} & \texttt{rp} & \texttt{rp(5000)} \\
+\texttt{from math import *} & semua nama publik di \texttt{math} & tidak disarankan \\
+\end{tabularx}
+\end{table}
+
+\begin{kode}[Beberapa bentuk import dalam satu program]
+import math
+import kampus_util as ku
+from math import sqrt, pi
+from kampus_util import format_rupiah as rp
+
+print(math.floor(3.7), sqrt(16), round(pi, 2))
+print(ku.nim_valid("24051204084"))
+print(rp(18000))
+\end{kode}
+
+\begin{keluaran}
+3 4.0 3.14
+True
+Rp18.000
+\end{keluaran}
+
+\subsection{Memilih Bentuk Import}
+
+Bentuk \texttt{import module} membuat asal setiap nama terlihat jelas. Siapa pun yang membaca \texttt{kampus\_util.format\_rupiah(5000)} langsung tahu fungsi itu berasal dari mana. Bentuk \texttt{from module import nama} lebih ringkas dan cocok untuk nama yang sering dipakai di satu file. Alias dengan \texttt{as} berguna untuk nama module yang panjang. Pustaka analisis data seperti NumPy dan pandas, misalnya, hampir selalu diimpor sebagai \texttt{np} dan \texttt{pd}.
+
+\subsection{Bentrok Nama}
+
+Masalah muncul ketika dua module memiliki nama yang sama dan keduanya diimpor dengan \texttt{from \ldots\ import}. Nama yang diimpor belakangan menimpa yang lebih dulu tanpa peringatan apa pun, mirip dengan definisi method kedua yang menimpa definisi pertama di Bab 6.
+
+\begin{kode}[toko\_util.py]
+def format_rupiah(angka):
+    return "IDR " + str(angka)
+\end{kode}
+
+\begin{kode}[main.py]
+from kampus_util import *
+from toko_util import *          # format_rupiah milik kampus_util tertimpa
+
+print(format_rupiah(18000))
+\end{kode}
+
+\begin{keluaran}
+IDR 18000
+\end{keluaran}
+
+Dengan \texttt{import kampus\_util} dan \texttt{import toko\_util}, kedua fungsi bisa dipakai berdampingan sebagai \texttt{kampus\_util.format\_rupiah} dan \texttt{toko\_util.format\_rupiah}. Nama module berfungsi sebagai \emph{namespace} yang memisahkan nama-nama yang kebetulan sama.
+
+\begin{penting}[Hindari \texttt{from module import *}]
+Bentuk bintang mengimpor semua nama publik sekaligus. Akibatnya pembaca tidak bisa tahu asal sebuah nama, nama yang sudah ada bisa tertimpa diam-diam seperti contoh di atas, dan editor kode kesulitan memberi saran. Tuliskan nama yang dibutuhkan satu per satu.
+\end{penting}
+
+\subsection{Module Bawaan dan Library dari Luar}
+
+Python dipasang bersama ratusan module siap pakai yang disebut \emph{pustaka standar} (\emph{standard library}). Beberapa di antaranya akan kita pakai di bab-bab berikutnya.
+
+\begin{table}[htbp]
+\caption{Beberapa module pustaka standar yang dipakai di buku ini.}
+\begin{tabularx}{\linewidth}{P{28mm}LP{24mm}}
+\kepala \kp{Module} & \kp{Kegunaan} & \kp{Dipakai di} \\
+\texttt{abc} & membuat abstract class dan abstract method & Bab 5, 6 \\
+\texttt{dataclasses} & membuat data class & Bab 5, 9 \\
+\texttt{functools} & \texttt{wraps}, \texttt{singledispatchmethod} & Bab 3, 6 \\
+\texttt{pathlib} & mengolah path file dan folder & Bab 9 \\
+\texttt{csv}, \texttt{json} & membaca dan menulis file CSV dan JSON & Bab 9 \\
+\texttt{tkinter} & membuat jendela GUI & Bab 10 \\
+\end{tabularx}
+\end{table}
+
+Module di luar pustaka standar dipasang dengan \texttt{pip}, misalnya \texttt{pip install requests}. Setelah terpasang, module tersebut diimpor dengan cara yang sama persis seperti module bawaan. Agar orang lain bisa menjalankan proyek kita, daftar library luar yang dibutuhkan biasanya dicatat di file \texttt{requirements.txt}, yang akan kita lihat di subbab struktur folder.
+
+% =====================================================================
+\section{Package}
+% =====================================================================
+
+Ketika jumlah module bertambah, module-module yang berhubungan dikumpulkan dalam satu folder. Folder berisi module yang dapat diimpor ini disebut \emph{package}. Sebuah folder menjadi package jika di dalamnya terdapat file \texttt{\_\_init\_\_.py}, walaupun file itu kosong.
+
+Sebagai contoh, fungsi-fungsi bantu kampus kita pisahkan menjadi dua urusan, yaitu akademik dan keuangan, lalu dikumpulkan dalam package \texttt{kampus}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    b7dir/.style={anchor=west,font=\ttfamily\small\bfseries,text=marun,inner sep=1pt},
+    b7isi/.style={anchor=west,font=\ttfamily\small,text=gelap,inner sep=1pt},
+    b7ket/.style={anchor=west,font=\sffamily\footnotesize,text=abu,inner sep=1pt},
+    b7cabang/.style={draw=abu,line width=0.5pt},
+    b7titik/.style={draw=garis,line width=0.6pt,dotted}]
+  \node[b7dir] (r) at (0,0)      {proyek/};
+  \node[b7isi] (m) at (0.7,-0.65) {main.py};
+  \node[b7dir] (k) at (0.7,-1.3)  {kampus/};
+  \node[b7isi] (i) at (1.4,-1.95) {\_\_init\_\_.py};
+  \node[b7isi] (a) at (1.4,-2.6)  {akademik.py};
+  \node[b7isi] (u) at (1.4,-3.25) {keuangan.py};
+  \draw[b7cabang] (0.25,-0.22) |- (m.west);
+  \draw[b7cabang] (0.25,-0.22) |- (k.west);
+  \draw[b7cabang] (0.95,-1.52) |- (i.west);
+  \draw[b7cabang] (0.95,-1.52) |- (a.west);
+  \draw[b7cabang] (0.95,-1.52) |- (u.west);
+  \foreach \n/\y/\t in {m/-0.65/{program yang dijalankan},
+                        k/-1.3/{package \texttt{kampus}},
+                        i/-1.95/{dijalankan saat package pertama kali diimpor},
+                        a/-2.6/{module \texttt{kampus.akademik}},
+                        u/-3.25/{module \texttt{kampus.keuangan}}} {
+    \draw[b7titik] ([xshift=1mm]\n.east) -- (4.4,\y);
+    \node[b7ket] at (4.5,\y) {\t};
+  }
+\end{tikzpicture}
+\caption{Struktur folder package \texttt{kampus}. Nama module di dalam package ditulis dengan titik: \texttt{kampus.akademik} berarti file \texttt{akademik.py} di folder \texttt{kampus}.}
+\end{figure}
+
+\begin{kode}[kampus/\_\_init\_\_.py]
+# boleh kosong: keberadaan file ini sudah cukup
+\end{kode}
+
+\begin{kode}[kampus/keuangan.py]
+def format_rupiah(angka):
+    return f"Rp{angka:,}".replace(",", ".")
+\end{kode}
+
+\begin{kode}[kampus/akademik.py]
+from .keuangan import format_rupiah
+
+def nilai_huruf(angka):
+    if angka >= 85:
+        return "A"
+    if angka >= 70:
+        return "B"
+    if angka >= 55:
+        return "C"
+    return "D"
+
+def beasiswa(angka):
+    besar = 3000000 if nilai_huruf(angka) == "A" else 0
+    return format_rupiah(besar)
+
+if __name__ == "__main__":
+    print(nilai_huruf(90), beasiswa(90))
+\end{kode}
+
+\begin{kode}[main.py]
+import kampus.akademik
+from kampus import keuangan
+from kampus.akademik import beasiswa
+
+print(kampus.akademik.nilai_huruf(60))
+print(keuangan.format_rupiah(1250000))
+print(beasiswa(91))
+\end{kode}
+
+\begin{keluaran}
+C
+Rp1.250.000
+Rp3.000.000
+\end{keluaran}
+
+\subsection{Relative Import}
+
+Perhatikan baris pertama di \texttt{akademik.py}, yaitu \texttt{from .keuangan import format\_rupiah}. Bentuk ini disebut \emph{relative import}. Titik di depan nama module berarti ``dari package yang sama dengan file ini''. Dua titik (\texttt{..}) berarti package satu tingkat di atasnya. Bentuk lengkapnya, \texttt{from kampus.keuangan import format\_rupiah}, disebut \emph{absolute import}. Keduanya benar. Relative import membuat module di dalam package tidak bergantung pada nama package, sehingga package masih berfungsi jika suatu saat folder \texttt{kampus} diganti namanya.
+
+Ada satu jebakan. Relative import hanya berlaku jika file dimuat \emph{sebagai bagian dari package}. Jika \texttt{akademik.py} dijalankan langsung sebagai skrip, Python tidak tahu package induknya.
+
+\begin{keluaran}[Terminal]
+$ python kampus/akademik.py
+Traceback (most recent call last):
+  ...
+ImportError: attempted relative import with no known parent package
+$ python -m kampus.akademik
+A Rp3.000.000
+\end{keluaran}
+
+\begin{tips}[Menjalankan Module di dalam Package]
+Gunakan \texttt{python -m nama\_package.nama\_module} dari folder proyek, tanpa akhiran \texttt{.py}. Opsi \texttt{-m} memuat file sebagai module di dalam package, sehingga relative import berjalan dan blok \texttt{if \_\_name\_\_ == "\_\_main\_\_"} tetap dijalankan.
+\end{tips}
+
+\subsection{Mengatur Isi \texttt{\_\_init\_\_.py}}
+
+File \texttt{\_\_init\_\_.py} dijalankan satu kali saat package pertama kali diimpor. Selain menandai folder sebagai package, file ini sering dipakai untuk membuka nama-nama penting langsung di tingkat package. Pemakai package cukup menulis \texttt{import kampus} tanpa perlu tahu nama-nama module di dalamnya.
+
+\begin{kode}[kampus/\_\_init\_\_.py]
+from .akademik import beasiswa, nilai_huruf
+from .keuangan import format_rupiah
+
+__all__ = ["beasiswa", "nilai_huruf", "format_rupiah"]
+\end{kode}
+
+\begin{kode}[main.py]
+import kampus
+
+print(kampus.nilai_huruf(75), kampus.format_rupiah(5000))
+\end{kode}
+
+\begin{keluaran}
+B Rp5.000
+\end{keluaran}
+
+Variabel \texttt{\_\_all\_\_} berisi daftar nama yang dianggap publik. Daftar ini menentukan nama apa saja yang ikut terbawa oleh \texttt{from kampus import *}, dan sekaligus menjadi dokumentasi singkat tentang apa yang ditawarkan package.
+
+\begin{info}[Folder tanpa \texttt{\_\_init\_\_.py}]
+Sejak Python 3.3, folder tanpa \texttt{\_\_init\_\_.py} pun dapat diimpor sebagai \emph{namespace package}. Fitur ini dibuat untuk kasus khusus, yaitu satu package yang tersebar di beberapa lokasi. Untuk proyek biasa, tetap sertakan \texttt{\_\_init\_\_.py} agar jelas bahwa folder itu sebuah package.
+\end{info}
+
+% =====================================================================
+\section{Struktur Folder Project}
+% =====================================================================
+
+Tidak ada satu struktur folder yang wajib untuk proyek Python. Namun proyek kecil hingga menengah, termasuk proyek akhir mata kuliah ini, umumnya mengikuti pola yang sama: satu file titik masuk di folder teratas, kode program di dalam package, dan data dipisahkan dari kode.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    b7dir/.style={anchor=west,font=\ttfamily\small\bfseries,text=marun,inner sep=1pt},
+    b7isi/.style={anchor=west,font=\ttfamily\small,text=gelap,inner sep=1pt},
+    b7ket/.style={anchor=west,font=\sffamily\footnotesize,text=abu,inner sep=1pt},
+    b7cabang/.style={draw=abu,line width=0.5pt},
+    b7titik/.style={draw=garis,line width=0.6pt,dotted}]
+  \node[b7dir] (r) at (0,0) {proyek\_perpus/};
+  \node[b7isi] (n1) at (0.7,-0.6)  {main.py};
+  \node[b7dir] (n2) at (0.7,-1.2)  {perpustakaan/};
+  \node[b7isi] (n3) at (1.4,-1.8)  {\_\_init\_\_.py};
+  \node[b7isi] (n4) at (1.4,-2.4)  {buku.py};
+  \node[b7isi] (n5) at (1.4,-3.0)  {anggota.py};
+  \node[b7isi] (n6) at (1.4,-3.6)  {peminjaman.py};
+  \node[b7isi] (n7) at (1.4,-4.2)  {layanan.py};
+  \node[b7dir] (n8) at (0.7,-4.8)  {data/};
+  \node[b7isi] (n9) at (0.7,-5.4)  {README.md};
+  \node[b7isi] (n10) at (0.7,-6.0) {requirements.txt};
+  \foreach \n in {n1,n2,n8,n9,n10}
+    \draw[b7cabang] (0.25,-0.22) |- (\n.west);
+  \foreach \n in {n3,n4,n5,n6,n7}
+    \draw[b7cabang] (0.95,-1.42) |- (\n.west);
+  \foreach \n/\y/\t in {n1/-0.6/{titik masuk: membuat object dan menjalankan program},
+                        n2/-1.2/{package berisi seluruh class},
+                        n3/-1.8/{nama yang dibuka untuk pemakai package},
+                        n4/-2.4/{\texttt{Buku}, \texttt{BukuCetak}, \texttt{EBook}},
+                        n5/-3.0/{\texttt{Anggota}},
+                        n6/-3.6/{\texttt{Peminjaman}},
+                        n7/-4.2/{\texttt{Perpustakaan}},
+                        n8/-4.8/{file data yang disimpan program (Bab 9)},
+                        n9/-5.4/{penjelasan proyek dan cara menjalankannya},
+                        n10/-6.0/{daftar library luar, jika ada}} {
+    \draw[b7titik] ([xshift=1mm]\n.east) -- (4.6,\y);
+    \node[b7ket] at (4.7,\y) {\t};
+  }
+\end{tikzpicture}
+\caption{Struktur folder yang disarankan untuk proyek perpustakaan.}
+\end{figure}
+
+Beberapa aturan sederhana membuat struktur ini tetap rapi seiring proyek bertambah besar:
+
+\begin{itemize}
+  \item \textbf{Satu titik masuk.} \texttt{main.py} sebaiknya pendek. Isinya hanya membuat object yang dibutuhkan lalu menjalankan program. Definisi class tidak ditulis di sini.
+  \item \textbf{Satu urusan per module.} Nama file harus bisa menjawab pertanyaan ``apa isi file ini?''. Nama seperti \texttt{coba2.py} atau \texttt{lain\_lain.py} adalah tanda pembagiannya belum jelas.
+  \item \textbf{Data terpisah dari kode.} File yang dibaca dan ditulis program disimpan di folder \texttt{data/}, bukan bercampur dengan file \texttt{.py}.
+  \item \textbf{Nama module huruf kecil.} Gunakan huruf kecil dan garis bawah, tanpa spasi atau tanda hubung. Nama \texttt{data-buku.py} tidak bisa diimpor karena tanda \texttt{-} dibaca sebagai pengurangan.
+\end{itemize}
+
+\begin{tips}[Jalankan dari Folder Proyek]
+Buka terminal di folder \texttt{proyek\_perpus}, lalu jalankan \texttt{python main.py}. Folder tempat program dijalankan memengaruhi tempat Python mencari module, dan di Bab 9 juga memengaruhi lokasi file data. Menjalankan program dari folder lain adalah penyebab umum pesan \texttt{ModuleNotFoundError} dan \texttt{FileNotFoundError}.
+\end{tips}
+
+% =====================================================================
+\section{Pemisahan Class ke dalam Module}
+% =====================================================================
+
+Sekarang kita terapkan semuanya pada kode perpustakaan dari Bab 6. Tujuannya adalah memecah satu file menjadi package tanpa mengubah perilaku program sedikit pun.
+
+\begin{langkah}{Memecah \texttt{perpustakaan.py} menjadi Package}
+  \item Kelompokkan class berdasarkan urusannya: buku beserta turunannya, anggota, catatan peminjaman, dan layanan perpustakaan.
+  \item Buat folder \texttt{perpustakaan/} beserta file \texttt{\_\_init\_\_.py}.
+  \item Pindahkan setiap kelompok ke module sendiri. Tambahkan import yang dibutuhkan oleh module itu saja.
+  \item Atur \texttt{\_\_init\_\_.py} agar class yang dipakai dari luar bisa diimpor langsung dari package.
+  \item Tulis ulang \texttt{main.py} sehingga isinya hanya membuat object dan menjalankan program, lalu bandingkan keluarannya dengan versi satu file.
+\end{langkah}
+
+\begin{kode}[perpustakaan/buku.py]
+from abc import ABC, abstractmethod
+
+class Buku(ABC):
+    def __init__(self, judul):
+        self.judul = judul
+        self.dipinjam = False
+
+    @abstractmethod
+    def lama_pinjam(self):
+        ...
+
+class BukuCetak(Buku):
+    def lama_pinjam(self):
+        return 14
+
+class EBook(Buku):
+    def lama_pinjam(self):
+        return 7
+\end{kode}
+
+\begin{kode}[perpustakaan/anggota.py]
+class Anggota:
+    def __init__(self, nama):
+        self.nama = nama
+\end{kode}
+
+\begin{kode}[perpustakaan/peminjaman.py]
+class Peminjaman:
+    def __init__(self, anggota, buku):
+        self.anggota = anggota
+        self.buku = buku
+
+    def __str__(self):
+        return (f"{self.anggota.nama} meminjam '{self.buku.judul}' "
+                f"selama {self.buku.lama_pinjam()} hari")
+\end{kode}
+
+Perhatikan bahwa \texttt{peminjaman.py} tidak mengimpor \texttt{Anggota} maupun \texttt{Buku}. Class \texttt{Peminjaman} hanya memakai attribute \texttt{nama}, \texttt{judul}, dan method \texttt{lama\_pinjam()} dari object yang diterimanya. Berkat duck typing (Bab 5), ia tidak perlu tahu class asli object tersebut. Semakin sedikit import, semakin sedikit pula ketergantungan antarmodule.
+
+\begin{kode}[perpustakaan/layanan.py]
+from .peminjaman import Peminjaman
+
+class Perpustakaan:
+    def __init__(self, nama):
+        self.nama = nama
+        self._buku = []
+        self._anggota = []
+        self._catatan = []
+
+    def tambah_buku(self, *buku):
+        self._buku.extend(buku)
+
+    def tambah_anggota(self, *anggota):
+        self._anggota.extend(anggota)
+
+    def pinjamkan(self, anggota, buku):
+        if buku.dipinjam:
+            return f"'{buku.judul}' sedang dipinjam"
+        buku.dipinjam = True
+        catatan = Peminjaman(anggota, buku)        # composition
+        self._catatan.append(catatan)
+        return str(catatan)
+
+    def jumlah_peminjaman(self):
+        return len(self._catatan)
+\end{kode}
+
+\begin{kode}[perpustakaan/\_\_init\_\_.py]
+from .anggota import Anggota
+from .buku import Buku, BukuCetak, EBook
+from .layanan import Perpustakaan
+
+__all__ = ["Anggota", "Buku", "BukuCetak", "EBook", "Perpustakaan"]
+\end{kode}
+
+\begin{kode}[main.py]
+from perpustakaan import Anggota, BukuCetak, EBook, Perpustakaan
+
+ani, budi = Anggota("Ani"), Anggota("Budi")
+laskar = BukuCetak("Laskar Pelangi")
+pbo = EBook("Dasar PBO dengan Python")
+
+perpus = Perpustakaan("Perpustakaan UNESA")
+perpus.tambah_anggota(ani, budi)
+perpus.tambah_buku(laskar, pbo)
+print(perpus.pinjamkan(ani, laskar))
+print(perpus.pinjamkan(budi, pbo))
+print(perpus.pinjamkan(budi, laskar))
+print("Total peminjaman:", perpus.jumlah_peminjaman())
+\end{kode}
+
+\begin{keluaran}
+Ani meminjam 'Laskar Pelangi' selama 14 hari
+Budi meminjam 'Dasar PBO dengan Python' selama 7 hari
+'Laskar Pelangi' sedang dipinjam
+Total peminjaman: 2
+\end{keluaran}
+
+Keluarannya sama persis dengan versi satu file di Bab 6. Perubahan seperti ini, yaitu menata ulang struktur kode tanpa mengubah perilakunya, disebut \emph{refactoring}. Membandingkan keluaran sebelum dan sesudah adalah cara paling sederhana untuk memastikan refactoring tidak merusak apa pun.
+
+\subsection{Import Melingkar}
+
+Saat memecah class ke beberapa module, ada satu kesalahan yang sering terjadi: dua module saling mengimpor. Misalkan class \texttt{Dosen} membuat object \texttt{Mahasiswa} bimbingan, sementara class \texttt{Mahasiswa} memeriksa bahwa pembimbingnya benar-benar sebuah \texttt{Dosen}.
+
+\begin{kode}[lingkar/dosen.py]
+from lingkar.mahasiswa import Mahasiswa
+
+class Dosen:
+    def __init__(self, nama):
+        self.nama = nama
+
+    def bimbing(self, nama_mhs):
+        return Mahasiswa(nama_mhs, self)
+\end{kode}
+
+\begin{kode}[lingkar/mahasiswa.py]
+from lingkar.dosen import Dosen
+
+class Mahasiswa:
+    def __init__(self, nama, pembimbing):
+        if not isinstance(pembimbing, Dosen):
+            raise TypeError("Pembimbing harus seorang Dosen.")
+        self.nama = nama
+        self.pembimbing = pembimbing
+\end{kode}
+
+\begin{kode}[main.py]
+from lingkar.dosen import Dosen
+
+ani = Dosen("Rina").bimbing("Ani")
+print(ani.nama, "dibimbing", ani.pembimbing.nama)
+\end{kode}
+
+\begin{keluaran}
+Traceback (most recent call last):
+  ...
+ImportError: cannot import name 'Dosen' from partially initialized module 'lingkar.dosen' (most likely due to a circular import)
+\end{keluaran}
+
+Pesan kesalahannya menyebut \emph{partially initialized module}, yaitu module yang baru setengah dimuat. Gambar berikut memperlihatkan urutan kejadiannya.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    b7baris/.style={rectangle,draw=marun,line width=0.8pt,fill=merahmuda,font=\ttfamily\footnotesize,text width=64mm,inner sep=2mm,align=left},
+    b7belum/.style={rectangle,draw=abu,dashed,line width=0.6pt,fill=white,text=abu,font=\ttfamily\footnotesize,text width=64mm,inner sep=2mm,align=left},
+    b7file/.style={font=\ttfamily\footnotesize\bfseries,text=marun,anchor=south west,inner sep=1pt},
+    b7no/.style={circle,fill=merah,text=white,font=\sffamily\scriptsize\bfseries,inner sep=0pt,minimum size=4.6mm},
+    b7panah/.style={-{Latex},line width=0.9pt,emas}]
+  \node[b7baris] (mn) at (0,2.3) {from lingkar.dosen import Dosen};
+  \node[b7file] at ([yshift=1mm]mn.north west) {main.py};
+  \node[b7baris] (d1) at (0,0) {from lingkar.mahasiswa import Mahasiswa};
+  \node[b7belum,anchor=north] (d2) at (d1.south) {class Dosen: ...};
+  \node[b7file] at ([yshift=1mm]d1.north west) {lingkar/dosen.py};
+  \node[b7baris] (m1) at (8.4,0) {from lingkar.dosen import Dosen};
+  \node[b7belum,anchor=north] (m2) at (m1.south) {class Mahasiswa: ...};
+  \node[b7file] at ([yshift=1mm]m1.north west) {lingkar/mahasiswa.py};
+  \draw[b7panah] ([xshift=14mm]mn.south) -- node[b7no,right=1.5mm]{1} ([xshift=14mm]d1.north);
+  \draw[b7panah] ([yshift=1.2mm]d1.east) -- node[b7no,above=1mm]{2} ([yshift=1.2mm]m1.west);
+  \draw[b7panah,jingga] ([yshift=-1.2mm]m1.west) -- node[b7no,fill=jingga,below=1.5mm]{3} (d2.east);
+  \node[font=\sffamily\footnotesize,text=jingga,align=center,text width=140mm] at (4.2,-2.2)
+    {Langkah 3 meminta \texttt{Dosen}, padahal \texttt{dosen.py} baru berjalan sampai baris pertama.\\Class \texttt{Dosen} belum pernah dibuat, sehingga import gagal.};
+\end{tikzpicture}
+\caption{Urutan kejadian import melingkar. Kotak berwarna sudah dijalankan; kotak putus-putus belum dijalankan.}
+\end{figure}
+
+Cara mengatasinya bukan dengan mengutak-atik urutan baris import, melainkan dengan memperbaiki rancangan. Ketergantungan antarmodule sebaiknya \emph{mengalir satu arah}. Ada dua jalan yang umum:
+
+\begin{itemize}
+  \item \textbf{Hapus ketergantungan yang tidak perlu.} Apakah \texttt{Mahasiswa} benar-benar harus tahu class \texttt{Dosen}? Yang dibutuhkan hanyalah pembimbing yang punya \texttt{nama}. Dengan duck typing, import itu bisa dibuang.
+  \item \textbf{Pindahkan bagian bersama ke module ketiga.} Jika kedua module memang membutuhkan sesuatu yang sama, letakkan bagian itu di module baru yang diimpor oleh keduanya, sementara keduanya tidak saling mengimpor.
+\end{itemize}
+
+\begin{kode}[lingkar/mahasiswa.py]
+class Mahasiswa:                       # tidak lagi mengimpor dosen.py
+    def __init__(self, nama, pembimbing):
+        if not hasattr(pembimbing, "nama"):
+            raise TypeError("Pembimbing harus memiliki nama.")
+        self.nama = nama
+        self.pembimbing = pembimbing
+\end{kode}
+
+\begin{kode}[main.py]
+from lingkar.dosen import Dosen
+
+ani = Dosen("Rina").bimbing("Ani")
+print(ani.nama, "dibimbing", ani.pembimbing.nama)
+\end{kode}
+
+\begin{keluaran}
+Ani dibimbing Rina
+\end{keluaran}
+
+Sekarang hanya \texttt{dosen.py} yang mengimpor \texttt{mahasiswa.py}, tidak sebaliknya. Import melingkar hilang, dan class \texttt{Mahasiswa} malah menjadi lebih mudah dipakai ulang karena tidak lagi terikat pada class \texttt{Dosen}.
+
+% =====================================================================
+\section{Reusability}
+% =====================================================================
+
+\emph{Reusability} adalah kemampuan sebuah kode untuk dipakai ulang di tempat lain tanpa disalin. Module adalah satuan pemakaian ulang yang paling alami di Python. Package \texttt{kampus} yang kita buat tadi, misalnya, bisa langsung dipakai oleh dua program yang sama sekali berbeda.
+
+\begin{kode}[kantin.py]
+from kampus import format_rupiah
+
+pesanan = {"Nasi goreng": 15000, "Es teh": 4000, "Kerupuk": 2000}
+for menu, harga in pesanan.items():
+    print(f"{menu:<12}{format_rupiah(harga):>10}")
+print(f"{'Total':<12}{format_rupiah(sum(pesanan.values())):>10}")
+\end{kode}
+
+\begin{keluaran}
+Nasi goreng   Rp15.000
+Es teh         Rp4.000
+Kerupuk        Rp2.000
+Total         Rp21.000
+\end{keluaran}
+
+\begin{kode}[laporan\_beasiswa.py]
+from kampus import beasiswa, nilai_huruf
+
+for nama, nilai in [("Ani", 91), ("Budi", 72), ("Citra", 86)]:
+    print(f"{nama:<6} {nilai_huruf(nilai)}  {beasiswa(nilai)}")
+\end{kode}
+
+\begin{keluaran}
+Ani    A  Rp3.000.000
+Budi   B  Rp0
+Citra  A  Rp3.000.000
+\end{keluaran}
+
+Kedua program tidak berisi satu baris pun kode format rupiah. Keduanya memakai fungsi yang sama dari package \texttt{kampus}.
+
+\subsection{Docstring dan \texttt{help()}}
+
+Module yang dipakai ulang akan dibaca oleh orang yang tidak menulisnya. Karena itu module perlu menjelaskan dirinya sendiri. Caranya adalah dengan \emph{docstring}, yaitu teks di antara tiga tanda kutip yang ditulis sebagai baris pertama module, class, atau fungsi. Docstring bisa dibaca oleh fungsi bawaan \texttt{help()} dan ditampilkan oleh editor kode saat kursor diarahkan ke nama fungsi.
+
+\begin{kode}[kampus/keuangan.py]
+"""Fungsi bantu urusan keuangan kampus."""
+
+def format_rupiah(angka):
+    """Ubah angka menjadi teks rupiah, misalnya 18000 menjadi 'Rp18.000'."""
+    return f"Rp{angka:,}".replace(",", ".")
+\end{kode}
+
+\begin{kode}[Membaca docstring]
+from kampus.keuangan import format_rupiah
+
+help(format_rupiah)
+\end{kode}
+
+\begin{keluaran}
+Help on function format_rupiah in module kampus.keuangan:
+
+format_rupiah(angka)
+    Ubah angka menjadi teks rupiah, misalnya 18000 menjadi 'Rp18.000'.
+\end{keluaran}
+
+\subsection{Ciri Module yang Mudah Dipakai Ulang}
+
+Tidak semua module sama mudahnya untuk dipakai ulang. Bandingkan dua fungsi berikut.
+
+\begin{kode}[Mencetak atau mengembalikan nilai]
+def tampilkan_total(daftar_harga):          # sulit dipakai ulang
+    print("Total:", sum(daftar_harga))
+
+def hitung_total(daftar_harga):             # mudah dipakai ulang
+    return sum(daftar_harga)
+\end{kode}
+
+Fungsi pertama hanya berguna untuk program terminal. Program GUI di Bab 10 butuh angka total untuk ditampilkan di sebuah label, dan program di Bab 9 butuh angka itu untuk ditulis ke file. Keduanya tidak bisa memakai \texttt{tampilkan\_total()}. Fungsi kedua mengembalikan nilai dan membiarkan pemanggilnya memutuskan apa yang dilakukan dengan nilai itu. Dari contoh ini kita bisa menyusun beberapa ciri module yang baik:
+
+\begin{itemize}
+  \item mengembalikan nilai, bukan mencetak sendiri atau meminta \texttt{input()} sendiri;
+  \item tidak bergantung pada variabel global milik program tertentu, sehingga semua yang dibutuhkan diterima lewat parameter;
+  \item punya nama dan docstring yang menjelaskan isinya;
+  \item menyimpan kode uji di dalam blok \texttt{if \_\_name\_\_ == "\_\_main\_\_"}.
+\end{itemize}
+
+% =====================================================================
+\section{Maintainability}
+% =====================================================================
+
+\emph{Maintainability} adalah seberapa mudah sebuah program diperbaiki dan diubah setelah selesai ditulis. Program jarang selesai sekali jadi. Aturan kampus berubah, pengguna meminta fitur baru, dan bug ditemukan berbulan-bulan kemudian. Program yang mudah dirawat adalah program yang perubahannya cukup dilakukan di \emph{satu tempat}.
+
+Misalkan kampus menambahkan nilai AB untuk rentang 80 sampai 84. Dengan package \texttt{kampus}, perubahan cukup dilakukan pada fungsi \texttt{nilai\_huruf()} di \texttt{akademik.py}. Program laporan beasiswa dan program lain yang memakai fungsi itu langsung mengikuti aturan baru tanpa disentuh. Seandainya logika nilai huruf disalin ke lima program, kelimanya harus diubah, dan cukup satu yang terlewat untuk membuat dua program memberi nilai berbeda bagi mahasiswa yang sama.
+
+\begin{table}[htbp]
+\caption{Gejala kode yang sulit dirawat dan cara memperbaikinya.}
+\begin{tabularx}{\linewidth}{P{50mm}P{42mm}L}
+\kepala \kp{Gejala} & \kp{Penyebab} & \kp{Perbaikan} \\
+File sangat panjang dan sulit dicari & terlalu banyak urusan dalam satu module & pecah per urusan \\
+Satu perubahan kecil memaksa mengubah banyak file & logika yang sama disalin ke banyak tempat & pindahkan ke satu fungsi di module bersama \\
+Import melingkar & dua module saling bergantung & jadikan ketergantungan satu arah \\
+Nama file tidak menjelaskan isi & pembagian module belum dipikirkan & beri nama sesuai urusan \\
+Fungsi sulit diuji tanpa menjalankan seluruh program & logika bercampur dengan \texttt{print} dan \texttt{input} & pisahkan logika dari tampilan \\
+\end{tabularx}
+\end{table}
+
+\subsection{Konvensi Penamaan}
+
+Kode yang mengikuti konvensi bersama lebih mudah dibaca oleh orang lain, termasuk oleh diri kita sendiri beberapa bulan kemudian. Python memiliki pedoman gaya resmi bernama PEP 8. Aturan penamaannya yang terpenting dirangkum pada tabel berikut, dan semua contoh di buku ini mengikutinya.
+
+\begin{table}[htbp]
+\caption{Konvensi penamaan menurut PEP 8.}
+\begin{tabularx}{\linewidth}{P{40mm}P{44mm}L}
+\kepala \kp{Jenis nama} & \kp{Gaya penulisan} & \kp{Contoh} \\
+Module dan package & huruf kecil, garis bawah & \texttt{kampus\_util}, \texttt{perpustakaan} \\
+Class & setiap kata diawali kapital & \texttt{BukuCetak}, \texttt{ProgramStudi} \\
+Fungsi, method, variabel & huruf kecil, garis bawah & \texttt{format\_rupiah}, \texttt{lama\_pinjam} \\
+Konstanta & huruf kapital semua & \texttt{KAMPUS}, \texttt{NOL\_MUTLAK} \\
+Anggota internal & diawali satu garis bawah & \texttt{\_catatan}, \texttt{\_buku} \\
+\end{tabularx}
+\end{table}
+
+\begin{tips}[Pecah Secukupnya]
+Memecah program juga bisa berlebihan. Sepuluh file yang masing-masing berisi lima baris sama sulitnya dibaca dengan satu file berisi lima ratus baris. Pecah sebuah module ketika isinya mulai mengurus lebih dari satu hal, bukan sebelumnya.
+\end{tips}
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item \textbf{Modular programming} menyusun program dari bagian-bagian kecil yang masing-masing mengurus satu hal, sehingga program lebih mudah dicari, dikerjakan bersama, dipakai ulang, dan dirawat.
+  \item Setiap file \texttt{.py} adalah \textbf{module}. Module diimpor dengan \texttt{import}, dijalankan sekali saja, dan isinya diakses sebagai attribute object module.
+  \item Variabel \texttt{\_\_name\_\_} bernilai \texttt{"\_\_main\_\_"} saat file dijalankan langsung. Blok \texttt{if \_\_name\_\_ == "\_\_main\_\_"} dipakai untuk kode uji yang tidak boleh ikut berjalan saat module diimpor.
+  \item \texttt{import module} menjaga asal nama tetap jelas, \texttt{from module import nama} lebih ringkas, dan \texttt{as} memberi alias. Hindari \texttt{from module import *} karena dapat menimpa nama secara diam-diam.
+  \item \textbf{Package} adalah folder berisi module dan file \texttt{\_\_init\_\_.py}. Di dalam package, \textbf{relative import} seperti \texttt{from .buku import Buku} merujuk module di package yang sama. Module di dalam package dijalankan dengan \texttt{python -m}.
+  \item Struktur proyek yang baik memiliki satu titik masuk yang pendek, satu urusan per module, dan data yang terpisah dari kode.
+  \item \textbf{Import melingkar} terjadi ketika dua module saling mengimpor. Atasi dengan membuat ketergantungan mengalir satu arah.
+  \item \textbf{Reusability} tercapai jika module mengembalikan nilai, tidak bergantung pada variabel global, dan berdokumentasi. \textbf{Maintainability} tercapai jika setiap perubahan cukup dilakukan di satu tempat.
+\end{itemize}
+
+% =====================================================================
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat.
+
+\begin{enumerate}
+  \item Pernyataan yang paling tepat tentang module di Python adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item module harus didaftarkan terlebih dahulu sebelum bisa diimpor
+    \item setiap file \texttt{.py} dapat diimpor sebagai module
+    \item module hanya boleh berisi fungsi, tidak boleh berisi class
+    \item module harus disimpan di folder pustaka standar
+  \end{enumerate}
+
+  \item Perhatikan dua file berikut, lalu \texttt{main.py} dijalankan.
+\begin{kode}[sapa.py]
+def sapa():
+    return "Halo"
+
+print("A")
+if __name__ == "__main__":
+    print("B")
+\end{kode}
+\begin{kode}[main.py]
+import sapa
+print(sapa.sapa())
+\end{kode}
+  Keluaran program tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{A}, \texttt{B}, lalu \texttt{Halo}
+    \item \texttt{A} lalu \texttt{Halo}
+    \item \texttt{Halo} saja
+    \item \texttt{B} lalu \texttt{Halo}
+  \end{enumerate}
+
+  \item Setelah perintah \texttt{from math import sqrt}, cara memanggil fungsi akar kuadrat yang benar adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{math.sqrt(9)}
+    \item \texttt{sqrt(9)}
+    \item \texttt{math(sqrt(9))}
+    \item \texttt{import.sqrt(9)}
+  \end{enumerate}
+
+  \item File \texttt{pagi.py} berisi fungsi \texttt{salam()} yang mengembalikan \texttt{"Selamat pagi"}, dan file \texttt{malam.py} berisi fungsi \texttt{salam()} yang mengembalikan \texttt{"Selamat malam"}. Apa keluaran program berikut?
+\begin{kode}[Soal 4]
+from pagi import *
+from malam import *
+print(salam())
+\end{kode}
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{Selamat pagi}
+    \item \texttt{Selamat malam}
+    \item \texttt{Selamat pagi} lalu \texttt{Selamat malam}
+    \item \texttt{ImportError} karena nama bentrok
+  \end{enumerate}
+
+  \item Fungsi file \texttt{\_\_init\_\_.py} di dalam sebuah folder adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item menandai folder sebagai package dan dijalankan saat package pertama kali diimpor
+    \item menyimpan constructor semua class di dalam package
+    \item mencegah folder diimpor dari luar
+    \item menjalankan semua module di dalam folder secara otomatis
+  \end{enumerate}
+
+  \item Di dalam file \texttt{perpustakaan/layanan.py}, baris \texttt{from .peminjaman import Peminjaman} berarti \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item mengimpor \texttt{Peminjaman} dari module \texttt{peminjaman} di package yang sama
+    \item mengimpor \texttt{Peminjaman} dari folder induk proyek
+    \item mengimpor semua class di package \texttt{perpustakaan}
+    \item mengimpor \texttt{Peminjaman} dari pustaka standar
+  \end{enumerate}
+
+  \item Pesan \texttt{ImportError: attempted relative import with no known parent package} paling mungkin muncul ketika \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item file yang berisi relative import dijalankan langsung dengan \texttt{python folder/file.py}
+    \item package tidak memiliki variabel \texttt{\_\_all\_\_}
+    \item nama module mengandung huruf kapital
+    \item module yang sama diimpor dua kali
+  \end{enumerate}
+
+  \item File \texttt{hitung.py} berisi dua baris: \texttt{print("memuat")} dan \texttt{jumlah = 0}. Apa keluaran program berikut?
+\begin{kode}[Soal 8]
+import hitung
+import hitung
+hitung.jumlah += 1
+import hitung
+print(hitung.jumlah)
+\end{kode}
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{memuat} tiga kali, lalu \texttt{1}
+    \item \texttt{memuat} sekali, lalu \texttt{1}
+    \item \texttt{memuat} sekali, lalu \texttt{0}
+    \item \texttt{memuat} tiga kali, lalu \texttt{0}
+  \end{enumerate}
+
+  \item Seorang mahasiswa menyimpan tugasnya dengan nama \texttt{random.py}, lalu menulis \texttt{import random} di file lain pada folder yang sama. Apa yang terjadi?
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item Python tetap mengimpor module \texttt{random} bawaan
+    \item Python mengimpor file \texttt{random.py} buatannya, sehingga fungsi seperti \texttt{randint} tidak ditemukan
+    \item Python menampilkan \texttt{SyntaxError}
+    \item Python menggabungkan isi kedua module
+  \end{enumerate}
+
+  \item Dua module saling mengimpor di baris pertamanya sehingga terjadi import melingkar. Perbaikan yang paling tepat adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item menuliskan perintah import yang sama dua kali
+    \item membuat ketergantungan mengalir satu arah atau memindahkan bagian bersama ke module ketiga
+    \item mengganti semua import menjadi \texttt{from \ldots\ import *}
+    \item menggabungkan seluruh program kembali ke satu file
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Sebutkan tiga masalah yang muncul ketika seluruh program disimpan dalam satu file besar, dan jelaskan bagaimana modular programming mengatasi masing-masing masalah tersebut.
+  \item Jelaskan perbedaan module dan package. Berikan contoh struktur folder sebuah package yang berisi minimal dua module, beserta cara mengimpor masing-masing module.
+  \item Jelaskan kegunaan blok \texttt{if \_\_name\_\_ == "\_\_main\_\_"}. Berapa nilai \texttt{\_\_name\_\_} ketika file dijalankan langsung, dan berapa nilainya ketika file diimpor?
+  \item Bandingkan \texttt{import module} dengan \texttt{from module import nama}. Kapan masing-masing lebih tepat dipakai, dan mengapa \texttt{from module import *} sebaiknya dihindari?
+  \item Jelaskan apa yang dimaksud import melingkar, bagaimana urutan kejadiannya sampai muncul pesan \emph{partially initialized module}, dan dua cara mengatasinya.
+\end{enumerate}
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Kerjakan praktik berikut secara berurutan. Karena bab ini membahas cara memecah program, setiap praktik terdiri atas beberapa file. Simpan file-file setiap praktik dalam satu folder proyek tersendiri, jalankan dari folder tersebut, dan pastikan keluarannya sesuai dengan contoh.
+
+\subsection{Praktik 1: Module Konversi}
+
+\begin{itemize}
+  \item Buat module \texttt{konversi.py} berisi fungsi \texttt{celsius\_ke\_fahrenheit(c)}, \texttt{km\_ke\_mil(km)}, dan \texttt{kg\_ke\_pon(kg)}. Bulatkan setiap hasil menjadi dua angka di belakang koma.
+  \item Simpan faktor pengali sebagai konstanta \texttt{FAKTOR\_MIL = 0.621371} dan \texttt{FAKTOR\_PON = 2.20462}, lalu tulis docstring untuk module dan setiap fungsi.
+  \item Di blok \texttt{if \_\_name\_\_ == "\_\_main\_\_"}, uji setiap fungsi dengan \texttt{assert}, lalu cetak \texttt{Semua uji lulus}.
+  \item Buat \texttt{main.py} yang memakai dua bentuk import berbeda. Pastikan pesan uji tidak muncul ketika \texttt{main.py} dijalankan.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 1]
+$ python konversi.py
+Semua uji lulus
+$ python main.py
+30 C = 86.0 F
+42.195 km = 26.22 mil
+65 kg = 143.3 pon
+\end{keluaran}
+
+\subsection{Praktik 2: Package Toko}
+
+Ambil class \texttt{Produk} beserta decorator \texttt{@wajib\_positif} dan \texttt{@catat} dari Praktik 3 Bab 3, lalu susun menjadi package.
+
+\begin{itemize}
+  \item Buat package \texttt{toko} dengan tiga module: \texttt{produk.py} untuk class \texttt{Produk}, \texttt{dekorator.py} untuk kedua decorator, dan \texttt{uang.py} untuk fungsi \texttt{rupiah()}.
+  \item Module \texttt{produk.py} memakai relative import untuk mengambil decorator dan fungsi \texttt{rupiah()}.
+  \item Atur \texttt{\_\_init\_\_.py} beserta \texttt{\_\_all\_\_} agar \texttt{main.py} cukup menulis \texttt{from toko import Produk}.
+  \item Di \texttt{main.py}, buat tiga produk dari daftar baris CSV, lakukan beberapa transaksi, lalu tampilkan produk dan isi log.
+\end{itemize}
+
+\begin{keluaran}[Contoh keluaran Praktik 2]
+P-01 Buku Tulis  Rp5.000  stok 38
+P-02 Pulpen      Rp3.500  stok 150
+P-03 Penggaris   Rp7.000  stok 15
+Log: ['jual P-01 x2', 'tambah_stok P-02 x50']
+\end{keluaran}
+
+\subsection{Praktik 3: Sistem Akademik Bermodul}
+
+Susun ulang hasil Praktik 3 Bab 6 (Sistem Akademik Mini) menjadi proyek bermodul.
+
+\begin{langkah}{Langkah Pengerjaan}
+  \item Kelompokkan class berdasarkan urusannya, lalu tulis rancangan pembagian module dalam bentuk tabel di file \texttt{README.md}. Contohnya \texttt{institusi.py} untuk \texttt{Universitas}, \texttt{Fakultas}, dan \texttt{ProgramStudi}; \texttt{orang.py} untuk \texttt{Dosen} dan \texttt{Mahasiswa}; serta \texttt{perkuliahan.py} untuk mata kuliah dan \texttt{KRS}.
+  \item Buat struktur folder proyek dengan \texttt{main.py} di folder teratas dan package \texttt{akademik/} berisi module-module tersebut.
+  \item Gunakan relative import di dalam package, lalu atur \texttt{\_\_init\_\_.py} dengan \texttt{\_\_all\_\_} sehingga \texttt{main.py} cukup mengimpor dari \texttt{akademik}.
+  \item Gambar diagram ketergantungan antarmodule (panah dari module yang mengimpor ke module yang diimpor), lalu pastikan tidak ada panah yang membentuk lingkaran.
+  \item Beri setiap module docstring dan blok \texttt{if \_\_name\_\_ == "\_\_main\_\_"} berisi uji singkat dengan \texttt{assert}. Jalankan setiap uji dengan \texttt{python -m akademik.nama\_module}.
+\end{langkah}
+
+\begin{penting}[Kriteria Penilaian]
+\begin{itemize}
+  \item Setiap module mengurus satu hal dan namanya menjelaskan isinya.
+  \item Tidak ada import melingkar dan tidak ada \texttt{from \ldots\ import *}.
+  \item \texttt{main.py} hanya membuat object dan menjalankan program, tanpa definisi class.
+  \item Keluaran program sama dengan versi satu file dari Bab 6.
+\end{itemize}
+\end{penting}

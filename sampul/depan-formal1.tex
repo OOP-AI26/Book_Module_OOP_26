@@ -1,0 +1,95 @@
+% Sampul depan, versi formal3. Dipanggil dari main.tex lewat \versiSampul.
+% Konsep: latar kertas, tulang punggung merah di kiri, diagram kelas abstrak yang "ditutup" kurung kurawal },
+% judul besar di atas, dan pita marun di bawah berisi nama penyusun.
+% Pasangan di sampul belakang: belakang-formal3.tex. Pojok kanan bawah dikosongkan untuk ISBN penerbit.
+% Memakai makro dari gaya.tex: kertas, gelap, abu, marun, merah, merahmuda, emas, emasmuda, \judul, \capsfont,
+% \judulBuku, \subJudul, \jenisBuku, \dosenPengampu, \tahun.
+% Digambar lewat hook shipout (bukan remember picture) agar muncul pada kompilasi pertama.
+\clearpage
+\thispagestyle{empty}
+\AddToHookNext{shipout/background}{%
+  \put(0,0){%
+  \begin{tikzpicture}[overlay,shift={(0,-\paperheight)}]
+  \node[inner sep=0pt,outer sep=0pt,anchor=south west,minimum width=\paperwidth,minimum height=\paperheight] (halaman) at (0,0) {};
+
+  % --- Latar kertas ---
+  \fill[kertas] (halaman.south west) rectangle (halaman.north east);
+
+  % --- Pita marun di bawah ---
+  \fill[marun] (halaman.south west) rectangle ([yshift=62mm]halaman.south east);
+  \fill[emas] ([yshift=62mm]halaman.south west) rectangle ([yshift=63.2mm]halaman.south east);
+
+  % --- Tulang punggung merah di kiri ---
+  \fill[merah] (halaman.south west) rectangle ([xshift=14mm]halaman.north west);
+  \fill[emas] ([xshift=14mm]halaman.south west) rectangle ([xshift=15.2mm]halaman.north west);
+  \node[rotate=90,text=emasmuda,font=\capsfont\small,inner sep=0pt]
+    at ([xshift=7mm,yshift=-60mm]halaman.north west) {\jenisBuku};
+
+  % --- Judul dan subjudul ---
+  \node[anchor=north west,text=gelap,font=\judul\fontsize{46}{50}\selectfont,align=left,inner sep=0pt,
+        text width=150mm]
+    (judul) at ([xshift=30mm,yshift=-34mm]halaman.north west)
+    {\hyphenpenalty=10000 \exhyphenpenalty=10000 \judulBuku\par};
+  \fill[emas] ([yshift=-7mm]judul.south west) rectangle ++(26mm,-1.6pt);
+  \node[anchor=north west,text=merah,font=\itshape\fontsize{16}{21}\selectfont,align=left,inner sep=0pt,
+        text width=150mm]
+    at ([yshift=-12mm]judul.south west) {\subJudul};
+
+  % --- Diagram kelas abstrak (satuan 1 mm dari pojok kiri bawah) ---
+  \begin{scope}[shift={(halaman.south west)},x=1mm,y=1mm,yshift=-8mm]
+    % Garis penghubung: dua turunan menuju induk
+    \draw[marun,line width=0.9pt] (62,126) |- (90,136) -| (126,126);
+    \draw[-{Triangle[open,length=4mm,width=4mm]},marun,line width=0.9pt,fill=kertas] (90,136) -- (90,146);
+    % Induk
+    \draw[marun,line width=0.9pt,fill=white] (62,146) rectangle (118,170);
+    \fill[merahmuda] (62,162) rectangle (118,170);
+    \draw[marun,line width=0.9pt] (62,162) -- (118,162);
+    \draw[marun,line width=0.9pt] (62,154) -- (118,154);
+    \fill[emas] (67,165.2) rectangle ++(24,1.6);
+    \fill[marun!35] (67,158) rectangle ++(30,1.2);
+    \fill[marun!35] (67,149.4) rectangle ++(36,1.2);
+    \draw[marun,line width=0.9pt] (62,146) rectangle (118,170);
+    % Turunan kiri
+    \draw[marun,line width=0.9pt,fill=white] (34,102) rectangle (88,126);
+    \fill[merahmuda] (34,118) rectangle (88,126);
+    \draw[marun,line width=0.9pt] (34,118) -- (88,118);
+    \draw[marun,line width=0.9pt] (34,110) -- (88,110);
+    \fill[emas] (39,121.2) rectangle ++(20,1.6);
+    \fill[marun!35] (39,114) rectangle ++(26,1.2);
+    \fill[marun!35] (39,105.4) rectangle ++(32,1.2);
+    \draw[marun,line width=0.9pt] (34,102) rectangle (88,126);
+    % Turunan kanan
+    \draw[marun,line width=0.9pt,fill=white] (100,102) rectangle (154,126);
+    \fill[merahmuda] (100,118) rectangle (154,126);
+    \draw[marun,line width=0.9pt] (100,118) -- (154,118);
+    \draw[marun,line width=0.9pt] (100,110) -- (154,110);
+    \fill[emas] (105,121.2) rectangle ++(16,1.6);
+    \fill[marun!35] (105,114) rectangle ++(30,1.2);
+    \fill[marun!35] (105,105.4) rectangle ++(24,1.2);
+    \draw[marun,line width=0.9pt] (100,102) rectangle (154,126);
+  \end{scope}
+
+  % Kurung kurawal penutup yang melingkupi diagram
+  \node[text=merah,font=\judul\fontsize{250}{250}\selectfont,inner sep=0pt]
+    at ([xshift=178mm,yshift=128mm]halaman.south west) {\}};
+
+  % --- Nama penyusun dan tahun di pita marun ---
+  \fill[emasmuda] ([xshift=30mm,yshift=54mm]halaman.south west) rectangle ++(26mm,-1.4pt);
+  \node[anchor=south west,text=white,align=left,inner sep=0pt,font=\sffamily\fontsize{12}{16}\selectfont]
+    at ([xshift=30mm,yshift=22mm]halaman.south west)
+    {%
+      \dosenPengampu\\[2pt]
+      Muhammad Fariq Faqih\\[2pt]
+      Mohammad Ariffansyah\\[2pt]
+      Abdullah Al-Firdaus Nuzula
+    };
+  \node[anchor=south west,text=emasmuda,font=\capsfont\scriptsize,inner sep=0pt]
+    at ([xshift=30mm,yshift=10mm]halaman.south west) {\tahun};
+
+  % Ruang informasi penerbit: kotak putih polos 38 x 12 mm di pojok kanan bawah.
+  % Jarak dari tepi kanan 12 mm dan dari tepi bawah 6 mm (sama dengan sampul lain).
+  \fill[white]
+    ([xshift=-50mm,yshift=6mm]halaman.south east)
+    rectangle ([xshift=-12mm,yshift=18mm]halaman.south east);
+  \end{tikzpicture}}}
+\mbox{}\clearpage

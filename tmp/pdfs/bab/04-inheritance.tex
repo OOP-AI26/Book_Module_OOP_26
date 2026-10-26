@@ -1,0 +1,823 @@
+\subjudul{Membangun class baru di atas class yang sudah ada.}
+\chapter{Inheritance}
+
+\begin{dibabini}
+  \item Konsep inheritance
+  \item Parent dan child class
+  \item Overriding
+  \item Nested inheritance
+  \item Multiple inheritance
+\end{dibabini}
+
+Bayangkan kita membangun sistem informasi kampus. Ada mahasiswa, ada dosen, ada tenaga kependidikan. Ketiganya punya nama dan email, ketiganya bisa memperkenalkan diri, tetapi masing-masing juga punya data dan perilaku khas: mahasiswa punya NIM dan mengisi KRS, dosen punya NIP dan memberi nilai. Jika setiap class ditulis terpisah, bagian yang sama akan disalin berkali-kali, dan setiap perbaikan harus diulang di semua salinan.
+
+\emph{Inheritance} (pewarisan) menyelesaikan masalah ini. Kita menulis bagian yang sama satu kali di sebuah class umum, lalu membuat class-class khusus yang \emph{mewarisi} semuanya dan hanya menambahkan atau mengubah bagian yang berbeda. Bab ini membahas cara kerja pewarisan, mulai dari satu tingkat, bertingkat, hingga mewarisi dari beberapa class sekaligus.
+
+% =====================================================================
+\section{Konsep Inheritance}
+% =====================================================================
+
+\emph{Inheritance} adalah mekanisme untuk membuat class baru berdasarkan class yang sudah ada. Class baru otomatis memiliki seluruh attribute dan method class lama, lalu boleh menambah yang baru atau mengubah yang diwarisi. Class yang diwarisi disebut \emph{parent class} (class induk, \emph{base class}, \emph{superclass}); class yang mewarisi disebut \emph{child class} (class anak, \emph{derived class}, \emph{subclass}).
+
+\subsection{Masalah yang Diselesaikan}
+
+Perhatikan dua class berikut. Hampir separuh isinya sama persis.
+
+\begin{kode}[Duplikasi tanpa inheritance]
+class Mahasiswa:
+    def __init__(self, nama, email, nim):
+        self.nama = nama
+        self.email = email
+        self.nim = nim
+
+    def perkenalan(self):
+        return f"Halo, saya {self.nama}"
+
+class Dosen:
+    def __init__(self, nama, email, nip):
+        self.nama = nama
+        self.email = email
+        self.nip = nip
+
+    def perkenalan(self):
+        return f"Halo, saya {self.nama}"
+\end{kode}
+
+Jika suatu hari format email harus divalidasi, atau method \texttt{perkenalan()} perlu diubah, kita harus mengubah dua tempat, dan akan menjadi tiga, empat, atau lebih seiring bertambahnya jenis warga kampus. Inheritance memungkinkan bagian yang sama ditulis sekali saja.
+
+\subsection{Hubungan \emph{is-a}}
+
+Inheritance menggambarkan hubungan \emph{is-a} (``adalah sebuah''): \emph{mahasiswa adalah seorang warga kampus}, \emph{dosen adalah seorang warga kampus}. Uji sederhana ini dipakai untuk memutuskan apakah inheritance tepat digunakan.
+
+\begin{table}[htbp]
+\caption{Uji \emph{is-a} untuk menentukan inheritance.}
+\begin{tabularx}{\linewidth}{LP{24mm}L}
+\kepala \kp{Pernyataan} & \kp{Benar?} & \kp{Kesimpulan} \\
+Mahasiswa \emph{adalah} warga kampus & ya & \texttt{Mahasiswa} mewarisi \texttt{Civitas} \\
+Mobil \emph{adalah} kendaraan & ya & \texttt{Mobil} mewarisi \texttt{Kendaraan} \\
+Mobil \emph{adalah} mesin & tidak & mobil \emph{memiliki} mesin; gunakan composition (Bab 6) \\
+Rekening \emph{adalah} nasabah & tidak & rekening \emph{dimiliki} nasabah; bukan inheritance \\
+\end{tabularx}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+  \node[kelas,anchor=north] (induk) at (0,0)
+    {\kelas{Civitas}{- nama\\- email}{+ perkenalan()\\+ kontak()}};
+  \node[kelas,anchor=north] (mhs) at ([xshift=-33mm,yshift=-16mm]induk.south)
+    {\kelas{Mahasiswa}{- nim\\- prodi}{+ isi\_krs(matkul)}};
+  \node[kelas,anchor=north] (dsn) at ([xshift=33mm,yshift=-16mm]induk.south)
+    {\kelas{Dosen}{- nip}{+ beri\_nilai(mhs, nilai)}};
+  \coordinate (cabang) at ([yshift=-8mm]induk.south);
+  \draw[marun,line width=0.9pt] (mhs.north) |- (cabang) -| (dsn.north);
+  \draw[turunan,marun] (cabang) -- (induk.south);
+\end{tikzpicture}
+\caption{Class diagram pewarisan. Panah bersegitiga terbuka menunjuk ke parent class; child class hanya mencantumkan attribute dan method tambahannya.}
+\end{figure}
+
+\subsection{Manfaat Inheritance}
+
+\begin{itemize}
+  \item \textbf{Penggunaan ulang kode} (\emph{reusability}): kode bersama ditulis sekali di parent.
+  \item \textbf{Konsistensi}: perbaikan di parent otomatis berlaku untuk semua child.
+  \item \textbf{Kemudahan pengembangan}: jenis baru cukup dibuat sebagai child yang menambahkan perbedaannya saja.
+  \item \textbf{Pengelompokan yang alami}: object dari child class tetap bisa diperlakukan sebagai object parent, sehingga berbagai jenis object dapat diproses bersama (dasar dari \emph{polymorphism} di Bab 6).
+\end{itemize}
+
+% =====================================================================
+\section{Parent/Base Class}
+% =====================================================================
+
+\emph{Parent class} adalah class biasa; tidak ada sintaks khusus untuk menjadikannya induk. Yang membedakan hanyalah cara kita merancangnya: parent berisi attribute dan method yang \textbf{berlaku umum} untuk semua turunannya, tanpa detail yang hanya dimiliki sebagian turunan.
+
+\begin{kode}[Parent class Civitas]
+class Civitas:
+    """Warga kampus secara umum."""
+
+    def __init__(self, nama, email):
+        self.nama = nama
+        self.email = email
+
+    def perkenalan(self):
+        return f"Halo, saya {self.nama}"
+
+    def kontak(self):
+        return f"{self.nama} <{self.email}>"
+
+rina = Civitas("Rina", "rina@unesa.ac.id")
+print(rina.perkenalan())
+print(rina.kontak())
+\end{kode}
+
+\begin{keluaran}
+Halo, saya Rina
+Rina <rina@unesa.ac.id>
+\end{keluaran}
+
+\begin{tips}[Merancang Parent yang Baik]
+Masukkan ke parent hanya hal yang benar-benar dimiliki \emph{semua} turunannya. Jika sebuah attribute hanya dimiliki mahasiswa (misalnya NIM), letakkan di class \texttt{Mahasiswa}, bukan di \texttt{Civitas}. Parent yang terlalu ``gemuk'' memaksa child membawa data yang tidak mereka butuhkan.
+\end{tips}
+
+\subsection{Class \texttt{object} sebagai Induk Tertinggi}
+
+Walaupun \texttt{Civitas} tidak menuliskan parent apa pun, ia sebenarnya tetap mewarisi sebuah class: \texttt{object}. Di Python 3, \textbf{semua} class secara otomatis merupakan turunan \texttt{object}. Dari sanalah berasal method bawaan seperti \texttt{\_\_str\_\_}, \texttt{\_\_eq\_\_}, dan \texttt{\_\_init\_\_} standar yang dimiliki setiap class.
+
+\begin{kode}[Setiap class mewarisi object]
+print(Civitas.__bases__)              # parent langsung dari Civitas
+print(issubclass(Civitas, object))
+print(rina)                            # memakai __str__ bawaan object
+\end{kode}
+
+\begin{keluaran}
+(<class 'object'>,)
+True
+<__main__.Civitas object at 0x7f3a2c1b2d50>
+\end{keluaran}
+
+Menulis \texttt{class Civitas:} sama artinya dengan \texttt{class Civitas(object):}. Bentuk kedua sering ditemui di kode lama dari era Python 2.
+
+% =====================================================================
+\section{Child/Derived Class}
+% =====================================================================
+
+\emph{Child class} dibuat dengan menuliskan nama parent di dalam tanda kurung setelah nama class. Bahkan tanpa isi apa pun, child sudah memiliki semua yang dimiliki parent.
+
+\begin{kode}[Child class paling sederhana]
+class Mahasiswa(Civitas):
+    pass
+
+ani = Mahasiswa("Ani", "ani@mhs.unesa.ac.id")
+print(ani.perkenalan())        # diwarisi dari Civitas
+print(ani.kontak())            # diwarisi dari Civitas
+\end{kode}
+
+\begin{keluaran}
+Halo, saya Ani
+Ani <ani@mhs.unesa.ac.id>
+\end{keluaran}
+
+\subsection{Menambah Attribute dengan \texttt{super()}}
+
+Child biasanya membutuhkan attribute tambahan, sehingga perlu \texttt{\_\_init\_\_} sendiri. Agar attribute milik parent tetap disiapkan, \texttt{\_\_init\_\_} milik child memanggil \texttt{\_\_init\_\_} milik parent melalui fungsi \texttt{super()}. Fungsi \texttt{super()} mengembalikan rujukan ke parent, sehingga \texttt{super().\_\_init\_\_(\ldots)} berarti ``jalankan constructor milik parent untuk object ini''.
+
+\begin{kode}[Child dengan attribute dan method tambahan]
+class Mahasiswa(Civitas):
+    def __init__(self, nama, email, nim, prodi):
+        super().__init__(nama, email)    # parent menyiapkan nama dan email
+        self.nim = nim                   # attribute khusus mahasiswa
+        self.prodi = prodi
+
+    def isi_krs(self, matkul):           # method khusus mahasiswa
+        return f"{self.nama} mengambil {matkul}"
+
+class Dosen(Civitas):
+    def __init__(self, nama, email, nip):
+        super().__init__(nama, email)
+        self.nip = nip
+
+    def beri_nilai(self, mhs, nilai):
+        return f"{self.nama} memberi nilai {nilai} kepada {mhs.nama}"
+
+ani = Mahasiswa("Ani", "ani@mhs.unesa.ac.id", "24051204001", "Kecerdasan Artifisial")
+budi = Dosen("Budi", "budi@unesa.ac.id", "198001012005011001")
+
+print(ani.kontak())                  # warisan Civitas
+print(ani.isi_krs("PBO"))            # milik Mahasiswa
+print(budi.beri_nilai(ani, "A"))     # milik Dosen
+\end{kode}
+
+\begin{keluaran}
+Ani <ani@mhs.unesa.ac.id>
+Ani mengambil PBO
+Budi memberi nilai A kepada Ani
+\end{keluaran}
+
+\begin{penting}[Jangan Lupa \texttt{super().\_\_init\_\_()}]
+Jika child mendefinisikan \texttt{\_\_init\_\_} sendiri tetapi lupa memanggil \texttt{super().\_\_init\_\_()}, constructor parent tidak pernah dijalankan dan attribute milik parent tidak pernah dibuat. Kesalahannya baru muncul ketika attribute itu dipakai.
+\end{penting}
+
+\begin{kode}[Akibat lupa memanggil super]
+class Tendik(Civitas):
+    def __init__(self, nama, email, unit):
+        self.unit = unit                 # lupa super().__init__(nama, email)
+
+sari = Tendik("Sari", "sari@unesa.ac.id", "BAAK")
+print(sari.kontak())
+\end{kode}
+
+\begin{keluaran}
+Traceback (most recent call last):
+  ...
+AttributeError: 'Tendik' object has no attribute 'nama'
+\end{keluaran}
+
+\subsection{Memeriksa Hubungan dengan \texttt{isinstance()} dan \texttt{issubclass()}}
+
+Object dari child class juga dianggap sebagai instance parent-nya. Fungsi \texttt{isinstance()} memeriksa hubungan object dengan class, sedangkan \texttt{issubclass()} memeriksa hubungan antar-class.
+
+\begin{kode}[Memeriksa hubungan pewarisan]
+print(isinstance(ani, Mahasiswa))     # True
+print(isinstance(ani, Civitas))       # True: mahasiswa adalah civitas
+print(isinstance(ani, Dosen))         # False
+print(issubclass(Dosen, Civitas))     # True
+print(type(ani) == Civitas)           # False: type() hanya melihat class asli
+\end{kode}
+
+\begin{tips}[\texttt{isinstance()} atau \texttt{type()}?]
+Untuk memeriksa ``apakah object ini termasuk jenis X'', gunakan \texttt{isinstance()} karena ia ikut memperhitungkan pewarisan. Perbandingan \texttt{type(obj) == X} hanya benar untuk class aslinya dan akan menolak object dari child class.
+\end{tips}
+
+\subsection{Attribute Private dan Pewarisan}
+
+Ingat kembali name mangling dari Bab 2: attribute \texttt{\_\_saldo} di class \texttt{Akun} tersimpan sebagai \texttt{\_Akun\_\_saldo}. Akibatnya, child class \textbf{tidak bisa} mengaksesnya dengan \texttt{self.\_\_saldo}, karena di dalam child nama tersebut diterjemahkan menjadi \texttt{\_AkunPremium\_\_saldo}. Attribute yang memang perlu dipakai oleh child sebaiknya diberi satu garis bawah (protected).
+
+\begin{kode}[Private tidak terlihat oleh child]
+class Akun:
+    def __init__(self, saldo):
+        self.__saldo = saldo     # private: hanya untuk Akun
+        self._poin = 10          # protected: boleh dipakai turunan
+
+class AkunPremium(Akun):
+    def info(self):
+        print(f"poin {self._poin}")
+        print(f"saldo {self.__saldo}")
+
+AkunPremium(5000).info()
+\end{kode}
+
+\begin{keluaran}
+poin 10
+Traceback (most recent call last):
+  ...
+AttributeError: 'AkunPremium' object has no attribute '_AkunPremium__saldo'
+\end{keluaran}
+
+% =====================================================================
+\section{Konsep Overriding}
+% =====================================================================
+
+\emph{Overriding} adalah menulis ulang method warisan di child class dengan \textbf{nama yang sama}. Saat method tersebut dipanggil pada object child, versi milik child yang dijalankan, sedangkan versi parent ``tertutupi''. Overriding dipakai ketika perilaku umum dari parent tidak cocok, atau kurang lengkap, untuk child tertentu.
+
+\subsection{Cara Python Mencari Method}
+
+Untuk memahami overriding, kita perlu tahu cara Python mencari attribute dan method. Ketika kita menulis \texttt{ani.perkenalan()}, Python mencari nama \texttt{perkenalan} mulai dari object itu sendiri, lalu ke class-nya, lalu ke parent, dan terus ke atas hingga \texttt{object}. Yang \emph{pertama} ditemukan itulah yang dipakai.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    lvl/.style={rectangle,draw=marun,line width=0.8pt,fill=merahmuda,text width=27mm,align=left,inner sep=2.5mm,minimum height=24mm},
+    judul/.style={font=\sffamily\small\bfseries,text=merah}]
+  \node[lvl] (o) at (0,0)    {\textbf{object ani}\\[3pt]\ttfamily\footnotesize nama\\email\\nim\\prodi};
+  \node[lvl] (m) at (3.9,0)  {\textbf{Mahasiswa}\\[3pt]\ttfamily\footnotesize \_\_init\_\_\\\textcolor{merah}{\textbf{perkenalan}}\\isi\_krs};
+  \node[lvl] (c) at (7.8,0)  {\textbf{Civitas}\\[3pt]\ttfamily\footnotesize \_\_init\_\_\\\textcolor{abu}{perkenalan}\\\textcolor{hijau}{\textbf{kontak}}};
+  \node[lvl] (b) at (11.7,0) {\textbf{object}\\[3pt]\ttfamily\footnotesize \_\_str\_\_\\\_\_eq\_\_\\\ldots};
+  \draw[-{Latex},line width=1pt,emas] (o) -- (m);
+  \draw[-{Latex},line width=1pt,emas] (m) -- (c);
+  \draw[-{Latex},line width=1pt,emas] (c) -- (b);
+  \node[anchor=north west,text=merah,font=\sffamily\footnotesize,text width=60mm] at (-1.6,-1.6)
+    {\texttt{ani.perkenalan()} ditemukan di \textbf{Mahasiswa}; versi Civitas tidak pernah dicapai.};
+  \node[anchor=north west,text=hijau,font=\sffamily\footnotesize,text width=60mm] at (6.2,-1.6)
+    {\texttt{ani.kontak()} tidak ada di Mahasiswa, sehingga pencarian berlanjut dan ditemukan di \textbf{Civitas}.};
+\end{tikzpicture}
+\caption{Urutan pencarian method: dari object, naik ke class, lalu ke parent hingga \texttt{object}.}
+\end{figure}
+
+\subsection{Mengganti dan Memperluas Method Warisan}
+
+Ada dua gaya overriding. Pertama, \textbf{mengganti total}: child menulis perilaku yang sama sekali baru. Kedua, \textbf{memperluas}: child memanggil versi parent melalui \texttt{super()}, lalu menambahkan sesuatu.
+
+\begin{kode}[Dua gaya overriding]
+class Mahasiswa(Civitas):
+    def __init__(self, nama, email, nim, prodi):
+        super().__init__(nama, email)
+        self.nim = nim
+        self.prodi = prodi
+
+    def perkenalan(self):                          # mengganti total
+        return f"Hai! Aku {self.nama}, mahasiswa {self.prodi}"
+
+    def __str__(self):                             # override milik object
+        return f"{self.nim} - {self.nama}"
+
+class Dosen(Civitas):
+    def __init__(self, nama, email, nip):
+        super().__init__(nama, email)
+        self.nip = nip
+
+    def perkenalan(self):                          # memperluas
+        dasar = super().perkenalan()
+        return f"{dasar}, dosen dengan NIP {self.nip}"
+
+warga = [
+    Civitas("Rina", "rina@unesa.ac.id"),
+    Mahasiswa("Ani", "ani@mhs.unesa.ac.id", "24051204001", "Kecerdasan Artifisial"),
+    Dosen("Budi", "budi@unesa.ac.id", "198001012005011001"),
+]
+for w in warga:
+    print(w.perkenalan())
+print(warga[1])
+\end{kode}
+
+\begin{keluaran}
+Halo, saya Rina
+Hai! Aku Ani, mahasiswa Kecerdasan Artifisial
+Halo, saya Budi, dosen dengan NIP 198001012005011001
+24051204001 - Ani
+\end{keluaran}
+
+Perhatikan perulangan di atas: satu baris \texttt{w.perkenalan()} menghasilkan perilaku berbeda bergantung pada jenis object. Kemampuan ini adalah benih dari \emph{polymorphism}, yang akan dibahas tuntas di Bab 6.
+
+\begin{penting}[Jaga Bentuk Method yang Di-override]
+Method yang di-override sebaiknya menerima parameter yang sama dan mengembalikan jenis nilai yang sama dengan versi parent. Kode yang memanggil \texttt{w.perkenalan()} tidak peduli apakah \texttt{w} mahasiswa atau dosen; jika child mengubah bentuk method-nya, kode tersebut bisa rusak.
+\end{penting}
+
+\subsection{Studi Kasus: Penggajian Karyawan}
+
+Overriding paling terasa manfaatnya ketika method di parent memanggil method lain yang di-override oleh child. Pada contoh berikut, \texttt{slip()} hanya ditulis sekali di \texttt{Karyawan}, tetapi hasilnya menyesuaikan karena \texttt{self.hitung\_gaji()} selalu memanggil versi milik class object yang sebenarnya.
+
+\begin{kode}[penggajian.py]
+class Karyawan:
+    def __init__(self, nama, gaji_pokok):
+        self.nama = nama
+        self.gaji_pokok = gaji_pokok
+
+    def hitung_gaji(self):
+        return self.gaji_pokok
+
+    def slip(self):
+        jenis = type(self).__name__
+        return f"{self.nama:<6} {jenis:<16} Rp{self.hitung_gaji():>11,}"
+
+class KaryawanTetap(Karyawan):
+    def __init__(self, nama, gaji_pokok, tunjangan):
+        super().__init__(nama, gaji_pokok)
+        self.tunjangan = tunjangan
+
+    def hitung_gaji(self):
+        return super().hitung_gaji() + self.tunjangan
+
+class KaryawanKontrak(Karyawan):
+    def __init__(self, nama, tarif_jam, jam_kerja):
+        super().__init__(nama, 0)
+        self.tarif_jam = tarif_jam
+        self.jam_kerja = jam_kerja
+
+    def hitung_gaji(self):
+        return self.tarif_jam * self.jam_kerja
+
+daftar = [
+    Karyawan("Ani", 4_000_000),
+    KaryawanTetap("Budi", 5_000_000, 1_500_000),
+    KaryawanKontrak("Citra", 50_000, 120),
+]
+for k in daftar:
+    print(k.slip())
+print(f"Total gaji: Rp{sum(k.hitung_gaji() for k in daftar):,}")
+\end{kode}
+
+\begin{keluaran}
+Ani    Karyawan         Rp  4,000,000
+Budi   KaryawanTetap    Rp  6,500,000
+Citra  KaryawanKontrak  Rp  6,000,000
+Total gaji: Rp16,500,000
+\end{keluaran}
+
+% =====================================================================
+\section{Nested Inheritance}
+% =====================================================================
+
+\emph{Nested inheritance} atau \emph{multilevel inheritance} adalah pewarisan bertingkat: sebuah child class menjadi parent bagi class lain. Class di tingkat paling bawah mewarisi semua yang dimiliki seluruh leluhurnya. Setiap tingkat cukup menambahkan bagian yang menjadi ciri khasnya.
+
+\begin{kode}[Kendaraan, Mobil, MobilListrik]
+class Kendaraan:
+    def __init__(self, merek, roda):
+        self.merek = merek
+        self.roda = roda
+
+    def info(self):
+        return f"{self.merek}, {self.roda} roda"
+
+    def bergerak(self):
+        return "Kendaraan bergerak"
+
+class Mobil(Kendaraan):
+    def __init__(self, merek, kursi):
+        super().__init__(merek, 4)          # mobil selalu beroda 4
+        self.kursi = kursi
+
+    def info(self):
+        return f"{super().info()}, {self.kursi} kursi"
+
+class MobilListrik(Mobil):
+    def __init__(self, merek, kursi, baterai_kwh):
+        super().__init__(merek, kursi)
+        self.baterai_kwh = baterai_kwh
+
+    def info(self):
+        return f"{super().info()}, baterai {self.baterai_kwh} kWh"
+
+    def isi_daya(self):
+        return f"{self.merek} sedang mengisi daya"
+
+ev = MobilListrik("Wuling", 4, 31.9)
+print(ev.info())
+print(ev.bergerak())                     # warisan dua tingkat di atas
+print(ev.isi_daya())
+print(isinstance(ev, Kendaraan))
+print([k.__name__ for k in MobilListrik.__mro__])
+\end{kode}
+
+\begin{keluaran}
+Wuling, 4 roda, 4 kursi, baterai 31.9 kWh
+Kendaraan bergerak
+Wuling sedang mengisi daya
+True
+['MobilListrik', 'Mobil', 'Kendaraan', 'object']
+\end{keluaran}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[catatan/.style={rectangle,draw=emas,line width=0.8pt,fill=emasmuda!40,
+    font=\ttfamily\small,align=left,inner sep=2.5mm,anchor=west}]
+  \node[kelas,anchor=north] (k) at (0,0)
+    {\kelas{Kendaraan}{- merek\\- roda}{+ info()\\+ bergerak()}};
+  \node[kelas,anchor=north] (m) at ([yshift=-12mm]k.south)
+    {\kelas{Mobil}{- kursi}{+ info()}};
+  \node[kelas,anchor=north] (e) at ([yshift=-12mm]m.south)
+    {\kelas{MobilListrik}{- baterai\_kwh}{+ info()\\+ isi\_daya()}};
+  \draw[turunan,marun] (m.north) -- (k.south);
+  \draw[turunan,marun] (e.north) -- (m.south);
+  \node[catatan] (n1) at ([xshift=10mm]k.east) {"Wuling, 4 roda"};
+  \node[catatan] (n2) at ([xshift=10mm]m.east) {+ ", 4 kursi"};
+  \node[catatan] (n3) at ([xshift=10mm]e.east) {+ ", baterai 31.9 kWh"};
+  \draw[-{Latex},emas,line width=0.9pt] ($(n3.north west)+(8mm,0)$) -- node[right,font=\sffamily\footnotesize,text=gelap]{memanggil \texttt{super().info()}} ($(n2.south west)+(8mm,0)$);
+  \draw[-{Latex},emas,line width=0.9pt] ($(n2.north west)+(8mm,0)$) -- node[right,font=\sffamily\footnotesize,text=gelap]{memanggil \texttt{super().info()}} ($(n1.south west)+(8mm,0)$);
+\end{tikzpicture}
+\caption{Pewarisan bertingkat. Setiap tingkat memanggil \texttt{super().info()} lalu menambahkan bagiannya sendiri.}
+\end{figure}
+
+Atribut khusus \texttt{\_\_mro\_\_} (\emph{Method Resolution Order}) menampilkan urutan class yang ditelusuri Python saat mencari method. Pada pewarisan bertingkat, urutannya lurus dari bawah ke atas.
+
+\begin{tips}[Jangan Terlalu Dalam]
+Hierarki yang terlalu dalam (lebih dari tiga atau empat tingkat) sulit dipahami: untuk mengetahui perilaku satu method, pembaca harus menelusuri banyak class. Jika hierarki mulai memanjang, pertimbangkan apakah sebagian hubungan sebenarnya lebih cocok dimodelkan sebagai ``memiliki'' (composition, Bab 6).
+\end{tips}
+
+% =====================================================================
+\section{Multiple Inheritance}
+% =====================================================================
+
+Python mengizinkan sebuah class mewarisi \textbf{lebih dari satu} parent sekaligus. Fitur ini disebut \emph{multiple inheritance}. Caranya, tuliskan semua parent di dalam tanda kurung, dipisahkan koma.
+
+\subsection{Menggabungkan Kemampuan dengan Mixin}
+
+Pemakaian multiple inheritance yang paling aman adalah pola \emph{mixin}: class kecil yang hanya menyumbang satu kemampuan (beberapa method), tidak dimaksudkan untuk dipakai sendirian, dan biasanya tidak memiliki \texttt{\_\_init\_\_}.
+
+\begin{kode}[Hewan dengan mixin kemampuan]
+class Hewan:
+    def __init__(self, nama):
+        self.nama = nama
+
+    def info(self):
+        return f"{self.nama} adalah hewan"
+
+class BisaTerbang:                       # mixin
+    def terbang(self):
+        return f"{self.nama} terbang di udara"
+
+class BisaBerenang:                      # mixin
+    def berenang(self):
+        return f"{self.nama} berenang di air"
+
+class Bebek(Hewan, BisaTerbang, BisaBerenang):
+    pass
+
+class Lele(Hewan, BisaBerenang):
+    pass
+
+kwek = Bebek("Kwek")
+print(kwek.info())
+print(kwek.terbang())
+print(kwek.berenang())
+
+lele = Lele("Lele")
+print(lele.berenang())
+print(hasattr(lele, "terbang"))
+\end{kode}
+
+\begin{keluaran}
+Kwek adalah hewan
+Kwek terbang di udara
+Kwek berenang di air
+Lele berenang di air
+False
+\end{keluaran}
+
+Dengan mixin, setiap kemampuan ditulis sekali dan dapat ``ditempelkan'' ke class mana pun yang membutuhkannya. \texttt{Bebek} mendapat kemampuan terbang dan berenang, sedangkan \texttt{Lele} hanya berenang.
+
+\subsection{Method Resolution Order (MRO)}
+
+Bagaimana jika dua parent memiliki method dengan nama yang sama? Python menentukan pemenangnya menggunakan MRO. Aturan sederhananya: \textbf{parent yang ditulis lebih kiri diperiksa lebih dulu}.
+
+\begin{kode}[Urutan parent menentukan pemenang]
+class Printer:
+    def mulai(self):
+        return "Mencetak dokumen"
+
+class Scanner:
+    def mulai(self):
+        return "Memindai dokumen"
+
+class MesinA(Printer, Scanner):
+    pass
+
+class MesinB(Scanner, Printer):
+    pass
+
+print(MesinA().mulai())
+print(MesinB().mulai())
+print([k.__name__ for k in MesinA.__mro__])
+\end{kode}
+
+\begin{keluaran}
+Mencetak dokumen
+Memindai dokumen
+['MesinA', 'Printer', 'Scanner', 'object']
+\end{keluaran}
+
+\subsection{Masalah Diamond}
+
+Kasus yang lebih rumit muncul ketika dua parent ternyata mewarisi leluhur yang sama, sehingga hierarkinya berbentuk belah ketupat (\emph{diamond}). Pertanyaannya: berapa kali, dan dalam urutan apa, method leluhur dijalankan?
+
+\begin{kode}[Diamond dan super()]
+class A:
+    def halo(self):
+        return "A"
+
+class B(A):
+    def halo(self):
+        return "B -> " + super().halo()
+
+class C(A):
+    def halo(self):
+        return "C -> " + super().halo()
+
+class D(B, C):
+    def halo(self):
+        return "D -> " + super().halo()
+
+print(D().halo())
+print([k.__name__ for k in D.__mro__])
+\end{kode}
+
+\begin{keluaran}
+D -> B -> C -> A
+['D', 'B', 'C', 'A', 'object']
+\end{keluaran}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+    kls/.style={rectangle,fill=marun,text=white,font=\ttfamily\bfseries,minimum width=22mm,minimum height=9mm}]
+  \node[kls] (a) at (0,3.6)  {A};
+  \node[kls] (b) at (-3,1.8) {B};
+  \node[kls] (c) at (3,1.8)  {C};
+  \node[kls] (d) at (0,0)    {D};
+  \draw[turunan,marun] (b.north) -- (a.south west);
+  \draw[turunan,marun] (c.north) -- (a.south east);
+  \draw[turunan,marun] (d.north west) -- (b.south);
+  \draw[turunan,marun] (d.north east) -- (c.south);
+  \node at ([xshift=-5mm]d.west) {\badge{1}};
+  \node at ([xshift=-5mm]b.west) {\badge{2}};
+  \node at ([xshift=5mm]c.east)  {\badge{3}};
+  \node at ([xshift=-5mm]a.west) {\badge{4}};
+  \node[anchor=west,text=abu,font=\sffamily\footnotesize,text width=46mm] at (5,0.4)
+    {Angka menunjukkan urutan MRO. \texttt{super()} di dalam \texttt{B} menuju \textbf{C}, bukan langsung ke A, dan A hanya dikunjungi sekali.};
+\end{tikzpicture}
+\caption{Pewarisan berbentuk diamond dan urutan MRO-nya.}
+\end{figure}
+
+Ada dua hal penting dari contoh ini. Pertama, \texttt{A} hanya dijalankan \textbf{sekali}, bukan dua kali. Kedua, \texttt{super()} di dalam \texttt{B} ternyata memanggil \texttt{C}, bukan \texttt{A}. Ini karena \texttt{super()} tidak berarti ``parent saya'', melainkan ``class \emph{berikutnya} dalam MRO object ini''. Python menyusun MRO dengan algoritma bernama \emph{C3 linearization}, yang menjamin setiap child selalu muncul sebelum parent-nya dan urutan parent dari kiri ke kanan tetap dihormati.
+
+\begin{penting}[Gunakan dengan Hemat]
+Multiple inheritance mudah menimbulkan kebingungan, terutama bila beberapa parent memiliki \texttt{\_\_init\_\_} dengan parameter berbeda. Pedoman praktisnya:
+\begin{itemize}
+  \item Gunakan multiple inheritance terutama untuk \emph{mixin} kecil tanpa \texttt{\_\_init\_\_}.
+  \item Letakkan parent utama di posisi paling kiri, mixin di sebelah kanannya.
+  \item Jika kebutuhannya adalah ``memiliki'' sesuatu, gunakan composition (Bab 6), bukan multiple inheritance.
+\end{itemize}
+\end{penting}
+
+% =====================================================================
+\section{Rangkuman}
+% =====================================================================
+
+\begin{itemize}
+  \item \textbf{Inheritance} membuat class baru (child) yang mewarisi seluruh attribute dan method class lain (parent). Gunakan bila hubungan \emph{is-a} terpenuhi.
+  \item \textbf{Parent class} berisi hal-hal yang berlaku umum. Semua class di Python 3 pada akhirnya mewarisi \texttt{object}.
+  \item \textbf{Child class} ditulis \texttt{class Anak(Induk):}. Jika child punya \texttt{\_\_init\_\_} sendiri, panggil \texttt{super().\_\_init\_\_(\ldots)} agar attribute parent ikut disiapkan.
+  \item \texttt{isinstance()} ikut memperhitungkan pewarisan; object child juga merupakan instance parent. Attribute private parent tidak dapat diakses child dengan nama biasa.
+  \item \textbf{Overriding} menulis ulang method warisan dengan nama yang sama. Child dapat mengganti total atau memperluas dengan \texttt{super().method()}. Python memakai method pertama yang ditemukan dari class object ke atas.
+  \item \textbf{Nested inheritance} membentuk rantai pewarisan bertingkat; urutan pencariannya dapat dilihat di \texttt{\_\_mro\_\_}.
+  \item \textbf{Multiple inheritance} mewarisi beberapa parent sekaligus. Parent paling kiri diperiksa lebih dulu, \texttt{super()} mengikuti MRO, dan pola paling aman adalah \emph{mixin}.
+\end{itemize}
+
+% =====================================================================
+\section{Kuis Teoritis}
+% =====================================================================
+
+\subsection{Pilihan Ganda}
+
+Pilihlah satu jawaban yang paling tepat.
+
+\begin{enumerate}
+  \item Hubungan antar-class yang paling tepat dimodelkan dengan inheritance adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item mobil dan roda
+    \item kucing dan hewan
+    \item mahasiswa dan KRS
+    \item rekening dan nasabah
+  \end{enumerate}
+
+  \item Penulisan yang benar untuk membuat class \texttt{Kucing} sebagai turunan \texttt{Hewan} adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{class Kucing extends Hewan:}
+    \item \texttt{class Kucing: Hewan}
+    \item \texttt{class Kucing(Hewan):}
+    \item \texttt{class Hewan(Kucing):}
+  \end{enumerate}
+
+  \item Fungsi pemanggilan \texttt{super().\_\_init\_\_(nama)} di dalam constructor child adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item membuat object parent yang terpisah
+    \item menjalankan constructor parent untuk object yang sedang dibuat
+    \item menghapus attribute milik parent
+    \item mengubah child menjadi parent
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 4]
+class Hewan:
+    def suara(self):
+        return "..."
+
+class Kucing(Hewan):
+    def suara(self):
+        return "Meong"
+
+class Anggora(Kucing):
+    pass
+
+print(Anggora().suara())
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{...}
+    \item \texttt{Meong}
+    \item \texttt{None}
+    \item \texttt{AttributeError}
+  \end{enumerate}
+
+  \item Sebuah child class mendefinisikan \texttt{\_\_init\_\_} tanpa memanggil \texttt{super().\_\_init\_\_()}. Akibatnya adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item program langsung error saat class didefinisikan
+    \item attribute yang dibuat di constructor parent tidak ada pada object child
+    \item Python otomatis memanggil constructor parent
+    \item semua method parent tidak bisa dipakai
+  \end{enumerate}
+
+  \item Diketahui \texttt{class Mobil(Kendaraan)} dan \texttt{m = Mobil()}. Pernyataan yang \textbf{salah} adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{isinstance(m, Mobil)} bernilai \texttt{True}
+    \item \texttt{isinstance(m, Kendaraan)} bernilai \texttt{True}
+    \item \texttt{type(m) == Kendaraan} bernilai \texttt{True}
+    \item \texttt{issubclass(Mobil, object)} bernilai \texttt{True}
+  \end{enumerate}
+
+  \item Class \texttt{Laptop(Perangkat, BisaWiFi)} memiliki MRO yang dimulai dengan \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{Laptop}, \texttt{Perangkat}, \texttt{BisaWiFi}
+    \item \texttt{Laptop}, \texttt{BisaWiFi}, \texttt{Perangkat}
+    \item \texttt{Perangkat}, \texttt{BisaWiFi}, \texttt{Laptop}
+    \item \texttt{object}, \texttt{Perangkat}, \texttt{Laptop}
+  \end{enumerate}
+
+  \item Perhatikan kode berikut.
+\begin{kode}[Soal 8]
+class A:
+    def f(self):
+        return "A"
+
+class B(A):
+    def f(self):
+        return "B" + super().f()
+
+class C(A):
+    def f(self):
+        return "C" + super().f()
+
+class D(C, B):
+    def f(self):
+        return "D" + super().f()
+
+print(D().f())
+\end{kode}
+  Keluaran kode tersebut adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{DBCA}
+    \item \texttt{DCBA}
+    \item \texttt{DCA}
+    \item \texttt{DCABA}
+  \end{enumerate}
+
+  \item Pada method yang di-override, cara memanggil versi milik parent adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item \texttt{parent.method()}
+    \item \texttt{self.method()}
+    \item \texttt{super().method()}
+    \item \texttt{base.method(self)}
+  \end{enumerate}
+
+  \item Pernyataan yang tepat tentang \emph{mixin} adalah \ldots
+  \begin{enumerate}[label=\alph*.,itemsep=0pt]
+    \item class utama yang menjadi induk seluruh hierarki
+    \item class kecil yang menyumbang kemampuan tertentu dan tidak dipakai sendirian
+    \item class yang wajib memiliki \texttt{\_\_init\_\_} dengan banyak parameter
+    \item nama lain dari class \texttt{object}
+  \end{enumerate}
+\end{enumerate}
+
+\subsection{Uraian}
+
+\begin{enumerate}
+  \item Jelaskan hubungan \emph{is-a} dan berikan dua pasang class yang tepat dimodelkan dengan inheritance serta dua pasang yang tidak tepat, beserta alasannya.
+  \item Jelaskan perbedaan antara overriding yang \emph{mengganti total} dan yang \emph{memperluas} method parent. Kapan masing-masing sebaiknya digunakan?
+  \item Pada studi kasus penggajian, method \texttt{slip()} hanya ditulis di class \texttt{Karyawan}. Jelaskan mengapa hasilnya tetap berbeda untuk karyawan tetap dan karyawan kontrak.
+  \item Mengapa attribute \texttt{self.\_\_saldo} milik parent tidak bisa diakses dari child class, sedangkan \texttt{self.\_poin} bisa? Kaitkan jawaban Anda dengan name mangling.
+  \item Jelaskan apa yang dimaksud dengan masalah diamond dan bagaimana MRO serta \texttt{super()} di Python menanganinya.
+\end{enumerate}
+
+% =====================================================================
+\section{Praktik Mandiri}
+% =====================================================================
+
+Kerjakan praktik berikut secara berurutan. Simpan setiap praktik dalam file \texttt{.py} terpisah, jalankan, dan pastikan keluarannya sesuai dengan contoh.
+
+\subsection{Praktik 1: Hierarki Bangun Datar}
+
+Buat hierarki class berikut:
+
+\begin{itemize}
+  \item \texttt{BangunDatar} dengan attribute \texttt{nama}, method \texttt{luas()} dan \texttt{keliling()} yang mengembalikan \texttt{0}, serta method \texttt{info()} yang menampilkan nama, luas, dan keliling dengan memanggil kedua method tersebut.
+  \item \texttt{PersegiPanjang(BangunDatar)} dan \texttt{Lingkaran(BangunDatar)} yang meng-override \texttt{luas()} dan \texttt{keliling()}.
+  \item \texttt{Persegi(PersegiPanjang)} yang constructor-nya hanya menerima \texttt{sisi}, lalu memanggil constructor \texttt{PersegiPanjang} dengan panjang dan lebar yang sama. \texttt{Persegi} tidak boleh menulis ulang \texttt{luas()} maupun \texttt{keliling()}.
+\end{itemize}
+
+Simpan beberapa bangun datar dalam satu list, tampilkan \texttt{info()} masing-masing, lalu cetak MRO class \texttt{Persegi}.
+
+\begin{keluaran}[Contoh keluaran Praktik 1]
+Persegi Panjang  luas   24.00  keliling  20.00
+Lingkaran        luas   78.54  keliling  31.42
+Persegi          luas   25.00  keliling  20.00
+['Persegi', 'PersegiPanjang', 'BangunDatar', 'object']
+\end{keluaran}
+
+\subsection{Praktik 2: Koleksi Perpustakaan}
+
+Buat class \texttt{Koleksi} dengan attribute \texttt{judul} dan \texttt{tahun}, serta method \texttt{lama\_pinjam()} (default 7 hari), \texttt{denda\_per\_hari()} (default 1000), dan \texttt{hitung\_denda(hari\_terlambat)}. Kemudian buat turunannya:
+
+\begin{itemize}
+  \item \texttt{Buku}: menambah attribute \texttt{penulis}; lama pinjam 14 hari.
+  \item \texttt{Majalah}: menambah attribute \texttt{edisi}; lama pinjam 3 hari, denda 500 per hari.
+  \item \texttt{BukuReferensi(Buku)}: tidak boleh dipinjam, sehingga \texttt{lama\_pinjam()} mengembalikan \texttt{0}, dan denda 5000 per hari.
+\end{itemize}
+
+Setiap class meng-override \texttt{\_\_str\_\_} dengan memperluas versi parent memakai \texttt{super()}. Method \texttt{hitung\_denda()} hanya boleh ditulis di \texttt{Koleksi}.
+
+\begin{keluaran}[Contoh keluaran Praktik 2]
+[Buku] Laskar Pelangi (2005) - Andrea Hirata | pinjam 14 hari
+[Majalah] Bobo (2026) - edisi 41 | pinjam 3 hari
+[BukuReferensi] KBBI (2016) - Badan Bahasa | tidak dapat dipinjam
+Denda terlambat 4 hari: Rp4,000 | Rp2,000 | Rp20,000
+\end{keluaran}
+
+\subsection{Praktik 3: Perangkat Pintar dengan Mixin}
+
+Rancang class untuk perangkat elektronik pintar menggunakan multiple inheritance.
+
+\begin{langkah}{Langkah Pengerjaan}
+  \item Buat class utama \texttt{Perangkat} dengan attribute \texttt{nama} dan method \texttt{nyalakan()}.
+  \item Buat minimal tiga mixin tanpa \texttt{\_\_init\_\_}, misalnya \texttt{BisaWiFi}, \texttt{BisaBluetooth}, dan \texttt{BisaPutarMusik}, masing-masing dengan satu atau dua method.
+  \item Buat class \texttt{Smartphone}, \texttt{SpeakerPintar}, dan \texttt{Laptop} yang menggabungkan \texttt{Perangkat} dengan mixin yang sesuai. Tentukan sendiri kombinasinya dan jelaskan alasannya dalam komentar.
+  \item Tambahkan method \texttt{status()} di \texttt{Perangkat} dan di setiap mixin yang memanggil \texttt{super().status()} lalu menambahkan informasinya sendiri. Cetak hasil \texttt{status()} dan \texttt{\_\_mro\_\_} untuk ketiga class, lalu jelaskan urutan yang muncul.
+  \item Tunjukkan dengan \texttt{hasattr()} bahwa perangkat yang tidak memakai mixin tertentu memang tidak memiliki kemampuan tersebut.
+\end{langkah}
+
+\begin{penting}[Kriteria Penilaian]
+\begin{itemize}
+  \item Ketepatan hierarki dan hubungan \emph{is-a} pada setiap praktik.
+  \item Pemakaian \texttt{super()} pada constructor dan method yang diperluas.
+  \item Tidak ada method yang ditulis ulang di child jika versi parent sudah cukup.
+  \item Penjelasan urutan MRO pada Praktik 3 sesuai dengan hasil yang dicetak program.
+\end{itemize}
+\end{penting}
